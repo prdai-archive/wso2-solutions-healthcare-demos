@@ -1,0 +1,40 @@
+import { AlertTriangle, Minus } from "lucide-react";
+
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
+import type { TaskPriority } from "@/lib/types";
+
+const config: Record<
+  TaskPriority,
+  { className: string; icon: typeof Minus }
+> = {
+  Urgent: {
+    className:
+      "bg-rose-500/12 text-rose-600 dark:text-rose-400 dark:bg-rose-500/15",
+    icon: AlertTriangle,
+  },
+  Routine: {
+    className:
+      "bg-slate-500/12 text-slate-600 dark:text-slate-300 dark:bg-slate-500/15",
+    icon: Minus,
+  },
+};
+
+export function PriorityBadge({
+  priority,
+  className,
+}: {
+  priority: TaskPriority;
+  className?: string;
+}) {
+  const { className: tone, icon: Icon } = config[priority];
+  return (
+    <Badge
+      variant="ghost"
+      className={cn("gap-1 font-medium", tone, className)}
+    >
+      <Icon data-icon="inline-start" />
+      {priority}
+    </Badge>
+  );
+}

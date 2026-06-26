@@ -1,0 +1,64 @@
+# openemr: OpenEMR EHR. Compose equivalent: image openemr/openemr:8.0.0.3,
+# web UI on 80 (exposed externally), MySQL env pointing at the openemr-db
+# service, plus the OPENEMR_SETTING_* globals that turn on the REST + FHIR APIs
+# and the password grant on first setup (same as the compose service). The
+# compose openemr-sites volume has no Workload equivalent, so it is ephemeral.
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: openemr
+  namespace: default
+spec:
+  owner:
+    projectName: care-loop
+  componentType:
+    kind: ClusterComponentType
+    name: deployment/web-application
+  autoDeploy: true
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: openemr
+  namespace: default
+spec:
+  owner:
+    componentName: openemr
+    projectName: care-loop
+  endpoints:
+    http:
+      type: HTTP
+      port: 80
+      visibility: [external]
+  dependencies:
+    endpoints:
+      - project: care-loop
+        component: openemr-db
+        name: tcp
+        visibility: project
+        envBindings:
+          address: _
+  container:
+    image: openemr/openemr:8.0.0.3
+    env:
+      - key: MYSQL_HOST
+        value: "openemr-db"
+      - key: MYSQL_ROOT_PASS
+        value: "root"
+      - key: MYSQL_USER
+        value: "openemr"
+      - key: MYSQL_PASS
+        value: "openemr"
+      - key: OE_USER
+        value: "admin"
+      - key: OE_PASS
+        value: "pass"
+      - key: OPENEMR_SETTING_rest_api
+        value: "1"
+      - key: OPENEMR_SETTING_rest_fhir_api
+        value: "1"
+      - key: OPENEMR_SETTING_site_addr_oath
+        value: "http://localhost"
+      - key: OPENEMR_SETTING_oauth_password_grant
+        value: "1"

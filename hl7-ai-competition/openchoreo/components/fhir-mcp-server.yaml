@@ -1,0 +1,60 @@
+# fhir-mcp-server: WSO2 FHIR R4 -> MCP bridge in front of OpenEMR. Compose
+# equivalent: built image care-loop/fhir-mcp-server:0.10.0, HTTP 8000 (exposed
+# externally), talks to OpenEMR over the in-cluster service in plain HTTP
+# (OpenEMR's self-signed cert; the bridge's client verifies TLS with no skip
+# option). The bearer token is still required: it is minted by
+# openchoreo/scripts/bootstrap-fhir-token.sh into the fhir-token Secret and
+# injected here via secretKeyRef. The Secret must exist before this Workload
+# starts (deploy.sh handles ordering).
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: fhir-mcp-server
+  namespace: default
+spec:
+  owner:
+    projectName: care-loop
+  componentType:
+    kind: ClusterComponentType
+    name: deployment/service
+  autoDeploy: true
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: fhir-mcp-server
+  namespace: default
+spec:
+  owner:
+    componentName: fhir-mcp-server
+    projectName: care-loop
+  endpoints:
+    http:
+      type: HTTP
+      port: 8000
+      visibility: [external]
+  dependencies:
+    endpoints:
+      - project: care-loop
+        component: openemr
+        name: http
+        visibility: project
+        envBindings:
+          address: _
+  container:
+    image: care-loop/fhir-mcp-server:0.10.0
+    env:
+      - key: FHIR_MCP_HOST
+        value: "0.0.0.0"
+      - key: FHIR_MCP_PORT
+        value: "8000"
+      - key: FHIR_SERVER_BASE_URL
+        value: "http://openemr/apis/default/fhir"
+      - key: FHIR_SERVER_DISABLE_AUTHORIZATION
+        value: "True"
+      - key: FHIR_SERVER_ACCESS_TOKEN
+        valueFrom:
+          secretKeyRef:
+            name: fhir-token
+            key: access-token

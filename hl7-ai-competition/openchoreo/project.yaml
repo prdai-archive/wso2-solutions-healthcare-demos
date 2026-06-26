@@ -1,0 +1,13 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Project
+metadata:
+  annotations:
+    openchoreo.dev/description: WSO2 Care Loop - HL7 AI Competition stack on OpenChoreo
+    openchoreo.dev/display-name: Care Loop
+  labels:
+    openchoreo.dev/name: care-loop
+  name: care-loop
+  namespace: default
+spec:
+  deploymentPipelineRef:
+    name: default

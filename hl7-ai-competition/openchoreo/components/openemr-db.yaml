@@ -1,0 +1,37 @@
+# openemr-db: MySQL sidecar for OpenEMR. Compose equivalent: image mysql:8.4,
+# internal only, MYSQL_ROOT_PASSWORD root. TCP 3306 at project visibility (not
+# exposed externally). No OpenChoreo Workload volume support, so data is
+# ephemeral; OpenEMR reseeds the schema on first boot after a restart. mysql:8.4
+# already defaults to utf8mb4, so the compose charset flags are dropped.
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: openemr-db
+  namespace: default
+spec:
+  owner:
+    projectName: care-loop
+  componentType:
+    kind: ClusterComponentType
+    name: deployment/service
+  autoDeploy: true
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: openemr-db
+  namespace: default
+spec:
+  owner:
+    componentName: openemr-db
+    projectName: care-loop
+  endpoints:
+    tcp:
+      type: TCP
+      port: 3306
+  container:
+    image: mysql:8.4
+    env:
+      - key: MYSQL_ROOT_PASSWORD
+        value: "root"

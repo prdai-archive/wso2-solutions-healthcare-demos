@@ -1,0 +1,35 @@
+# whatsapp-simulator: Next.js chat UI. Compose equivalent: image
+# whatsapp-simulator:latest, port 3000, NODE_ENV=production. Exposed externally.
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: whatsapp-simulator
+  namespace: default
+spec:
+  owner:
+    projectName: care-loop
+  componentType:
+    kind: ClusterComponentType
+    name: deployment/web-application
+  autoDeploy: true
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: whatsapp-simulator
+  namespace: default
+spec:
+  owner:
+    componentName: whatsapp-simulator
+    projectName: care-loop
+  endpoints:
+    http:
+      type: HTTP
+      port: 3000
+      visibility: [external]
+  container:
+    image: whatsapp-simulator:latest
+    env:
+      - key: NODE_ENV
+        value: production

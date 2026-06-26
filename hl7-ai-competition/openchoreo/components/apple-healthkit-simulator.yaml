@@ -1,0 +1,37 @@
+# apple-healthkit-simulator: FastAPI service ingesting HealthKit samples.
+# Compose equivalent: image apple-healthkit-simulator:latest, port 8000,
+# HEALTHKIT_DATABASE_URL sqlite. The compose healthkit-data volume has no
+# OpenChoreo Workload equivalent, so the SQLite store is ephemeral here.
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: apple-healthkit-simulator
+  namespace: default
+spec:
+  owner:
+    projectName: care-loop
+  componentType:
+    kind: ClusterComponentType
+    name: deployment/service
+  autoDeploy: true
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: apple-healthkit-simulator
+  namespace: default
+spec:
+  owner:
+    componentName: apple-healthkit-simulator
+    projectName: care-loop
+  endpoints:
+    http:
+      type: HTTP
+      port: 8000
+      visibility: [external]
+  container:
+    image: apple-healthkit-simulator:latest
+    env:
+      - key: HEALTHKIT_DATABASE_URL
+        value: "sqlite:///./data/healthkit.db"

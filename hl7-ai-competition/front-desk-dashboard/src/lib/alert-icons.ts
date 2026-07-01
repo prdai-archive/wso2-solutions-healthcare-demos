@@ -1,6 +1,4 @@
 import type { LucideIcon } from "lucide-react";
-import type { AlertType } from "@/lib/types";
-
 import {
   Activity,
   Droplets,
@@ -10,11 +8,13 @@ import {
   Wind,
 } from "lucide-react";
 
-export const alertTypeIcon: Record<AlertType, LucideIcon> = {
+export const alertTypeIcon = {
   "Weight gain": Scale,
   "Rising biomarkers": Activity,
   "Worsening dyspnea": Wind,
   "Low SpO2": Droplets,
   Arrhythmia: HeartPulse,
   "Blood pressure": Gauge,
-};
+} satisfies Record<string, LucideIcon>;
+
+export type AlertType = keyof typeof alertTypeIcon;

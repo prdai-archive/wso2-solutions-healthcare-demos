@@ -1,3 +1,5 @@
+import type { AlertType } from "@/lib/alert-icons";
+
 type Sex = "Male" | "Female";
 
 export type RiskLevel = "High" | "Moderate" | "Low";
@@ -23,14 +25,6 @@ export interface Patient {
   pronouns?: string;
   address: string;
 }
-
-export type AlertType =
-  | "Weight gain"
-  | "Rising biomarkers"
-  | "Worsening dyspnea"
-  | "Low SpO2"
-  | "Arrhythmia"
-  | "Blood pressure";
 
 export type TaskPriority = "Urgent" | "Routine";
 

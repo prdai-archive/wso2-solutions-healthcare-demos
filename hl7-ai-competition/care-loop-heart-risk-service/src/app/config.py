@@ -19,7 +19,6 @@ class Settings(BaseSettings):
     model_path: Path = Path("models/heart_watch_model.onnx")
     metrics_path: Path = Path("models/metrics.json")
     threshold: float = 0.5
-    log_level: str = "INFO"
 
 
 @lru_cache

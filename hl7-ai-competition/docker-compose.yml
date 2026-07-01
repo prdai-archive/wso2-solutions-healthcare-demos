@@ -202,15 +202,6 @@ services:
         - path: ./front-desk-dashboard/src
           action: rebuild
 
-  jaeger:
-    image: jaegertracing/all-in-one:1.65.0
-    container_name: jaeger
-    ports:
-      - "16686:16686"
-    environment:
-      COLLECTOR_OTLP_ENABLED: "true"
-    restart: unless-stopped
-
   care-loop-ai-service:
     build:
       context: ./care-loop-ai-service
@@ -222,7 +213,6 @@ services:
       - ./care-loop-ai-service/Config.toml:/home/ballerina/Config.toml:ro
     depends_on:
       - fhir-mcp-server
-      - jaeger
     restart: unless-stopped
 
 volumes:

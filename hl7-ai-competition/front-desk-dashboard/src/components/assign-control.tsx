@@ -26,8 +26,7 @@ import {
 import { useData } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
-// The operator's primary action: route a flagged alert to a clinician. Renders
-// the assignment lifecycle (Unassigned -> Assigned -> Closed) for one task.
+// Routes a flagged alert to a clinician and renders its lifecycle.
 export function AssignControl({
   task,
   className,

@@ -1,6 +1,6 @@
 "use client";
 
-/* eslint-disable react-refresh/only-export-components -- this provider module intentionally co-locates DataProvider with the useData hook and the receptionist identity, the same pattern the config already exempts for components/ui */
+/* eslint-disable react-refresh/only-export-components -- provider co-locates DataProvider with the useData hook and receptionist identity */
 
 import type {
   Appointment,
@@ -12,8 +12,6 @@ import type {
 
 import * as React from "react";
 
-// The signed-in Front Desk Operator. This is the app user's identity for the
-// shell, not clinical data, so it is always available.
 export const receptionist = {
   name: "Maya Okonkwo",
   role: "Front Desk Operator",
@@ -29,9 +27,6 @@ interface DataSet {
   waitingRoom: WaitingEntry[];
 }
 
-// The dashboard renders empty until a real data source (OpenEMR FHIR) is wired
-// in. Every dataset is an empty array; stat cards and selectors derive zero and
-// empty from it.
 const EMPTY: DataSet = {
   patients: [],
   doctors: [],
@@ -54,9 +49,7 @@ interface DataApi {
 
 const DataContext = React.createContext<DataApi | null>(null);
 
-// There is no data to mutate yet, so the task lifecycle actions are no-ops and
-// every selector resolves to empty. They stay on the API so the existing UI
-// keeps compiling until the FHIR layer replaces this provider.
+// Stub provider: no-op actions and empty selectors until the FHIR layer lands.
 const EMPTY_API: DataApi = {
   data: EMPTY,
   assignTask: () => {},

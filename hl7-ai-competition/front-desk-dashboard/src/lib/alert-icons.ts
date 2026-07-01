@@ -10,7 +10,6 @@ import {
   Wind,
 } from "lucide-react";
 
-// Maps each remote-monitoring alert type to the icon used across the task views.
 export const alertTypeIcon: Record<AlertType, LucideIcon> = {
   "Weight gain": Scale,
   "Rising biomarkers": Activity,

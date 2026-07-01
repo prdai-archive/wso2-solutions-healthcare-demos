@@ -25,8 +25,7 @@ export const metadata: Metadata = {
     "Front desk and reception dashboard for tasks, patients, and appointments.",
 };
 
-// Applied before hydration so the stored (or system) theme is set on the first
-// paint and the page does not flash the wrong theme on reload.
+// Set the stored/system theme before hydration to avoid a flash.
 const themeScript = `(function(){try{var t=localStorage.getItem('theme');var d=t?t==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches;if(d)document.documentElement.classList.add('dark');}catch(e){}})();`;
 
 export default function RootLayout({

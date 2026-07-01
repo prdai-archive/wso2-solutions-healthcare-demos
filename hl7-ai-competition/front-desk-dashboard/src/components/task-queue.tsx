@@ -34,7 +34,6 @@ export function TaskQueue({ tasks }: { tasks: Task[] }) {
     [tasks],
   );
 
-  // Highest risk / most recently raised alerts first.
   const sorted = React.useMemo(
     () => [...tasks].sort((a, b) => b.order - a.order),
     [tasks],

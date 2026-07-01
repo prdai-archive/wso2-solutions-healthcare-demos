@@ -1,0 +1,18 @@
+# Copy to Config.toml (gitignored) and fill in geminiApiKey. docker-compose
+# mounts Config.toml into the container, so this file must exist before
+# `make up`/`docker compose up` for care-loop-ai-service to start.
+#
+# Inside Docker Compose, fhirMcpUrl/otelEndpoint should point at the service
+# names below (already correct for compose); for running `bal run` on the
+# host instead, switch both back to localhost.
+fhirMcpUrl = "http://fhir-mcp-server:8000/mcp"
+geminiApiKey = "your-gemini-api-key"
+geminiModel = "gemini-2.5-flash"
+listenPort = 8003
+
+[ballerina.observe]
+tracingEnabled = true
+tracingProvider = "amp"
+
+[ballerinax.amp]
+otelEndpoint = "http://jaeger:4318"

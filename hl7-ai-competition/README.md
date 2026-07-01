@@ -41,9 +41,30 @@ Earlier stages: [v1](assets/architecture-diagram-v1.png),
   front of care-loop-fhir-server, exposing the FHIR API as MCP tools on port
   8001. Reaches it through care-loop-fhir-server-readonly-proxy (nginx), which
   403s anything but GET/HEAD, so the bridge can only read.
+- [care-loop-ai-service](care-loop-ai-service/) — standalone Ballerina agent
+  (port 8003). `POST /questionnaires` with a `patientId` pulls that patient's
+  recent Observations from fhir-mcp-server (MCP `search` tool) and asks Gemini
+  to draft a FHIR `Questionnaire` (questions only, no answers) targeted at the
+  vitals trend. Not wired into the rest of the loop yet — this is a standalone
+  component for now. Needs a `Config.toml` (copy `Config.toml.example`) with a
+  real `geminiApiKey`; gitignored, never commit it.
 
 Run the stack with `make up`, or `make watch` to run it in the foreground and
 rebuild on change.
+
+### Observability
+
+care-loop-ai-service exports OpenTelemetry traces via `ballerinax/amp`
+straight to Jaeger's native OTLP/HTTP receiver (port 4318) — no otel-collector
+in between. View traces at `http://localhost:16686`.
+
+We looked at wiring this up through WSO2 Agent Manager (`wso2/agent-manager`)
+instead, since that's the actual product for registering/observing agents.
+Its own `docker-compose.yml` hard-requires a running k3d + OpenChoreo +
+Thunder + OpenBao cluster for auth and secrets — it isn't designed to run
+standalone, so wiring it in as-is wasn't possible without forking and
+stripping those dependencies out. Went with plain Jaeger for now; Agent
+Manager registration is a follow-up if we stand up the full cluster.
 
 ### Seeding demo data
 
@@ -72,11 +93,12 @@ front-desk-dashboard has no server-side code, so nothing to log.
 
 ## Pre-commit hooks
 
-ruff (apple-healthkit-simulator) and biome plus knip (whatsapp-simulator) run on
-staged files at commit time. The config lives at
-`hl7-ai-competition/.pre-commit-config.yaml`; install the hook pointing at it
-once, from the fork root (needs `pre-commit`, e.g. `uv tool install pre-commit`;
-the whatsapp-simulator hooks also need `bun`):
+ruff (apple-healthkit-simulator), biome plus knip (whatsapp-simulator), and
+`bal format` plus `bal scan` (care-loop-ai-service) run on staged files at
+commit time. The config lives at `hl7-ai-competition/.pre-commit-config.yaml`;
+install the hook pointing at it once, from the fork root (needs
+`pre-commit`, e.g. `uv tool install pre-commit`; the whatsapp-simulator hooks
+also need `bun`, care-loop-ai-service needs `bal`):
 
 ```sh
 pre-commit install -c hl7-ai-competition/.pre-commit-config.yaml

@@ -1,16 +1,12 @@
 "use client";
 
-import {
-  CalendarCheck,
-  CalendarClock,
-  CircleCheck,
-  UserX,
-} from "lucide-react";
+import { CalendarCheck, CalendarClock, CircleCheck, UserX } from "lucide-react";
 
 import { PageHeader } from "@/components/page-header";
-import { StatCard } from "@/components/stat-card";
 import { PatientAvatar } from "@/components/patient-avatar";
+import { StatCard } from "@/components/stat-card";
 import { AppointmentStatusBadge } from "@/components/status-badge";
+import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardDescription,
@@ -25,7 +21,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { useData } from "@/lib/store";
 
 export default function AppointmentsPage() {
@@ -39,15 +34,11 @@ export default function AppointmentsPage() {
   );
 
   const appointments = data.appointments;
-  const sorted = [...appointments].sort((a, b) =>
-    a.time.localeCompare(b.time),
-  );
+  const sorted = [...appointments].sort((a, b) => a.time.localeCompare(b.time));
   const confirmed = appointments.filter(
     (a) => a.status === "Confirmed" || a.status === "In review",
   ).length;
-  const completed = appointments.filter(
-    (a) => a.status === "Completed",
-  ).length;
+  const completed = appointments.filter((a) => a.status === "Completed").length;
   const missed = appointments.filter((a) => a.status === "Missed").length;
 
   return (

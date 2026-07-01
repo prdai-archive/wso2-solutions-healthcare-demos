@@ -1,6 +1,6 @@
 "use client";
 
-import * as React from "react";
+/* eslint-disable react-refresh/only-export-components -- this provider module intentionally co-locates DataProvider with the useData hook and the receptionist identity, the same pattern the config already exempts for components/ui */
 
 import type {
   Appointment,
@@ -9,6 +9,8 @@ import type {
   Task,
   WaitingEntry,
 } from "@/lib/types";
+
+import * as React from "react";
 
 // The signed-in Front Desk Operator. This is the app user's identity for the
 // shell, not clinical data, so it is always available.
@@ -19,7 +21,7 @@ export const receptionist = {
   initials: "MO",
 };
 
-export interface DataSet {
+interface DataSet {
   patients: Patient[];
   doctors: Doctor[];
   tasks: Task[];

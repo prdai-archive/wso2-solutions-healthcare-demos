@@ -1,21 +1,18 @@
 "use client";
 
-import * as React from "react";
-import { ListFilter } from "lucide-react";
+import type { Task, TaskStatus } from "@/lib/types";
 
+import * as React from "react";
+import { TaskList } from "@/components/task-list";
+import { Badge } from "@/components/ui/badge";
 import {
   Card,
-  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { TaskList } from "@/components/task-list";
-import type { Task, TaskStatus } from "@/lib/types";
 
 const filters: { label: string; value: "All" | TaskStatus }[] = [
   { label: "All", value: "All" },
@@ -54,12 +51,6 @@ export function TaskQueue({ tasks }: { tasks: Task[] }) {
           Remote-monitoring alerts flagged for triage. Assign each to a
           clinician.
         </CardDescription>
-        <CardAction>
-          <Button variant="outline" size="sm">
-            <ListFilter />
-            Filter
-          </Button>
-        </CardAction>
       </CardHeader>
       <div className="px-4 pt-4">
         <Tabs

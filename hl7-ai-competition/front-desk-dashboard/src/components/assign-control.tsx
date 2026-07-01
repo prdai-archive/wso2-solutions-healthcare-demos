@@ -1,8 +1,11 @@
 "use client";
 
+import type { Task } from "@/lib/types";
 import { CheckCircle2, RotateCcw, UserCog, UserPlus } from "lucide-react";
-import { toast } from "sonner";
 
+import { toast } from "sonner";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,11 +23,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import { useData } from "@/lib/store";
-import type { Task } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 // The operator's primary action: route a flagged alert to a clinician. Renders
 // the assignment lifecycle (Unassigned -> Assigned -> Closed) for one task.
@@ -139,7 +139,9 @@ export function AssignControl({
           )}
         >
           <CheckCircle2 className="size-4 text-primary" />
-          <span className="truncate">Closed{doctor ? ` · ${doctor.initials}` : ""}</span>
+          <span className="truncate">
+            Closed{doctor ? ` · ${doctor.initials}` : ""}
+          </span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">

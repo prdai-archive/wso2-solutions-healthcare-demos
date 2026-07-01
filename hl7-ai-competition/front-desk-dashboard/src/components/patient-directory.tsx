@@ -1,6 +1,6 @@
 "use client";
 
-import * as React from "react";
+import type { Patient } from "@/lib/types";
 import {
   Activity,
   CalendarClock,
@@ -12,6 +12,17 @@ import {
   ShieldCheck,
 } from "lucide-react";
 
+import * as React from "react";
+import { PatientAvatar } from "@/components/patient-avatar";
+import { PriorityBadge } from "@/components/priority-badge";
+import {
+  PatientStatusBadge,
+  RiskBadge,
+  TaskStatusBadge,
+} from "@/components/status-badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -19,6 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 import {
   Sheet,
   SheetContent,
@@ -34,17 +46,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
-import { PatientAvatar } from "@/components/patient-avatar";
-import { PatientStatusBadge, RiskBadge } from "@/components/status-badge";
-import { PriorityBadge } from "@/components/priority-badge";
-import { TaskStatusBadge } from "@/components/status-badge";
-import { alertTypeIcon } from "@/components/task-list";
+import { alertTypeIcon } from "@/lib/alert-icons";
 import { useData } from "@/lib/store";
-import type { Patient } from "@/lib/types";
 
 function formatDob(dob: string): string {
   return new Date(dob).toLocaleDateString("en-US", {
@@ -320,7 +323,9 @@ export function PatientDirectory({ patients }: { patients: Patient[] }) {
               <TableHead>Patient</TableHead>
               <TableHead className="hidden md:table-cell">Diagnosis</TableHead>
               <TableHead className="hidden sm:table-cell">Risk</TableHead>
-              <TableHead className="hidden lg:table-cell">Last reading</TableHead>
+              <TableHead className="hidden lg:table-cell">
+                Last reading
+              </TableHead>
               <TableHead className="hidden xl:table-cell">DOB / Age</TableHead>
               <TableHead>Status</TableHead>
             </TableRow>
@@ -362,7 +367,10 @@ export function PatientDirectory({ patients }: { patients: Patient[] }) {
                 </TableCell>
                 <TableCell className="hidden text-sm xl:table-cell">
                   {formatDob(patient.dob)}
-                  <span className="text-muted-foreground"> · {patient.age}</span>
+                  <span className="text-muted-foreground">
+                    {" "}
+                    · {patient.age}
+                  </span>
                 </TableCell>
                 <TableCell>
                   <PatientStatusBadge status={patient.status} />

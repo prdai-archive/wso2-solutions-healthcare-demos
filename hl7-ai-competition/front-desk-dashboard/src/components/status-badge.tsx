@@ -1,13 +1,13 @@
-import { Circle, CircleDashed, CheckCircle2, UserCheck } from "lucide-react";
-
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
 import type {
   AppointmentStatus,
   PatientStatus,
   RiskLevel,
   TaskStatus,
 } from "@/lib/types";
+
+import { CheckCircle2, Circle, CircleDashed, UserCheck } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 const taskConfig: Record<
   TaskStatus,
@@ -46,13 +46,11 @@ export function TaskStatusBadge({
 
 const apptTone: Record<AppointmentStatus, string> = {
   Scheduled: "border-border text-muted-foreground",
-  Confirmed:
-    "bg-sky-500/12 text-sky-600 border-transparent dark:text-sky-400",
+  Confirmed: "bg-sky-500/12 text-sky-600 border-transparent dark:text-sky-400",
   "In review":
     "bg-violet-500/12 text-violet-600 border-transparent dark:text-violet-400",
   Completed: "bg-primary/12 text-primary border-transparent",
-  Missed:
-    "bg-rose-500/12 text-rose-600 border-transparent dark:text-rose-400",
+  Missed: "bg-rose-500/12 text-rose-600 border-transparent dark:text-rose-400",
 };
 
 export function AppointmentStatusBadge({
@@ -69,7 +67,10 @@ export function AppointmentStatusBadge({
   );
 }
 
-const patientTone: Record<PatientStatus, { className: string; icon: typeof Circle }> = {
+const patientTone: Record<
+  PatientStatus,
+  { className: string; icon: typeof Circle }
+> = {
   Flagged: {
     className:
       "bg-rose-500/12 text-rose-600 border-transparent dark:text-rose-400",
@@ -125,7 +126,11 @@ export function RiskBadge({
   return (
     <Badge
       variant="ghost"
-      className={cn("gap-1 font-medium tabular-nums", riskTone[level], className)}
+      className={cn(
+        "gap-1 font-medium tabular-nums",
+        riskTone[level],
+        className,
+      )}
     >
       {level}
       {typeof score === "number" ? ` · ${score}` : ""}

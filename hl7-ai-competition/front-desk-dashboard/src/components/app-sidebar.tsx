@@ -1,26 +1,16 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import {
   CalendarDays,
-  ChevronsUpDown,
   HeartPulse,
   LayoutDashboard,
   ListChecks,
-  LogOut,
-  Settings,
   Users,
 } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Sidebar,
   SidebarContent,
@@ -35,7 +25,6 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { receptionist, useData } from "@/lib/store";
 
 export function AppSidebar() {
@@ -44,7 +33,12 @@ export function AppSidebar() {
   const openAlerts = data.tasks.filter((t) => t.status !== "Closed").length;
 
   const navItems = [
-    { title: "Dashboard", url: "/", icon: LayoutDashboard, badge: null as string | null },
+    {
+      title: "Dashboard",
+      url: "/",
+      icon: LayoutDashboard,
+      badge: null as string | null,
+    },
     {
       title: "Alerts",
       url: "/tasks",
@@ -118,52 +112,21 @@ export function AppSidebar() {
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <SidebarMenuButton
-                  size="lg"
-                  className="data-[state=open]:bg-sidebar-accent"
-                >
-                  <Avatar className="size-8 rounded-lg">
-                    <AvatarFallback className="rounded-lg bg-primary/15 text-xs font-medium text-primary">
-                      {receptionist.initials}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="grid flex-1 text-left leading-tight">
-                    <span className="truncate font-medium">
-                      {receptionist.name}
-                    </span>
-                    <span className="truncate text-xs text-muted-foreground">
-                      {receptionist.role}
-                    </span>
-                  </span>
-                  <ChevronsUpDown className="ml-auto size-4" />
-                </SidebarMenuButton>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                side="top"
-                align="start"
-                className="w-56"
-              >
-                <DropdownMenuLabel className="font-normal">
-                  <div className="grid leading-tight">
-                    <span className="font-medium">{receptionist.name}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {receptionist.email}
-                    </span>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                  <Settings />
-                  Settings
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <LogOut />
-                  Sign out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <div className="flex items-center gap-2 p-2">
+              <Avatar className="size-8 rounded-lg">
+                <AvatarFallback className="rounded-lg bg-primary/15 text-xs font-medium text-primary">
+                  {receptionist.initials}
+                </AvatarFallback>
+              </Avatar>
+              <span className="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
+                <span className="truncate font-medium">
+                  {receptionist.name}
+                </span>
+                <span className="truncate text-xs text-muted-foreground">
+                  {receptionist.role}
+                </span>
+              </span>
+            </div>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>

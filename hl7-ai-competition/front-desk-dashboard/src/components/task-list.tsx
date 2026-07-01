@@ -1,16 +1,12 @@
 "use client";
 
-import {
-  Activity,
-  Clock,
-  Droplets,
-  Gauge,
-  HeartPulse,
-  Inbox,
-  Scale,
-  Wind,
-} from "lucide-react";
+import type { Task } from "@/lib/types";
 
+import { Clock, Inbox } from "lucide-react";
+import { AssignControl } from "@/components/assign-control";
+import { PatientAvatar } from "@/components/patient-avatar";
+import { PriorityBadge } from "@/components/priority-badge";
+import { TaskStatusBadge } from "@/components/status-badge";
 import {
   Table,
   TableBody,
@@ -19,21 +15,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { PatientAvatar } from "@/components/patient-avatar";
-import { PriorityBadge } from "@/components/priority-badge";
-import { TaskStatusBadge } from "@/components/status-badge";
-import { AssignControl } from "@/components/assign-control";
+import { alertTypeIcon } from "@/lib/alert-icons";
 import { useData } from "@/lib/store";
-import type { AlertType, Task } from "@/lib/types";
-
-export const alertTypeIcon: Record<AlertType, typeof Clock> = {
-  "Weight gain": Scale,
-  "Rising biomarkers": Activity,
-  "Worsening dyspnea": Wind,
-  "Low SpO2": Droplets,
-  Arrhythmia: HeartPulse,
-  "Blood pressure": Gauge,
-};
 
 export function TaskList({ tasks }: { tasks: Task[] }) {
   const { getPatient } = useData();
@@ -75,9 +58,7 @@ export function TaskList({ tasks }: { tasks: Task[] }) {
                     <Icon className="size-4" />
                   </span>
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">
-                      {task.title}
-                    </p>
+                    <p className="truncate text-sm font-medium">{task.title}</p>
                     <p className="text-xs text-muted-foreground">
                       {task.alertType}
                     </p>

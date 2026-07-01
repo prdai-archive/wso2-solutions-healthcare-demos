@@ -2,6 +2,8 @@
 
 import { Clock } from "lucide-react";
 
+import { PatientAvatar } from "@/components/patient-avatar";
+import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -9,11 +11,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { PatientAvatar } from "@/components/patient-avatar";
-import { cn } from "@/lib/utils";
 import { useData } from "@/lib/store";
+import { cn } from "@/lib/utils";
 
 function waitTone(minutes: number): string {
   if (minutes >= 60) return "text-rose-600 dark:text-rose-400";

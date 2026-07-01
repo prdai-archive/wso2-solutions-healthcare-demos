@@ -1,8 +1,15 @@
 "use client";
 
-import * as React from "react";
+import type { Task, TaskStatus } from "@/lib/types";
 import { Clock, Search } from "lucide-react";
 
+import * as React from "react";
+import { AssignControl } from "@/components/assign-control";
+import { PatientAvatar } from "@/components/patient-avatar";
+import { PriorityBadge } from "@/components/priority-badge";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -10,16 +17,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { PatientAvatar } from "@/components/patient-avatar";
-import { PriorityBadge } from "@/components/priority-badge";
-import { AssignControl } from "@/components/assign-control";
-import { alertTypeIcon } from "@/components/task-list";
+import { alertTypeIcon } from "@/lib/alert-icons";
 import { useData } from "@/lib/store";
 import { cn } from "@/lib/utils";
-import type { Task, TaskStatus } from "@/lib/types";
 
 const columns: { status: TaskStatus; accent: string }[] = [
   { status: "Unassigned", accent: "bg-rose-500" },
@@ -162,9 +162,7 @@ export function TaskBoard({ tasks }: { tasks: Task[] }) {
                     No alerts
                   </p>
                 ) : (
-                  colTasks.map((task) => (
-                    <TaskCard key={task.id} task={task} />
-                  ))
+                  colTasks.map((task) => <TaskCard key={task.id} task={task} />)
                 )}
               </div>
             </div>

@@ -1,17 +1,12 @@
 "use client";
 
-import {
-  CalendarCheck,
-  ClipboardList,
-  UserCheck,
-  Users,
-} from "lucide-react";
+import { CalendarCheck, ClipboardList, UserCheck, Users } from "lucide-react";
 
+import { AppointmentsList } from "@/components/appointments-list";
 import { PageHeader } from "@/components/page-header";
 import { StatCard } from "@/components/stat-card";
 import { TaskQueue } from "@/components/task-queue";
 import { WaitingRoom } from "@/components/waiting-room";
-import { AppointmentsList } from "@/components/appointments-list";
 import { useData } from "@/lib/store";
 
 export default function DashboardPage() {

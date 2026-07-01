@@ -1,5 +1,7 @@
 "use client";
 
+import type { Appointment } from "@/lib/types";
+import { AppointmentStatusBadge } from "@/components/status-badge";
 import {
   Card,
   CardContent,
@@ -8,9 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { AppointmentStatusBadge } from "@/components/status-badge";
 import { useData } from "@/lib/store";
-import type { Appointment } from "@/lib/types";
 
 export function AppointmentsList({
   items,
@@ -38,10 +38,7 @@ export function AppointmentsList({
             {sorted.map((appt) => {
               const patient = getPatient(appt.patientId);
               return (
-                <li
-                  key={appt.id}
-                  className="flex items-center gap-3 px-5 py-3"
-                >
+                <li key={appt.id} className="flex items-center gap-3 px-5 py-3">
                   <div className="flex w-12 shrink-0 flex-col items-center">
                     <span className="text-sm font-semibold tabular-nums">
                       {appt.time}

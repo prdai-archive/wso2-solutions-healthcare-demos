@@ -156,11 +156,11 @@ services:
       FHIR_MCP_HOST: 0.0.0.0
       FHIR_MCP_PORT: 8000
       FHIR_SERVER_BASE_URL: "http://openemr/apis/default/fhir"
-      # Static token mode (demo): bearer token from .fhir.env (TTL widened by
-      # bootstrap). Future: SMART auth-code grant so the server self-refreshes.
+      # Static token mode (demo): bearer token from .fhir-mcp.env (TTL widened
+      # by bootstrap). Future: SMART auth-code grant so the server self-refreshes.
       FHIR_SERVER_DISABLE_AUTHORIZATION: "True"
     env_file:
-      - path: .fhir.env
+      - path: .fhir-mcp.env
         required: false
     depends_on:
       - openemr

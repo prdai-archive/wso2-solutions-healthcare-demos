@@ -1,5 +1,10 @@
-from fastapi import APIRouter
+from typing import Annotated
 
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
+from sqlmodel import Session, select
+
+from app.db import get_session
 from app.models import (
     ActivitySummary,
     ActivitySummaryCreate,
@@ -16,6 +21,9 @@ from app.models import (
     Correlation,
     CorrelationCreate,
     CorrelationRead,
+    Patient,
+    PatientCreate,
+    PatientRead,
     QuantitySample,
     QuantitySampleCreate,
     QuantitySampleRead,
@@ -25,6 +33,31 @@ from app.models import (
 )
 from app.routers import health
 from app.routers.crud import build_router
+
+patient_router = build_router(
+    prefix="/patients",
+    tag="patients",
+    table_model=Patient,
+    create_model=PatientCreate,
+    read_model=PatientRead,
+)
+
+
+class OpenemrLink(BaseModel):
+    openemr_patient_uuid: str
+
+
+@patient_router.patch("/{uuid}/openemr-link", response_model=PatientRead)
+def link_openemr_patient(uuid: str, link: OpenemrLink, session: Annotated[Session, Depends(get_session)]) -> Patient:
+    patient = session.exec(select(Patient).where(Patient.uuid == uuid)).first()
+    if patient is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"patient '{uuid}' not found")
+    patient.openemr_patient_uuid = link.openemr_patient_uuid
+    session.add(patient)
+    session.commit()
+    session.refresh(patient)
+    return patient
+
 
 quantity_router = build_router(
     prefix="/quantity-samples",
@@ -84,6 +117,7 @@ clinical_router = build_router(
 
 all_routers: list[APIRouter] = [
     health.router,
+    patient_router,
     quantity_router,
     category_router,
     correlation_router,

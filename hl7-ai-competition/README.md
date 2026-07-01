@@ -29,14 +29,41 @@ Earlier stages: [v1](assets/architecture-diagram-v1.png),
 Run the stack with `make up`, or `make watch` to run it in the foreground and
 rebuild on change.
 
-`make up` also runs `scripts/bootstrap-fhir.sh`, which registers and enables an OpenEMR
-OAuth2 client, mints an access token, and writes it to `.fhir.env` (gitignored)
-for the bridge. The bridge starts under the `fhir` compose profile once the
-token exists. Re-run `make fhir` to mint a new token. The bridge reaches OpenEMR
-over the internal Docker network in plain HTTP, since OpenEMR's FHIR endpoint
-uses a self-signed cert the client will not trust; the OAuth2 token is still
+`make up` runs `scripts/bootstrap-fhir.sh` twice, once per OAuth2 client it
+registers and enables against OpenEMR: a read-only client for the MCP bridge
+(`.fhir-mcp.env`) and a write-scoped client for `scripts/seed.ts`
+(`.fhir-seed.env`, both gitignored). The script itself takes no built-in
+client; callers pass CLIENT_NAME/SCOPES/ENV_FILE (see the Makefile). The
+bridge starts under the `fhir` compose profile once its token exists. Re-run
+`make fhir` to mint a new bridge token. The bridge reaches OpenEMR over the
+internal Docker network in plain HTTP, since OpenEMR's FHIR endpoint uses a
+self-signed cert the client will not trust; the OAuth2 token is still
 required. Static-token mode is demo-grade; production should use the SMART
 authorization-code grant instead.
+
+### Seeding demo data
+
+`make up` also runs `make seed`, which loads the single demo patient in
+`scripts/seed-data/patient.json` into apple-healthkit-simulator's own REST API
+and into OpenEMR via its FHIR API. Re-run `make seed` any time; it looks the
+patient up by MRN (HealthKit side) and skips writing to a target that already
+has it, so it is safe to re-run against a stack that has already been seeded.
+
+OpenEMR's FHIR API in the pinned `8.0.0.3` image only supports `create` for
+Patient/Practitioner/Organization/DocumentReference (confirmed via its own
+CapabilityStatement) — Condition, Observation, and Encounter are read/search
+only, so only the OpenEMR Patient is seeded via FHIR. OpenEMR also discards
+any `identifier` submitted on create and assigns its own, so `scripts/seed.ts`
+uses the healthkit-simulator's own `Patient.openemr_patient_uuid` column
+(set by a `PATCH /patients/{uuid}/openemr-link` call right after creation) as
+the durable link between the two systems' patient records, rather than a
+shared identifier.
+
+`scripts/seed.ts` runs on Bun. A POSIX-sh version, driving `docker compose
+exec curl` the way `scripts/bootstrap-fhir.sh` does, would fit this repo's
+existing zero-host-dependency pattern at least as well — Bun was used here
+for the ability to write real request/response handling logic instead of
+chained `curl` calls.
 
 ## Pre-commit hooks
 

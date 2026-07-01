@@ -1,15 +1,14 @@
 #!/usr/bin/env sh
-# Mint an OpenEMR OAuth2 token for the FHIR MCP bridge (register -> enable ->
-# mint) by driving the pinned containers via `docker compose exec`, and write it
-# to .fhir.env. Host needs only docker + a POSIX shell. Re-run when it expires.
+# Mints an OpenEMR OAuth2 client + token (register -> enable -> mint); caller sets CLIENT_NAME/SCOPES/ENV_FILE (see Makefile). Host needs only docker + sh.
 set -eu
+
+: "${CLIENT_NAME:?CLIENT_NAME must be set}"
+: "${SCOPES:?SCOPES must be set}"
+: "${ENV_FILE:?ENV_FILE must be set}"
 
 COMPOSE="docker compose"
 OE_USER="${OE_USER:-admin}"
 OE_PASS="${OE_PASS:-pass}"
-CLIENT_NAME="care-loop-fhir-mcp"
-SCOPES="openid offline_access api:fhir user/Patient.read user/Observation.read user/Encounter.read user/Condition.read"
-ENV_FILE=".fhir.env"
 # OpenEMR hardcodes the access-token lifetime (default PT1H). Demo-only: widen
 # it so the minted token does not expire mid-use. Any ISO-8601 duration works.
 ACCESS_TOKEN_TTL="${ACCESS_TOKEN_TTL:-P1Y}"
@@ -73,7 +72,7 @@ if [ -z "$ACCESS_TOKEN" ]; then
   exit 1
 fi
 
-# Verify the token works against the FHIR API before handing it to the bridge.
+# Verify the token before handing it back to the caller.
 echo "[bootstrap] verifying token against /Patient..."
 CODE=$($COMPOSE exec -T openemr curl -s -o /dev/null -w '%{http_code}' \
   -H "Authorization: Bearer $ACCESS_TOKEN" \

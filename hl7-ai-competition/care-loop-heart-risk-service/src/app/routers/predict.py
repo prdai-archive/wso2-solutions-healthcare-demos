@@ -18,9 +18,7 @@ router = APIRouter(tags=["prediction"])
 @router.post("/predict")
 def predict(payload: HeartRiskRequest, model: ModelDep, settings: SettingsDep) -> HeartRiskResponse:
     """Score raw watch signals and return the heart-disease probability."""
-    probability = model.predict_proba(
-        {"Age": payload.age, "MaxHR": payload.max_hr, "Sex": payload.sex},
-    )
+    probability = model.predict_proba(payload)
     return HeartRiskResponse(
         probability=probability,
         prediction=int(probability >= settings.threshold),

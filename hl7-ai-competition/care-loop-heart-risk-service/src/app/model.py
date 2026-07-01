@@ -1,17 +1,13 @@
 """Load the exported ONNX pipeline and score raw watch features."""
 
 import json
-from collections.abc import Mapping
 from functools import lru_cache
 
 import numpy as np
 import onnxruntime as ort
 
 from app.config import get_settings
-
-# Feature names baked into the ONNX graph at export time. Numeric inputs are fed
-# as float tensors; everything else (Sex) is fed as a string tensor.
-NUMERIC_FEATURES = ("Age", "MaxHR")
+from app.schemas import HeartRiskRequest
 
 # The classifier output is an [N, 2] probability tensor; column 1 is P(class=1).
 _PROBA_NDIM = 2
@@ -27,23 +23,21 @@ class HeartRiskModel:
         self._session = session
         self.name = name
 
-    def predict_proba(self, features: Mapping[str, float | str]) -> float:
+    def predict_proba(self, request: HeartRiskRequest) -> float:
         """Return P(heart disease = 1) for one raw watch feature set.
 
         Args:
-            features: Mapping of ONNX input name (``Age``, ``MaxHR``, ``Sex``) to
-                its raw value. Preprocessing is baked into the graph.
+            request: Validated Age/MaxHR/Sex signals. Preprocessing (scaling,
+                one-hot encoding) is baked into the ONNX graph.
 
         Returns:
             The positive-class probability in ``[0, 1]``.
         """
-        feeds: dict[str, np.ndarray] = {}
-        for spec in self._session.get_inputs():
-            value = features[spec.name]
-            if spec.name in NUMERIC_FEATURES:
-                feeds[spec.name] = np.array([[value]], dtype=np.float32)
-            else:
-                feeds[spec.name] = np.array([[value]], dtype=object)
+        feeds: dict[str, np.ndarray] = {
+            "Age": np.array([[request.age]], dtype=np.float32),
+            "MaxHR": np.array([[request.max_hr]], dtype=np.float32),
+            "Sex": np.array([[request.sex]], dtype=object),
+        }
         outputs = self._session.run(None, feeds)
         proba = next(o for o in outputs if getattr(o, "ndim", 0) == _PROBA_NDIM and o.shape[1] == _PROBA_COLUMNS)
         return float(proba[0, _POSITIVE_CLASS])

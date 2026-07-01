@@ -1,26 +1,3 @@
-"""Train heart-disease risk models on the Apple Watch / HealthKit-available subset.
-
-The Kaggle heart-failure dataset has 11 clinical features, but only a few are
-obtainable from an Apple Watch + HealthKit health profile. We deliberately train
-on that thin subset so the model can be served live from watch data:
-
-    Age    -> HealthKit characteristic (date of birth)
-    Sex    -> HealthKit characteristic
-    MaxHR  -> derived from the heart-rate sensor
-
-Everything else (RestingBP, Cholesterol, FastingBS, ChestPainType, ExerciseAngina,
-Oldpeak, ST_Slope, RestingECG) is dropped because a watch cannot supply it.
-
-This script sweeps a zoo of models with GridSearchCV (5-fold stratified,
-ROC-AUC), selects the best by cross-validated AUC, evaluates it on a held-out
-test split, and exports the winning pipeline to ONNX. The ONNX graph takes the
-raw watch inputs (Age, MaxHR as floats; Sex as a string) so preprocessing is
-baked in -- a consumer feeds raw values and gets a probability back.
-
-Run from the project root:
-    uv run --extra train python training/train.py
-"""
-
 from __future__ import annotations
 
 import json
@@ -55,12 +32,10 @@ from xgboost import XGBClassifier
 
 RANDOM_STATE = 42
 
-# Paths are resolved relative to this file so the script runs from any cwd.
 ROOT = Path(__file__).resolve().parents[1]
 DATA_PATH = ROOT / "training" / "data" / "heart.csv"
 MODEL_DIR = ROOT / "models"
 
-# Watch-available features only.
 NUMERIC_FEATURES = ["Age", "MaxHR"]
 CATEGORICAL_FEATURES = ["Sex"]
 FEATURES = NUMERIC_FEATURES + CATEGORICAL_FEATURES
@@ -85,7 +60,6 @@ def build_preprocessor() -> ColumnTransformer:
 
 
 def model_zoo() -> dict[str, tuple[object, dict]]:
-    """Estimator + GridSearchCV param grid (keys are prefixed for the pipeline)."""
     return {
         "logistic_regression": (
             LogisticRegression(max_iter=2000, random_state=RANDOM_STATE),
@@ -158,13 +132,11 @@ def model_zoo() -> dict[str, tuple[object, dict]]:
 
 
 def export_to_onnx(pipeline: Pipeline, sample: pd.DataFrame) -> bytes:
-    """Convert a fitted sklearn/xgboost pipeline to ONNX with raw named inputs."""
     from onnxmltools.convert.xgboost.operator_converters.XGBoost import convert_xgboost
     from skl2onnx import convert_sklearn, update_registered_converter
     from skl2onnx.common.data_types import FloatTensorType, StringTensorType
     from skl2onnx.common.shape_calculator import calculate_linear_classifier_output_shapes
 
-    # Teach skl2onnx how to convert an XGBClassifier sitting inside the pipeline.
     update_registered_converter(
         XGBClassifier,
         "XGBoostXGBClassifier",
@@ -180,8 +152,6 @@ def export_to_onnx(pipeline: Pipeline, sample: pd.DataFrame) -> bytes:
         else:
             initial_types.append((col, StringTensorType([None, 1])))
 
-    # Pin the ai.onnx.ml domain to opset 3: the XGBoost converter otherwise emits
-    # v5, which skl2onnx/onnxruntime reject here.
     onnx_model = convert_sklearn(
         pipeline,
         initial_types=initial_types,
@@ -192,7 +162,6 @@ def export_to_onnx(pipeline: Pipeline, sample: pd.DataFrame) -> bytes:
 
 
 def onnx_proba(onnx_bytes: bytes, X: pd.DataFrame) -> np.ndarray:
-    """Run the ONNX model and return P(class=1) for parity checks."""
     import onnxruntime as ort
 
     sess = ort.InferenceSession(onnx_bytes, providers=["CPUExecutionProvider"])
@@ -204,7 +173,6 @@ def onnx_proba(onnx_bytes: bytes, X: pd.DataFrame) -> np.ndarray:
         else:
             feeds[inp.name] = col.to_numpy(dtype=object).astype(str).reshape(-1, 1)
     outputs = sess.run(None, feeds)
-    # Pick the [N, 2] probability tensor.
     proba = next(o for o in outputs if getattr(o, "ndim", 0) == 2 and o.shape[1] == 2)
     return proba[:, 1]
 
@@ -222,7 +190,6 @@ def main() -> None:
     )
     cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=RANDOM_STATE)
 
-    # Tune every model with GridSearchCV on ROC-AUC, keep the refit best estimator.
     fitted: dict[str, GridSearchCV] = {}
     print("GridSearchCV (5-fold stratified, ROC-AUC) -- best CV score per model:")
     for name, (estimator, grid) in model_zoo().items():
@@ -243,7 +210,6 @@ def main() -> None:
     best_pipe = best_search.best_estimator_
     print(f"\nSelected model: {best_name} (CV ROC-AUC={best_search.best_score_:.4f})\n")
 
-    # Held-out test evaluation.
     proba = best_pipe.predict_proba(X_test)[:, 1]
     pred = best_pipe.predict(X_test)
     test_metrics = {
@@ -260,8 +226,6 @@ def main() -> None:
     print(confusion_matrix(y_test, pred))
     print("\n" + classification_report(y_test, pred, digits=3))
 
-    # Export the winner to ONNX. Fall back through the ranking if a model that
-    # skl2onnx cannot convert happens to win.
     MODEL_DIR.mkdir(exist_ok=True)
     onnx_name, onnx_bytes, onnx_parity = None, None, None
     for name, search in ranking:
@@ -274,10 +238,9 @@ def main() -> None:
             if name != best_name:
                 print(f"\nNote: '{best_name}' did not convert to ONNX; exported '{name}' instead.")
             break
-        except Exception as exc:  # noqa: BLE001 - report and try the next model
+        except Exception as exc:  # noqa: BLE001
             print(f"\nONNX export failed for '{name}': {type(exc).__name__}: {exc}")
 
-    # Persist artifacts.
     model_path = MODEL_DIR / "heart_watch_model.joblib"
     joblib.dump(best_pipe, model_path)
     print(f"\nSaved model -> {model_path}")

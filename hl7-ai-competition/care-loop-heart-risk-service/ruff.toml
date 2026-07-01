@@ -90,9 +90,7 @@ convention = "google"
     "ANN",
 ]
 
-# The training script is a research/CLI tool: prints are its output, sklearn
-# uses uppercase X matrices, the model sweep is intentionally one big function,
-# and the ONNX exporters are imported lazily so serving never pulls them in.
+# Training is a research/CLI script: prints, uppercase X matrices, one big sweep function, lazy ONNX imports.
 "training/**/*.py" = [
     "T201",
     "N803",

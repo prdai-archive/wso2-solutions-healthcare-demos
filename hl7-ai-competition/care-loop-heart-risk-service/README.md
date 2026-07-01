@@ -37,7 +37,8 @@ Example:
 curl -s http://127.0.0.1:8000/predict \
   -H 'content-type: application/json' \
   -d '{"age": 60, "max_hr": 140, "sex": "M"}'
-# {"probability": ..., "prediction": 0, "threshold": 0.5, "selected_model": "xgboost"}
+
+# -> {"probability": ..., "prediction": 0, "threshold": 0.5, "selected_model": "xgboost"}
 ```
 
 ## Run locally
@@ -86,6 +87,7 @@ make test      # pytest
 
 ## Notes / current gaps
 
+- This is a very basic first cut; a more thorough version comes later.
 - The service loads the exported ONNX graph, not the joblib pipeline. For the
   current XGBoost export the ONNX/sklearn probability parity is ~0.14 max abs
   diff (see `models/metrics.json`), so probabilities approximate the joblib

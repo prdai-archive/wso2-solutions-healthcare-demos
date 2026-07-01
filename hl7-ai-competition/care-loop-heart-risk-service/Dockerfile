@@ -41,5 +41,5 @@ USER nonroot
 WORKDIR /app
 EXPOSE 8000
 
-# Run the FastAPI application by default.
-CMD ["fastapi", "run", "--host", "0.0.0.0", "src/app/main.py"]
+# Serve the ASGI app with uvicorn (single process, lightweight container).
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

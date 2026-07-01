@@ -6,7 +6,5 @@ from app.main import app
 
 @pytest.fixture
 def client() -> TestClient:
-    # Instantiated without a context manager so the lifespan warm-up does not
-    # run; get_model() still loads lazily on the first request from the
-    # committed ONNX artifact under models/.
+    # No context manager, so the lifespan warm-up is skipped; get_model() still loads lazily on first request.
     return TestClient(app)

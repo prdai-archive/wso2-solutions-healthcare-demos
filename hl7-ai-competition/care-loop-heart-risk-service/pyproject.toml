@@ -16,8 +16,7 @@ dev = [
     "ruff>=0.8",
     "pytest>=8.3",
 ]
-# Heavy training-only stack: kept out of the serving image, which needs only
-# onnxruntime to run the exported graph.
+# Heavy training-only stack, kept out of the serving image.
 train = [
     "pandas>=2.2",
     "scikit-learn>=1.5",

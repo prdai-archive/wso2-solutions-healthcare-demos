@@ -8,11 +8,13 @@ from sqlmodel import Session
 
 from app.config import get_settings
 from app.db import engine, init_db
+from app.logging_config import configure_logging
 from app.routers import all_routers
 from app.routers.vitals_cron import state as vitals_cron_state
 from app.vitals_forwarder import run_cycle
 
 logger = logging.getLogger("vitals_forwarder")
+startup_logger = logging.getLogger("app")
 
 
 async def _scheduled_forward_cycle() -> None:
@@ -27,13 +29,15 @@ async def _scheduled_forward_cycle() -> None:
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
-    init_db()
     settings = get_settings()
+    configure_logging(settings.log_level)
+    init_db()
     scheduler = AsyncIOScheduler()
     scheduler.add_job(
         _scheduled_forward_cycle, "interval", hours=settings.vitals_forward_interval_hours, next_run_time=None
     )
     scheduler.start()
+    startup_logger.info("apple-healthkit-simulator started (log_level=%s)", settings.log_level)
     yield
     scheduler.shutdown(wait=False)
 

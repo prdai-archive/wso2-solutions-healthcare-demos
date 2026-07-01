@@ -54,6 +54,14 @@ apple-healthkit-simulator's hourly job picks up each hour's worth of readings
 as real time reaches them, ready to forward once `HEALTHKIT_VITALS_TARGET_URL`
 points at a real consumer.
 
+## Logging
+
+apple-healthkit-simulator and care-loop-heart-risk-service (`src/app/logging_config.py`
+in each) log JSON lines to stdout — app logs plus uvicorn's own startup/access/error
+logs — level set via `HEALTHKIT_LOG_LEVEL` / `HEART_RISK_LOG_LEVEL` (default `INFO`).
+whatsapp-simulator logs via `consola` (`src/lib/logger.ts`). front-desk-dashboard has
+no server-side code, so nothing to log.
+
 ## Pre-commit hooks
 
 ruff (apple-healthkit-simulator) and biome plus knip (whatsapp-simulator) run on

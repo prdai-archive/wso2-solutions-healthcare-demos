@@ -1,18 +1,25 @@
+import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
 from app.config import get_settings
+from app.logging_config import configure_logging
 from app.model import get_model
 from app.routers import all_routers
+
+startup_logger = logging.getLogger("app")
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
+    settings = get_settings()
+    configure_logging(settings.log_level)
     # Warm the ONNX session at startup so the first request is not slow and a
     # missing or corrupt model fails fast here rather than on first prediction.
-    get_model()
+    model = get_model()
+    startup_logger.info("care-loop-heart-risk-service started (model=%s, log_level=%s)", model.name, settings.log_level)
     yield
 
 

@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     echo_sql: bool = False
     vitals_target_url: str | None = None
     vitals_forward_interval_hours: int = 1
+    log_level: str = "INFO"
 
 
 @lru_cache

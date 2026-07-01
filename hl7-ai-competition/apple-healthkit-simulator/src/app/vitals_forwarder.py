@@ -1,3 +1,5 @@
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 
 import httpx
@@ -70,6 +72,34 @@ def _as_transaction_bundle(readings: list[QuantitySample], fhir_patient_id: str)
     }
 
 
+@asynccontextmanager
+async def _client_scope(client: httpx.AsyncClient | None) -> AsyncGenerator[httpx.AsyncClient]:
+    if client is not None:
+        yield client
+        return
+    async with httpx.AsyncClient(timeout=30) as owned_client:
+        yield owned_client
+
+
+async def _forward_patient(
+    patient: Patient, session: Session, window: tuple[datetime, datetime], settings: Settings, client: httpx.AsyncClient
+) -> int:
+    if not patient.fhir_patient_id:
+        return 0
+
+    since, until = window
+    readings = fetch_recent_vitals(session, patient.id, since, until)
+    if not readings:
+        return 0
+
+    if settings.vitals_target_url:
+        bundle = _as_transaction_bundle(readings, patient.fhir_patient_id)
+        response = await client.post(settings.vitals_target_url, json=bundle)
+        response.raise_for_status()
+
+    return len(readings)
+
+
 async def run_cycle(settings: Settings, session: Session, client: httpx.AsyncClient | None = None) -> CycleResult:
     """Build a FHIR Observation bundle per patient from the last interval's vitals and forward it downstream."""
     ran_at = datetime.now(UTC)
@@ -80,27 +110,11 @@ async def run_cycle(settings: Settings, session: Session, client: httpx.AsyncCli
     readings_forwarded = 0
     patients_forwarded = 0
 
-    owns_client = client is None
-    client = client or httpx.AsyncClient(timeout=30)
-    try:
+    async with _client_scope(client) as active_client:
         for patient in patients:
-            if not patient.fhir_patient_id:
-                continue
-
-            readings = fetch_recent_vitals(session, patient.id, window_start, window_end)
-            if not readings:
-                continue
-
-            bundle = _as_transaction_bundle(readings, patient.fhir_patient_id)
-            if settings.vitals_target_url:
-                response = await client.post(settings.vitals_target_url, json=bundle)
-                response.raise_for_status()
-
-            readings_forwarded += len(readings)
-            patients_forwarded += 1
-    finally:
-        if owns_client:
-            await client.aclose()
+            forwarded = await _forward_patient(patient, session, (window_start, window_end), settings, active_client)
+            readings_forwarded += forwarded
+            patients_forwarded += 1 if forwarded else 0
 
     return CycleResult(
         ran_at=ran_at,

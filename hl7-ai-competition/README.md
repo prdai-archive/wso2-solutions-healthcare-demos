@@ -16,7 +16,12 @@ Earlier stages: [v1](assets/architecture-diagram-v1.png),
 ## Components
 
 - [apple-healthkit-simulator](apple-healthkit-simulator/) — FastAPI service that
-  ingests Apple HealthKit samples for multiple patients (port 8000).
+  ingests Apple HealthKit samples for multiple patients (port 8000). Also runs
+  an in-process hourly job (`src/app/vitals_forwarder.py`) that forwards each
+  patient's last-hour vitals to fhir-server as FHIR `Observation`s — direct DB
+  access, no separate service polling this one over HTTP. Manually trigger a
+  cycle with `POST /vitals-cron/run-now`, check the last result with
+  `GET /vitals-cron/status`.
 - [whatsapp-simulator](whatsapp-simulator/) — Next.js chat UI that renders a
   pushed questionnaire and posts the conversation transcript to a callback URL
   (port 3000).
@@ -25,9 +30,6 @@ Earlier stages: [v1](assets/architecture-diagram-v1.png),
   fine for this local demo, put a gateway/auth proxy in front for anything real.
 - fhir-mcp-server — WSO2 FHIR R4 to MCP bridge (`wso2/fhir-mcp-server`) in front
   of fhir-server, exposing the FHIR API as MCP tools on port 8001.
-- [vitals-cron-service](vitals-cron-service/) — FastAPI service that, hourly,
-  forwards each patient's last-hour vitals from apple-healthkit-simulator to
-  fhir-server as FHIR `Observation`s (port 8003).
 
 Run the stack with `make up`, or `make watch` to run it in the foreground and
 rebuild on change.
@@ -66,10 +68,10 @@ EHR/EMR stand-in for this demo.
    categories and standard vitals norms (stable/borderline/at-risk severity
    tiers).
 
-vitals-cron-service then picks up each hour's worth of readings as real time
-reaches them and forwards them to fhir-server as `Observation`s — simulating
-a continuously-streaming remote monitor without needing the seed step itself
-to run on a schedule.
+apple-healthkit-simulator's hourly job then picks up each hour's worth of
+readings as real time reaches them and forwards them to fhir-server as
+`Observation`s — simulating a continuously-streaming remote monitor without
+needing the seed step itself to run on a schedule.
 
 `scripts/seed.ts` and `scripts/seed-vitals-timeline.ts` run on Bun.
 [Ballerina](https://ballerina.io) was evaluated as an alternative (its

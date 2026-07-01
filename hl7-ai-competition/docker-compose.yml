@@ -8,6 +8,9 @@ services:
       - "8000:8000"
     environment:
       HEALTHKIT_DATABASE_URL: "sqlite:///./data/healthkit.db"
+      # Hourly job (in-process, see src/app/vitals_forwarder.py) that forwards
+      # each patient's last-hour vitals to fhir-server as FHIR Observations.
+      HEALTHKIT_FHIR_SERVER_URL: "http://fhir-server:9090/fhir/r4"
     volumes:
       - healthkit-data:/app/data
     healthcheck:
@@ -21,6 +24,8 @@ services:
       retries: 3
       start_period: 10s
     restart: unless-stopped
+    depends_on:
+      - fhir-server
     develop:
       watch:
         - path: ./apple-healthkit-simulator/pyproject.toml
@@ -174,39 +179,6 @@ services:
         - path: ./front-desk-dashboard/next.config.ts
           action: rebuild
         - path: ./front-desk-dashboard/src
-          action: rebuild
-
-  vitals-cron-service:
-    build:
-      context: ./vitals-cron-service
-    image: vitals-cron-service:latest
-    container_name: vitals-cron-service
-    ports:
-      - "8003:8000"
-    environment:
-      VITALS_CRON_HEALTHKIT_URL: "http://apple-healthkit-simulator:8000"
-      VITALS_CRON_FHIR_SERVER_URL: "http://fhir-server:9090/fhir/r4"
-    healthcheck:
-      test:
-        - "CMD"
-        - "python"
-        - "-c"
-        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
-    restart: unless-stopped
-    depends_on:
-      - apple-healthkit-simulator
-      - fhir-server
-    develop:
-      watch:
-        - path: ./vitals-cron-service/pyproject.toml
-          action: rebuild
-        - path: ./vitals-cron-service/uv.lock
-          action: rebuild
-        - path: ./vitals-cron-service/src
           action: rebuild
 
 volumes:

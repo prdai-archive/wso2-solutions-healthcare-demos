@@ -1,9 +1,0 @@
-.git
-.gitignore
-.ruff_cache
-.pytest_cache
-.venv
-**/__pycache__
-*.pyc
-data
-.env

@@ -1,12 +1,14 @@
 from datetime import UTC, datetime, timedelta
 
 import httpx
+from pydantic import BaseModel
+from sqlmodel import Session, select
 
 from app.config import Settings
-from app.schemas import CycleResult
+from app.models import Patient, QuantitySample
 
 # LOINC code, display text, and UCUM unit code per HealthKit quantity type this
-# service forwards as a FHIR Observation.
+# module forwards as a FHIR Observation.
 VITALS_OBSERVATION_CODES = {
     "HKQuantityTypeIdentifierHeartRate": ("8867-4", "Heart rate", "beats/minute", "/min"),
     "HKQuantityTypeIdentifierOxygenSaturation": ("59408-5", "Oxygen saturation by pulse oximetry", "%", "%"),
@@ -16,25 +18,29 @@ VITALS_OBSERVATION_CODES = {
 }
 
 
-async def fetch_patients(client: httpx.AsyncClient, healthkit_url: str) -> list[dict]:
-    response = await client.get(f"{healthkit_url}/patients", params={"limit": 1000})
-    response.raise_for_status()
-    return response.json()
+class CycleResult(BaseModel):
+    """Summary of one hourly forward cycle."""
+
+    ran_at: datetime
+    window_start: datetime
+    window_end: datetime
+    patients_processed: int
+    patients_forwarded: int
+    readings_forwarded: int
 
 
-async def fetch_recent_vitals(
-    client: httpx.AsyncClient, healthkit_url: str, patient_id: int, since: datetime, until: datetime
-) -> list[dict]:
-    response = await client.get(
-        f"{healthkit_url}/quantity-samples",
-        params={"patient_id": patient_id, "since": since.isoformat(), "until": until.isoformat(), "limit": 1000},
+def fetch_recent_vitals(session: Session, patient_id: int, since: datetime, until: datetime) -> list[QuantitySample]:
+    statement = (
+        select(QuantitySample)
+        .where(QuantitySample.patient_id == patient_id)
+        .where(QuantitySample.start_date >= since)
+        .where(QuantitySample.start_date < until)
     )
-    response.raise_for_status()
-    return [sample for sample in response.json() if sample["quantity_type"] in VITALS_OBSERVATION_CODES]
+    return [s for s in session.exec(statement).all() if s.quantity_type in VITALS_OBSERVATION_CODES]
 
 
-def _as_observation(reading: dict, fhir_patient_id: str) -> dict:
-    code, display, unit, ucum_code = VITALS_OBSERVATION_CODES[reading["quantity_type"]]
+def _as_observation(reading: QuantitySample, fhir_patient_id: str) -> dict:
+    code, display, unit, ucum_code = VITALS_OBSERVATION_CODES[reading.quantity_type]
     category_system = "http://terminology.hl7.org/CodeSystem/observation-category"
     return {
         "resourceType": "Observation",
@@ -42,9 +48,9 @@ def _as_observation(reading: dict, fhir_patient_id: str) -> dict:
         "category": [{"coding": [{"system": category_system, "code": "vital-signs"}]}],
         "code": {"coding": [{"system": "http://loinc.org", "code": code, "display": display}]},
         "subject": {"reference": f"Patient/{fhir_patient_id}"},
-        "effectiveDateTime": reading["start_date"],
+        "effectiveDateTime": reading.start_date.isoformat(),
         "valueQuantity": {
-            "value": reading["value"],
+            "value": reading.value,
             "unit": unit,
             "system": "http://unitsofmeasure.org",
             "code": ucum_code,
@@ -52,7 +58,7 @@ def _as_observation(reading: dict, fhir_patient_id: str) -> dict:
     }
 
 
-def _as_transaction_bundle(readings: list[dict], fhir_patient_id: str) -> dict:
+def _as_transaction_bundle(readings: list[QuantitySample], fhir_patient_id: str) -> dict:
     return {
         "resourceType": "Bundle",
         "type": "transaction",
@@ -63,32 +69,28 @@ def _as_transaction_bundle(readings: list[dict], fhir_patient_id: str) -> dict:
     }
 
 
-async def run_cycle(settings: Settings, client: httpx.AsyncClient | None = None) -> CycleResult:
-    """Forward every patient's vitals from the last interval_hours to fhir-server as Observations."""
+async def run_cycle(settings: Settings, session: Session, client: httpx.AsyncClient | None = None) -> CycleResult:
+    """Forward every patient's vitals from the last interval to fhir-server as Observations."""
     ran_at = datetime.now(UTC)
-    window_end = ran_at
-    window_start = window_end - timedelta(hours=settings.interval_hours)
+    window_end = ran_at.replace(tzinfo=None)
+    window_start = window_end - timedelta(hours=settings.vitals_forward_interval_hours)
 
+    patients = list(session.exec(select(Patient)).all())
     readings_forwarded = 0
     patients_forwarded = 0
 
     owns_client = client is None
     client = client or httpx.AsyncClient(timeout=30)
     try:
-        patients = await fetch_patients(client, settings.healthkit_url)
-
         for patient in patients:
-            fhir_patient_id = patient.get("fhir_patient_id")
-            if not fhir_patient_id:
+            if not patient.fhir_patient_id:
                 continue
 
-            readings = await fetch_recent_vitals(
-                client, settings.healthkit_url, patient["id"], window_start, window_end
-            )
+            readings = fetch_recent_vitals(session, patient.id, window_start, window_end)
             if not readings:
                 continue
 
-            bundle = _as_transaction_bundle(readings, fhir_patient_id)
+            bundle = _as_transaction_bundle(readings, patient.fhir_patient_id)
             response = await client.post(settings.fhir_server_url, json=bundle)
             response.raise_for_status()
 

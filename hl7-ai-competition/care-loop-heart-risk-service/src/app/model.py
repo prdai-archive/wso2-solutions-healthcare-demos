@@ -1,5 +1,3 @@
-"""Load the exported ONNX pipeline and score raw watch features."""
-
 import json
 from functools import lru_cache
 

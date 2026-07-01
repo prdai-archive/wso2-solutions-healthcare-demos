@@ -13,7 +13,9 @@
     "hist_gradient_boosting": 0.7764853594663893,
     "svm_rbf": 0.7654819615795225,
     "knn": 0.7742964142151134,
-    "xgboost": 0.7845273245273245
+    "xgboost": 0.7845273245273245,
+    "lightgbm": 0.777670183876146,
+    "catboost": 0.7803855875129587
   },
   "best_params": {
     "logistic_regression": {
@@ -53,6 +55,17 @@
       "model__max_depth": 2,
       "model__n_estimators": 200,
       "model__subsample": 0.8
+    },
+    "lightgbm": {
+      "model__learning_rate": 0.03,
+      "model__max_depth": 2,
+      "model__n_estimators": 200,
+      "model__subsample": 0.8
+    },
+    "catboost": {
+      "model__depth": 3,
+      "model__iterations": 200,
+      "model__learning_rate": 0.03
     }
   },
   "test_metrics": {

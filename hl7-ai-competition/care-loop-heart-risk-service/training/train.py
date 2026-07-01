@@ -6,6 +6,8 @@ from pathlib import Path
 import joblib
 import numpy as np
 import pandas as pd
+from catboost import CatBoostClassifier
+from lightgbm import LGBMClassifier
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import (
     ExtraTreesClassifier,
@@ -128,10 +130,28 @@ def model_zoo() -> dict[str, tuple[object, dict]]:
                 "model__subsample": [0.8, 1.0],
             },
         ),
+        "lightgbm": (
+            LGBMClassifier(random_state=RANDOM_STATE, n_jobs=1, verbose=-1),
+            {
+                "model__n_estimators": [200, 400],
+                "model__max_depth": [2, 3, 4],
+                "model__learning_rate": [0.03, 0.1],
+                "model__subsample": [0.8, 1.0],
+            },
+        ),
+        "catboost": (
+            CatBoostClassifier(random_state=RANDOM_STATE, verbose=False),
+            {
+                "model__iterations": [200, 400],
+                "model__depth": [2, 3, 4],
+                "model__learning_rate": [0.03, 0.1],
+            },
+        ),
     }
 
 
 def export_to_onnx(pipeline: Pipeline, sample: pd.DataFrame) -> bytes:
+    from onnxmltools.convert.lightgbm.operator_converters.LightGbm import convert_lightgbm
     from onnxmltools.convert.xgboost.operator_converters.XGBoost import convert_xgboost
     from skl2onnx import convert_sklearn, update_registered_converter
     from skl2onnx.common.data_types import FloatTensorType, StringTensorType
@@ -142,6 +162,13 @@ def export_to_onnx(pipeline: Pipeline, sample: pd.DataFrame) -> bytes:
         "XGBoostXGBClassifier",
         calculate_linear_classifier_output_shapes,
         convert_xgboost,
+        options={"nocl": [True, False], "zipmap": [True, False, "columns"]},
+    )
+    update_registered_converter(
+        LGBMClassifier,
+        "LightGbmLGBMClassifier",
+        calculate_linear_classifier_output_shapes,
+        convert_lightgbm,
         options={"nocl": [True, False], "zipmap": [True, False, "columns"]},
     )
 

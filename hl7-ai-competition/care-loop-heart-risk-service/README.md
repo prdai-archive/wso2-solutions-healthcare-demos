@@ -5,9 +5,10 @@ FastAPI + ONNX Runtime, managed with uv.
 
 The model is trained on the slice of the Kaggle
 [heart-failure dataset](https://www.kaggle.com/datasets/fedesoriano/heart-failure-prediction)
-that a watch + HealthKit profile can actually supply, so it can be scored live
-from watch data. The winning pipeline is exported to ONNX with preprocessing
-baked in; this service loads that graph and returns a probability.
+(CC0, committed at `training/data/heart.csv`) that a watch + HealthKit profile
+can actually supply, so it can be scored live from watch data. The winning
+pipeline is exported to ONNX with preprocessing baked in; this service loads
+that graph and returns a probability.
 
 ## Features
 
@@ -63,17 +64,19 @@ make down      # stop it
 
 ## Train
 
-The dataset is not redistributed. Download `heart.csv` from the Kaggle page and
-place it at `training/data/heart.csv`, then:
+`training/data/heart.csv` is the Kaggle
+[heart-failure dataset](https://www.kaggle.com/datasets/fedesoriano/heart-failure-prediction),
+committed here (CC0, so no licensing issue redistributing it) for reproducibility.
 
 ```sh
 make train     # sweep models, evaluate, export ONNX + metrics
 ```
 
 `training/train.py` runs 5-fold CV ROC-AUC over a zoo of models (logistic
-regression, random/extra trees, gradient/hist boosting, SVM, KNN, XGBoost),
-picks the best by cross-validated AUC, evaluates on a held-out test split, and
-writes `models/heart_watch_model.{joblib,onnx}` with `models/metrics.json`.
+regression, random/extra trees, gradient/hist boosting, SVM, KNN, XGBoost,
+LightGBM, CatBoost), picks the best by cross-validated AUC, evaluates on a
+held-out test split, and writes `models/heart_watch_model.{joblib,onnx}` with
+`models/metrics.json`.
 
 ## Develop
 

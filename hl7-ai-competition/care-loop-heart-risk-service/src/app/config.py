@@ -7,8 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     """Runtime settings for the care-loop-heart-risk-service."""
 
-    # protected_namespaces=() so the model_* field names below do not collide
-    # with pydantic's reserved "model_" namespace.
+    # protected_namespaces=() silences pydantic's warning that model_path shadows its reserved "model_" prefix.
     model_config = SettingsConfigDict(
         env_prefix="HEART_RISK_",
         env_file=".env",

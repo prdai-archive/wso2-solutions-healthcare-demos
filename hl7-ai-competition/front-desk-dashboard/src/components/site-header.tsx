@@ -2,7 +2,6 @@
 
 import { usePathname } from "next/navigation";
 
-import { ThemeToggle } from "@/components/theme-toggle";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Breadcrumb,
@@ -38,7 +37,6 @@ export function SiteHeader() {
       </Breadcrumb>
 
       <div className="ml-auto flex items-center gap-1.5">
-        <ThemeToggle />
         <Avatar className="size-8">
           <AvatarFallback className="bg-primary/15 text-xs font-medium text-primary">
             {receptionist.initials}

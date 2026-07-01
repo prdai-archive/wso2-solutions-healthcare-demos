@@ -18,12 +18,11 @@ const taskConfig: Record<
     icon: Circle,
   },
   Assigned: {
-    className:
-      "bg-sky-500/12 text-sky-600 dark:text-sky-400 dark:bg-sky-500/15",
+    className: "bg-sky-500/12 text-sky-600",
     icon: UserCheck,
   },
   Closed: {
-    className: "bg-primary/12 text-primary dark:bg-primary/15",
+    className: "bg-primary/12 text-primary",
     icon: CheckCircle2,
   },
 };
@@ -46,11 +45,10 @@ export function TaskStatusBadge({
 
 const apptTone: Record<AppointmentStatus, string> = {
   Scheduled: "border-border text-muted-foreground",
-  Confirmed: "bg-sky-500/12 text-sky-600 border-transparent dark:text-sky-400",
-  "In review":
-    "bg-violet-500/12 text-violet-600 border-transparent dark:text-violet-400",
+  Confirmed: "bg-sky-500/12 text-sky-600 border-transparent",
+  "In review": "bg-violet-500/12 text-violet-600 border-transparent",
   Completed: "bg-primary/12 text-primary border-transparent",
-  Missed: "bg-rose-500/12 text-rose-600 border-transparent dark:text-rose-400",
+  Missed: "bg-rose-500/12 text-rose-600 border-transparent",
 };
 
 export function AppointmentStatusBadge({
@@ -72,13 +70,11 @@ const patientTone: Record<
   { className: string; icon: typeof Circle }
 > = {
   Flagged: {
-    className:
-      "bg-rose-500/12 text-rose-600 border-transparent dark:text-rose-400",
+    className: "bg-rose-500/12 text-rose-600 border-transparent",
     icon: CircleDashed,
   },
   Monitoring: {
-    className:
-      "bg-sky-500/12 text-sky-600 border-transparent dark:text-sky-400",
+    className: "bg-sky-500/12 text-sky-600 border-transparent",
     icon: CircleDashed,
   },
   Stable: {
@@ -108,10 +104,9 @@ export function PatientStatusBadge({
 }
 
 const riskTone: Record<RiskLevel, string> = {
-  High: "bg-rose-500/12 text-rose-600 dark:text-rose-400 dark:bg-rose-500/15",
-  Moderate:
-    "bg-amber-500/15 text-amber-700 dark:text-amber-400 dark:bg-amber-500/15",
-  Low: "bg-slate-500/12 text-slate-600 dark:text-slate-300 dark:bg-slate-500/15",
+  High: "bg-rose-500/12 text-rose-600",
+  Moderate: "bg-amber-500/15 text-amber-700",
+  Low: "bg-slate-500/12 text-slate-600",
 };
 
 export function RiskBadge({

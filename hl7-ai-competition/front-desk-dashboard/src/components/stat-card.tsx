@@ -33,9 +33,7 @@ export function StatCard({
               <span
                 className={cn(
                   "inline-flex items-center gap-0.5 font-medium",
-                  trend.direction === "up"
-                    ? "text-primary"
-                    : "text-rose-600 dark:text-rose-400",
+                  trend.direction === "up" ? "text-primary" : "text-rose-600",
                 )}
               >
                 <TrendIcon className="size-3" />

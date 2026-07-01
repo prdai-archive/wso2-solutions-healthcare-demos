@@ -16,8 +16,8 @@ import { useData } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
 function waitTone(minutes: number): string {
-  if (minutes >= 60) return "text-rose-600 dark:text-rose-400";
-  if (minutes >= 30) return "text-amber-600 dark:text-amber-400";
+  if (minutes >= 60) return "text-rose-600";
+  if (minutes >= 30) return "text-amber-600";
   return "text-muted-foreground";
 }
 

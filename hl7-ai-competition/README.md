@@ -57,10 +57,11 @@ points at a real consumer.
 ## Logging
 
 apple-healthkit-simulator and care-loop-heart-risk-service (`src/app/logging_config.py`
-in each) log JSON lines to stdout — app logs plus uvicorn's own startup/access/error
-logs — level set via `HEALTHKIT_LOG_LEVEL` / `HEART_RISK_LOG_LEVEL` (default `INFO`).
-whatsapp-simulator logs via `consola` (`src/lib/logger.ts`). front-desk-dashboard has
-no server-side code, so nothing to log.
+in each) log JSON lines to stdout via loguru — app logs plus uvicorn's own
+startup/access/error logs — level set via `HEALTHKIT_LOG_LEVEL` /
+`HEART_RISK_LOG_LEVEL` (default `INFO`). whatsapp-simulator logs via `consola`
+(`src/lib/logger.ts`). front-desk-dashboard has no server-side code, so nothing
+to log.
 
 ## Pre-commit hooks
 

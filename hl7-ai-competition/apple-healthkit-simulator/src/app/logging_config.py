@@ -1,35 +1,35 @@
-import json
 import logging
-from datetime import UTC, datetime
+import sys
+
+from loguru import logger
 
 _UVICORN_LOGGERS = ("uvicorn", "uvicorn.error", "uvicorn.access")
 
 
-class JsonFormatter(logging.Formatter):
-    """Renders each log record as a single JSON line."""
+class InterceptHandler(logging.Handler):
+    """Routes stdlib logging records (ours and uvicorn's) into loguru."""
 
-    def format(self, record: logging.LogRecord) -> str:
-        payload = {
-            "timestamp": datetime.fromtimestamp(record.created, tz=UTC).isoformat(),
-            "level": record.levelname,
-            "logger": record.name,
-            "message": record.getMessage(),
-        }
-        if record.exc_info:
-            payload["exception"] = self.formatException(record.exc_info)
-        return json.dumps(payload)
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            level = logger.level(record.levelname).name
+        except ValueError:
+            level = record.levelno
+
+        frame, depth = logging.currentframe(), 2
+        while frame and frame.f_code.co_filename == logging.__file__:
+            frame = frame.f_back
+            depth += 1
+
+        logger.opt(depth=depth, exception=record.exc_info).log(level, record.getMessage())
 
 
 def configure_logging(level: str) -> None:
-    """Route every logger (ours and uvicorn's) through one JSON handler."""
-    handler = logging.StreamHandler()
-    handler.setFormatter(JsonFormatter())
-
-    root = logging.getLogger()
-    root.handlers = [handler]
-    root.setLevel(level)
-
+    """Send every logger (ours and uvicorn's) through loguru, serialized as JSON."""
+    logging.basicConfig(handlers=[InterceptHandler()], level=0, force=True)
     for name in _UVICORN_LOGGERS:
         uvicorn_logger = logging.getLogger(name)
-        uvicorn_logger.handlers = [handler]
-        uvicorn_logger.propagate = False
+        uvicorn_logger.handlers = []
+        uvicorn_logger.propagate = True
+
+    logger.remove()
+    logger.add(sys.stdout, level=level, serialize=True)

@@ -16,8 +16,7 @@ up: ## Build and start the stack, then seed demo data
 	$(MAKE) seed
 
 seed: ## Load demo patient data into apple-healthkit-simulator and fhir-server
-	bun scripts/seed.ts
-	bun scripts/seed-vitals-timeline.ts
+	bun scripts/seed/index.ts
 
 watch: ## Start the stack in the foreground and rebuild on change
 	$(COMPOSE) up --build --watch

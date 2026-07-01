@@ -1,17 +1,25 @@
 #!/usr/bin/env bun
-// Seeds scripts/seed-data/patients.json into apple-healthkit-simulator and wso2/fhir-server; skips a target patient that already exists.
 
 import { join } from "node:path";
 
-const ROOT = join(import.meta.dir, "..");
-
 const HEALTHKIT_URL = process.env.HEALTHKIT_URL ?? "http://localhost:8000";
 const FHIR_SERVER_URL = process.env.FHIR_SERVER_URL ?? "http://localhost:9090/fhir/r4";
-const SEED_DATA_FILE = process.env.SEED_DATA_FILE ?? join(ROOT, "scripts/seed-data/patients.json");
+const SEED_DATA_FILE = process.env.SEED_DATA_FILE ?? join(import.meta.dir, "data/patients.json");
+const VITALS_HORIZON_HOURS = Number(process.env.VITALS_HORIZON_HOURS ?? 24);
+
+type VitalsProfile = "stable" | "borderline" | "at_risk";
+type Range = { min: number; max: number };
+type ProfileRanges = { heartRate: Range; systolic: Range; diastolic: Range; spo2: Range; respiratoryRate: Range };
+
+const PROFILES: Record<VitalsProfile, ProfileRanges> = {
+  stable: { heartRate: { min: 60, max: 72 }, systolic: { min: 108, max: 118 }, diastolic: { min: 68, max: 78 }, spo2: { min: 97, max: 99 }, respiratoryRate: { min: 12, max: 15 } },
+  borderline: { heartRate: { min: 78, max: 92 }, systolic: { min: 122, max: 134 }, diastolic: { min: 78, max: 86 }, spo2: { min: 94, max: 96 }, respiratoryRate: { min: 16, max: 19 } },
+  at_risk: { heartRate: { min: 96, max: 118 }, systolic: { min: 145, max: 168 }, diastolic: { min: 92, max: 106 }, spo2: { min: 88, max: 93 }, respiratoryRate: { min: 20, max: 24 } },
+};
 
 type QuantitySample = Record<string, unknown>;
 type SeedPatient = {
-  patient: { mrn: string; given_name: string; family_name: string; date_of_birth: string; vitals_profile: string };
+  patient: { mrn: string; given_name: string; family_name: string; date_of_birth: string; vitals_profile: VitalsProfile };
   healthkit: {
     characteristics: Record<string, unknown>;
     quantity_samples: QuantitySample[];
@@ -30,10 +38,11 @@ type SeedPatient = {
     patient: Record<string, unknown>;
     encounter: Record<string, unknown>;
     conditions: Record<string, unknown>[];
+    allergies: Record<string, unknown>[];
+    medications: Record<string, unknown>[];
     observations: Record<string, unknown>[];
   };
 };
-
 type HealthkitPatient = { id: number; uuid: string; mrn: string; fhir_patient_id: string | null };
 
 function log(message: string): void {
@@ -58,8 +67,6 @@ async function waitForHealthy(url: string, label: string, timeoutMs = 120_000): 
     await Bun.sleep(2000);
   }
 }
-
-// --- apple-healthkit-simulator -------------------------------------------
 
 async function healthkitPost<T>(path: string, body: unknown): Promise<T[]> {
   const res = await fetch(`${HEALTHKIT_URL}${path}`, {
@@ -154,8 +161,6 @@ async function seedHealthkit(seed: SeedPatient): Promise<HealthkitPatient> {
   return patient;
 }
 
-// --- wso2/fhir-server --------------------------------------------------------
-
 async function fhirCreate<T extends { id: string }>(resourceType: string, resource: Record<string, unknown>): Promise<T> {
   const res = await fetch(`${FHIR_SERVER_URL}/${resourceType}`, {
     method: "POST",
@@ -197,6 +202,16 @@ async function seedFhir(seed: SeedPatient, patient: HealthkitPatient): Promise<v
     log(`created fhir-server Condition/${created.id}`);
   }
 
+  for (const allergy of seed.fhir.allergies) {
+    const created = await fhirCreate<{ id: string }>("AllergyIntolerance", { ...allergy, patient: subject });
+    log(`created fhir-server AllergyIntolerance/${created.id}`);
+  }
+
+  for (const medication of seed.fhir.medications) {
+    const created = await fhirCreate<{ id: string }>("MedicationRequest", { ...medication, subject });
+    log(`created fhir-server MedicationRequest/${created.id}`);
+  }
+
   for (const observation of seed.fhir.observations) {
     const created = await fhirCreate<{ id: string }>("Observation", {
       ...observation,
@@ -209,7 +224,94 @@ async function seedFhir(seed: SeedPatient, patient: HealthkitPatient): Promise<v
   await linkFhirPatient(patient.uuid, fhirPatient.id);
 }
 
-// --- main -------------------------------------------------------------------
+function randomInRange({ min, max }: Range): number {
+  return Math.round((min + Math.random() * (max - min)) * 10) / 10;
+}
+
+async function seedHourlyVitals(patient: HealthkitPatient, profile: ProfileRanges, hourStart: Date): Promise<void> {
+  const hourEnd = new Date(hourStart.getTime() + 60 * 60 * 1000);
+  const isoStart = hourStart.toISOString();
+
+  await healthkitPost("/quantity-samples", [
+    {
+      patient_id: patient.id,
+      source_name: "Apple Watch",
+      quantity_type: "HKQuantityTypeIdentifierHeartRate",
+      value: randomInRange(profile.heartRate),
+      unit: "count/min",
+      start_date: isoStart,
+      end_date: hourEnd.toISOString(),
+    },
+    {
+      patient_id: patient.id,
+      source_name: "Apple Watch",
+      quantity_type: "HKQuantityTypeIdentifierOxygenSaturation",
+      value: randomInRange(profile.spo2),
+      unit: "%",
+      start_date: isoStart,
+      end_date: hourEnd.toISOString(),
+    },
+    {
+      patient_id: patient.id,
+      source_name: "Apple Watch",
+      quantity_type: "HKQuantityTypeIdentifierRespiratoryRate",
+      value: randomInRange(profile.respiratoryRate),
+      unit: "count/min",
+      start_date: isoStart,
+      end_date: hourEnd.toISOString(),
+    },
+  ]);
+
+  const [correlation] = await healthkitPost("/correlations", {
+    patient_id: patient.id,
+    source_name: "Withings BPM Connect",
+    correlation_type: "HKCorrelationTypeIdentifierBloodPressure",
+    start_date: isoStart,
+    end_date: isoStart,
+  });
+  await healthkitPost("/quantity-samples", [
+    {
+      patient_id: patient.id,
+      correlation_id: correlation.id,
+      source_name: "Withings BPM Connect",
+      quantity_type: "HKQuantityTypeIdentifierBloodPressureSystolic",
+      value: randomInRange(profile.systolic),
+      unit: "mmHg",
+      start_date: isoStart,
+      end_date: isoStart,
+    },
+    {
+      patient_id: patient.id,
+      correlation_id: correlation.id,
+      source_name: "Withings BPM Connect",
+      quantity_type: "HKQuantityTypeIdentifierBloodPressureDiastolic",
+      value: randomInRange(profile.diastolic),
+      unit: "mmHg",
+      start_date: isoStart,
+      end_date: isoStart,
+    },
+  ]);
+}
+
+async function seedVitalsTimeline(patients: SeedPatient[], healthkitPatients: HealthkitPatient[]): Promise<void> {
+  const profileByMrn = new Map(patients.map((p) => [p.patient.mrn, p.patient.vitals_profile]));
+
+  const firstHour = new Date();
+  firstHour.setMinutes(0, 0, 0);
+  firstHour.setHours(firstHour.getHours() + 1);
+
+  for (const patient of healthkitPatients) {
+    const profileName = profileByMrn.get(patient.mrn);
+    if (!profileName) {
+      continue;
+    }
+    const profile = PROFILES[profileName];
+    for (let hour = 0; hour < VITALS_HORIZON_HOURS; hour++) {
+      await seedHourlyVitals(patient, profile, new Date(firstHour.getTime() + hour * 60 * 60 * 1000));
+    }
+    log(`seeded ${VITALS_HORIZON_HOURS}h of future vitals for ${patient.mrn} (${profileName})`);
+  }
+}
 
 async function main(): Promise<void> {
   const patients = (await Bun.file(SEED_DATA_FILE).json()) as SeedPatient[];
@@ -217,10 +319,14 @@ async function main(): Promise<void> {
   await waitForHealthy(`${HEALTHKIT_URL}/health`, "apple-healthkit-simulator");
   await waitForHealthy(`${FHIR_SERVER_URL}/metadata`, "fhir-server");
 
+  const healthkitPatients: HealthkitPatient[] = [];
   for (const seed of patients) {
     const patient = await seedHealthkit(seed);
     await seedFhir(seed, patient);
+    healthkitPatients.push(patient);
   }
+
+  await seedVitalsTimeline(patients, healthkitPatients);
 
   log("done.");
 }

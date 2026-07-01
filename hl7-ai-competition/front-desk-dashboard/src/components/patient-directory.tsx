@@ -8,7 +8,6 @@ import {
   Mail,
   MapPin,
   Phone,
-  Search,
   ShieldCheck,
 } from "lucide-react";
 
@@ -22,14 +21,6 @@ import {
 } from "@/components/status-badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import {
   Sheet,
@@ -254,25 +245,8 @@ function PatientSheet({
 }
 
 export function PatientDirectory({ patients }: { patients: Patient[] }) {
-  const [query, setQuery] = React.useState("");
-  const [status, setStatus] = React.useState("all");
-  const [risk, setRisk] = React.useState("all");
   const [selected, setSelected] = React.useState<Patient | null>(null);
   const [open, setOpen] = React.useState(false);
-
-  const filtered = React.useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return patients.filter((p) => {
-      const matchesQuery =
-        q === "" ||
-        p.name.toLowerCase().includes(q) ||
-        p.mrn.toLowerCase().includes(q) ||
-        p.phone.includes(q);
-      const matchesStatus = status === "all" || p.status === status;
-      const matchesRisk = risk === "all" || p.riskLevel === risk;
-      return matchesQuery && matchesStatus && matchesRisk;
-    });
-  }, [patients, query, status, risk]);
 
   function openPatient(patient: Patient) {
     setSelected(patient);
@@ -281,41 +255,6 @@ export function PatientDirectory({ patients }: { patients: Patient[] }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="relative sm:max-w-xs sm:flex-1">
-          <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search name, MRN, phone..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="pl-8"
-          />
-        </div>
-        <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger className="sm:w-40">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            <SelectItem value="Flagged">Flagged</SelectItem>
-            <SelectItem value="Monitoring">Monitoring</SelectItem>
-            <SelectItem value="Stable">Stable</SelectItem>
-            <SelectItem value="Inactive">Inactive</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={risk} onValueChange={setRisk}>
-          <SelectTrigger className="sm:w-40">
-            <SelectValue placeholder="Risk" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All risk levels</SelectItem>
-            <SelectItem value="High">High</SelectItem>
-            <SelectItem value="Moderate">Moderate</SelectItem>
-            <SelectItem value="Low">Low</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
       <Card className="overflow-hidden p-0">
         <Table>
           <TableHeader>
@@ -331,7 +270,7 @@ export function PatientDirectory({ patients }: { patients: Patient[] }) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.map((patient) => (
+            {patients.map((patient) => (
               <TableRow
                 key={patient.id}
                 className="cursor-pointer"
@@ -379,9 +318,9 @@ export function PatientDirectory({ patients }: { patients: Patient[] }) {
             ))}
           </TableBody>
         </Table>
-        {filtered.length === 0 ? (
+        {patients.length === 0 ? (
           <p className="py-12 text-center text-sm text-muted-foreground">
-            No patients match your filters.
+            No patients yet.
           </p>
         ) : null}
       </Card>

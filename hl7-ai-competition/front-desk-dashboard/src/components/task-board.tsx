@@ -1,22 +1,12 @@
 "use client";
 
 import type { Task, TaskStatus } from "@/lib/types";
-import { Clock, Search } from "lucide-react";
-
-import * as React from "react";
+import { Clock } from "lucide-react";
 import { AssignControl } from "@/components/assign-control";
 import { PatientAvatar } from "@/components/patient-avatar";
 import { PriorityBadge } from "@/components/priority-badge";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { alertTypeIcon } from "@/lib/alert-icons";
 import { useData } from "@/lib/store";
 import { cn } from "@/lib/utils";
@@ -77,98 +67,38 @@ function TaskCard({ task }: { task: Task }) {
 }
 
 export function TaskBoard({ tasks }: { tasks: Task[] }) {
-  const { getPatient } = useData();
-  const [query, setQuery] = React.useState("");
-  const [priority, setPriority] = React.useState("all");
-  const [type, setType] = React.useState("all");
-
-  const filtered = React.useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return tasks.filter((t) => {
-      const patient = getPatient(t.patientId);
-      const matchesQuery =
-        q === "" ||
-        t.title.toLowerCase().includes(q) ||
-        t.alertType.toLowerCase().includes(q) ||
-        (patient?.name.toLowerCase().includes(q) ?? false) ||
-        (patient?.mrn.toLowerCase().includes(q) ?? false);
-      const matchesPriority = priority === "all" || t.priority === priority;
-      const matchesType = type === "all" || t.alertType === type;
-      return matchesQuery && matchesPriority && matchesType;
-    });
-  }, [tasks, query, priority, type, getPatient]);
-
-  const alertTypes = Array.from(new Set(tasks.map((t) => t.alertType)));
-
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="relative sm:max-w-xs sm:flex-1">
-          <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search alerts..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="pl-8"
-          />
-        </div>
-        <Select value={priority} onValueChange={setPriority}>
-          <SelectTrigger className="sm:w-40">
-            <SelectValue placeholder="Priority" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All priorities</SelectItem>
-            <SelectItem value="Urgent">Urgent</SelectItem>
-            <SelectItem value="Routine">Routine</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={type} onValueChange={setType}>
-          <SelectTrigger className="sm:w-48">
-            <SelectValue placeholder="Alert type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All alert types</SelectItem>
-            {alertTypes.map((t) => (
-              <SelectItem key={t} value={t}>
-                {t}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        {columns.map((col) => {
-          const colTasks = filtered
-            .filter((t) => t.status === col.status)
-            .sort((a, b) => b.order - a.order);
-          return (
-            <div
-              key={col.status}
-              className="flex flex-col gap-3 rounded-xl bg-muted/40 p-3"
-            >
-              <div className="flex items-center justify-between px-1">
-                <div className="flex items-center gap-2">
-                  <span className={cn("size-2 rounded-full", col.accent)} />
-                  <h2 className="text-sm font-semibold">{col.status}</h2>
-                </div>
-                <Badge variant="secondary" className="tabular-nums">
-                  {colTasks.length}
-                </Badge>
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      {columns.map((col) => {
+        const colTasks = tasks
+          .filter((t) => t.status === col.status)
+          .sort((a, b) => b.order - a.order);
+        return (
+          <div
+            key={col.status}
+            className="flex flex-col gap-3 rounded-xl bg-muted/40 p-3"
+          >
+            <div className="flex items-center justify-between px-1">
+              <div className="flex items-center gap-2">
+                <span className={cn("size-2 rounded-full", col.accent)} />
+                <h2 className="text-sm font-semibold">{col.status}</h2>
               </div>
-              <div className="flex flex-col gap-3">
-                {colTasks.length === 0 ? (
-                  <p className="px-1 py-6 text-center text-xs text-muted-foreground">
-                    No alerts
-                  </p>
-                ) : (
-                  colTasks.map((task) => <TaskCard key={task.id} task={task} />)
-                )}
-              </div>
+              <Badge variant="secondary" className="tabular-nums">
+                {colTasks.length}
+              </Badge>
             </div>
-          );
-        })}
-      </div>
+            <div className="flex flex-col gap-3">
+              {colTasks.length === 0 ? (
+                <p className="px-1 py-6 text-center text-xs text-muted-foreground">
+                  No alerts
+                </p>
+              ) : (
+                colTasks.map((task) => <TaskCard key={task.id} task={task} />)
+              )}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

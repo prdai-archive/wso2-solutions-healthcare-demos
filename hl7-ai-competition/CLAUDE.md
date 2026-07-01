@@ -61,13 +61,12 @@ Work should happen through normal feature branches and pull requests.
 
 ### Upstream Review
 
-**IMPORTANT: Never open a pull request against the upstream
-`wso2/solutions-healthcare-demos` repo.** All PRs go to our fork
-(`prdai-archive/wso2-solutions-healthcare-demos`) only, targeting `ai-challenge`
-there, unless the user explicitly instructs otherwise for a specific PR. When
-using `gh pr create`, always pass `--repo prdai-archive/wso2-solutions-healthcare-demos`
-explicitly rather than relying on the default, since `gh` will otherwise infer
-the upstream parent repo as the target.
+**IMPORTANT: Never open a pull request against the `upstream` remote.** All PRs
+go to our fork (the `origin` remote) only, targeting `ai-challenge` there,
+unless the user explicitly instructs otherwise for a specific PR. When using
+`gh pr create`, always pass `--repo` explicitly, set to the `origin` remote's
+repo, rather than relying on the default, since `gh` will otherwise infer the
+`upstream` remote's repo as the target.
 
 If work is later sent upstream for maintainer review, the maintainers own
 review, thread resolution, and merge, so the agent does not poll for comments,

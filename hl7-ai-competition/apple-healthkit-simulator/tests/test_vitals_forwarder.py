@@ -50,16 +50,50 @@ async def test_run_cycle_skips_patients_without_fhir_link(session: Session) -> N
         posted["bundle"] = json.loads(request.content)
         return httpx.Response(200, json={"resourceType": "Bundle", "type": "transaction-response", "entry": []})
 
-    settings = Settings(fhir_server_url="http://fhir.test/fhir/r4")
+    settings = Settings(vitals_target_url="http://downstream.test/fhir/r4")
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         result = await run_cycle(settings, session, client=client)
 
     assert result.patients_processed == EXPECTED_PATIENT_COUNT
     assert result.patients_forwarded == 1
     assert result.readings_forwarded == 1
+    assert result.target_configured is True
     bundle = posted["bundle"]
     assert len(bundle["entry"]) == EXPECTED_BUNDLE_ENTRIES
     assert bundle["entry"][0]["resource"]["subject"] == {"reference": "Patient/fhir-patient-1"}
+
+
+async def test_run_cycle_builds_bundle_but_skips_post_without_target(session: Session) -> None:
+    now = datetime.now(UTC).replace(tzinfo=None)
+    patient = Patient(mrn="MRN-D", given_name="D", family_name="D", fhir_patient_id="fhir-patient-3")
+    session.add(patient)
+    session.commit()
+    session.refresh(patient)
+
+    session.add(
+        QuantitySample(
+            patient_id=patient.id,
+            source_name="Apple Watch",
+            quantity_type="HKQuantityTypeIdentifierHeartRate",
+            value=72,
+            unit="count/min",
+            start_date=now - timedelta(minutes=10),
+            end_date=now - timedelta(minutes=10),
+        )
+    )
+    session.commit()
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        message = "should not make any HTTP calls without a configured target"
+        raise AssertionError(message)
+
+    settings = Settings(vitals_target_url=None)
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        result = await run_cycle(settings, session, client=client)
+
+    assert result.target_configured is False
+    assert result.patients_forwarded == 1
+    assert result.readings_forwarded == 1
 
 
 async def test_run_cycle_ignores_readings_outside_window(session: Session) -> None:
@@ -85,7 +119,7 @@ async def test_run_cycle_ignores_readings_outside_window(session: Session) -> No
     def handler(_request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={"resourceType": "Bundle", "type": "transaction-response", "entry": []})
 
-    settings = Settings(fhir_server_url="http://fhir.test/fhir/r4")
+    settings = Settings(vitals_target_url="http://downstream.test/fhir/r4")
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         result = await run_cycle(settings, session, client=client)
 

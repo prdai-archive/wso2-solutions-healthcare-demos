@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     app_name: str = "apple-healthkit-simulator"
     database_url: str = "sqlite:///./data/healthkit.db"
     echo_sql: bool = False
-    fhir_server_url: str = "http://fhir-server:9090/fhir/r4"
+    vitals_target_url: str | None = None
     vitals_forward_interval_hours: int = 1
 
 

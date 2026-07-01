@@ -17,10 +17,11 @@ Earlier stages: [v1](assets/architecture-diagram-v1.png),
 
 - [apple-healthkit-simulator](apple-healthkit-simulator/) — FastAPI service that
   ingests Apple HealthKit samples for multiple patients (port 8000). Also runs
-  an in-process hourly job (`src/app/vitals_forwarder.py`) that forwards each
-  patient's last-hour vitals to fhir-server as FHIR `Observation`s — direct DB
-  access, no separate service polling this one over HTTP. Manually trigger a
-  cycle with `POST /vitals-cron/run-now`, check the last result with
+  an in-process hourly job (`src/app/vitals_forwarder.py`) that builds a FHIR
+  `Observation` bundle from each patient's last-hour vitals and forwards it to
+  `HEALTHKIT_VITALS_TARGET_URL` (unset by default — no downstream consumer
+  exists yet, so the job just builds the bundle and skips the POST). Manually
+  trigger a cycle with `POST /vitals-cron/run-now`, check the last result with
   `GET /vitals-cron/status`.
 - [whatsapp-simulator](whatsapp-simulator/) — Next.js chat UI that renders a
   pushed questionnaire and posts the conversation transcript to a callback URL
@@ -50,7 +51,8 @@ column (set via `PATCH /patients/{uuid}/fhir-link`) links the two systems'
 patient records.
 
 apple-healthkit-simulator's hourly job picks up each hour's worth of readings
-as real time reaches them and forwards them to fhir-server as `Observation`s.
+as real time reaches them, ready to forward once `HEALTHKIT_VITALS_TARGET_URL`
+points at a real consumer.
 
 ## Pre-commit hooks
 

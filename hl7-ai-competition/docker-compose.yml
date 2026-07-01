@@ -8,7 +8,6 @@ services:
       - "8000:8000"
     environment:
       HEALTHKIT_DATABASE_URL: "sqlite:///./data/healthkit.db"
-      HEALTHKIT_FHIR_SERVER_URL: "http://fhir-server:9090/fhir/r4"
     volumes:
       - healthkit-data:/app/data
     healthcheck:
@@ -22,8 +21,6 @@ services:
       retries: 3
       start_period: 10s
     restart: unless-stopped
-    depends_on:
-      - fhir-server
     develop:
       watch:
         - path: ./apple-healthkit-simulator/pyproject.toml

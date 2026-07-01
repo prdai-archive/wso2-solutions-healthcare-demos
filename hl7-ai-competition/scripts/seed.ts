@@ -1,18 +1,17 @@
 #!/usr/bin/env bun
-// Seeds scripts/seed-data/patient.json into apple-healthkit-simulator and OpenEMR's FHIR API; skips a target if its patient already exists.
+// Seeds scripts/seed-data/patients.json into apple-healthkit-simulator and wso2/fhir-server; skips a target patient that already exists.
 
 import { join } from "node:path";
 
 const ROOT = join(import.meta.dir, "..");
 
 const HEALTHKIT_URL = process.env.HEALTHKIT_URL ?? "http://localhost:8000";
-const OPENEMR_FHIR_URL = process.env.OPENEMR_FHIR_URL ?? "http://localhost:3001/apis/default/fhir";
-const SEED_ENV_FILE = process.env.SEED_ENV_FILE ?? join(ROOT, ".fhir-seed.env");
-const SEED_DATA_FILE = process.env.SEED_DATA_FILE ?? join(ROOT, "scripts/seed-data/patient.json");
+const FHIR_SERVER_URL = process.env.FHIR_SERVER_URL ?? "http://localhost:9090/fhir/r4";
+const SEED_DATA_FILE = process.env.SEED_DATA_FILE ?? join(ROOT, "scripts/seed-data/patients.json");
 
 type QuantitySample = Record<string, unknown>;
-type SeedData = {
-  patient: { mrn: string; given_name: string; family_name: string; date_of_birth: string };
+type SeedPatient = {
+  patient: { mrn: string; given_name: string; family_name: string; date_of_birth: string; vitals_profile: string };
   healthkit: {
     characteristics: Record<string, unknown>;
     quantity_samples: QuantitySample[];
@@ -27,12 +26,15 @@ type SeedData = {
     workouts: Record<string, unknown>[];
     activity_summaries: Record<string, unknown>[];
   };
-  openemr: {
+  fhir: {
     patient: Record<string, unknown>;
+    encounter: Record<string, unknown>;
+    conditions: Record<string, unknown>[];
+    observations: Record<string, unknown>[];
   };
 };
 
-type HealthkitPatient = { id: number; uuid: string; mrn: string; openemr_patient_uuid: string | null };
+type HealthkitPatient = { id: number; uuid: string; mrn: string; fhir_patient_id: string | null };
 
 function log(message: string): void {
   console.log(`[seed] ${message}`);
@@ -55,19 +57,6 @@ async function waitForHealthy(url: string, label: string, timeoutMs = 120_000): 
     }
     await Bun.sleep(2000);
   }
-}
-
-function loadSeedToken(path: string): string {
-  const contents = Bun.file(path);
-  return contents
-    .text()
-    .then((text) => {
-      const line = text.split("\n").find((l) => l.startsWith("FHIR_SERVER_ACCESS_TOKEN="));
-      if (!line) {
-        throw new Error(`No FHIR_SERVER_ACCESS_TOKEN found in ${path}. Run 'make seed' (not seed.ts directly).`);
-      }
-      return line.slice("FHIR_SERVER_ACCESS_TOKEN=".length).trim();
-    }) as unknown as string;
 }
 
 // --- apple-healthkit-simulator -------------------------------------------
@@ -93,32 +82,32 @@ async function findPatientByMrn(mrn: string): Promise<HealthkitPatient | null> {
   return patients.find((p) => p.mrn === mrn) ?? null;
 }
 
-async function seedHealthkit(data: SeedData): Promise<HealthkitPatient> {
-  const existing = await findPatientByMrn(data.patient.mrn);
+async function seedHealthkit(seed: SeedPatient): Promise<HealthkitPatient> {
+  const existing = await findPatientByMrn(seed.patient.mrn);
   if (existing) {
-    log(`apple-healthkit-simulator already has patient ${data.patient.mrn} (id=${existing.id}); skipping.`);
+    log(`apple-healthkit-simulator already has patient ${seed.patient.mrn} (id=${existing.id}); skipping.`);
     return existing;
   }
 
   const [patient] = await healthkitPost<HealthkitPatient>("/patients", {
-    mrn: data.patient.mrn,
-    given_name: data.patient.given_name,
-    family_name: data.patient.family_name,
-    date_of_birth: data.patient.date_of_birth,
+    mrn: seed.patient.mrn,
+    given_name: seed.patient.given_name,
+    family_name: seed.patient.family_name,
+    date_of_birth: seed.patient.date_of_birth,
   });
-  log(`created patient id=${patient.id} (${data.patient.mrn})`);
+  log(`created patient id=${patient.id} (${seed.patient.mrn})`);
 
-  await healthkitPost("/characteristics", { ...data.healthkit.characteristics, patient_id: patient.id });
-  log(`seeded characteristics`);
+  await healthkitPost("/characteristics", { ...seed.healthkit.characteristics, patient_id: patient.id });
 
-  const quantitySamples = data.healthkit.quantity_samples.map((s) => ({ ...s, patient_id: patient.id }));
+  const quantitySamples = seed.healthkit.quantity_samples.map((s) => ({ ...s, patient_id: patient.id }));
   await healthkitPost("/quantity-samples", quantitySamples);
-  log(`seeded ${quantitySamples.length} quantity samples`);
 
-  await healthkitPost("/category-samples", data.healthkit.category_samples.map((s) => ({ ...s, patient_id: patient.id })));
-  log(`seeded ${data.healthkit.category_samples.length} category samples`);
+  await healthkitPost(
+    "/category-samples",
+    seed.healthkit.category_samples.map((s) => ({ ...s, patient_id: patient.id })),
+  );
 
-  for (const bp of data.healthkit.blood_pressure_correlations) {
+  for (const bp of seed.healthkit.blood_pressure_correlations) {
     const [correlation] = await healthkitPost<{ id: number }>("/correlations", {
       patient_id: patient.id,
       source_name: bp.source_name,
@@ -149,75 +138,89 @@ async function seedHealthkit(data: SeedData): Promise<HealthkitPatient> {
       },
     ]);
   }
-  log(`seeded ${data.healthkit.blood_pressure_correlations.length} blood pressure correlations`);
 
-  await healthkitPost("/workouts", data.healthkit.workouts.map((w) => ({ ...w, patient_id: patient.id })));
-  log(`seeded ${data.healthkit.workouts.length} workouts`);
+  await healthkitPost("/workouts", seed.healthkit.workouts.map((w) => ({ ...w, patient_id: patient.id })));
 
   await healthkitPost(
     "/activity-summaries",
-    data.healthkit.activity_summaries.map((s) => ({ ...s, patient_id: patient.id })),
+    seed.healthkit.activity_summaries.map((s) => ({ ...s, patient_id: patient.id })),
   );
-  log(`seeded ${data.healthkit.activity_summaries.length} activity summaries`);
+
+  log(
+    `seeded ${quantitySamples.length} quantity samples, ${seed.healthkit.category_samples.length} category samples, ` +
+      `${seed.healthkit.blood_pressure_correlations.length} BP correlations, ${seed.healthkit.workouts.length} workouts, ` +
+      `${seed.healthkit.activity_summaries.length} activity summaries`,
+  );
   return patient;
 }
 
-// --- OpenEMR FHIR ----------------------------------------------------------
+// --- wso2/fhir-server --------------------------------------------------------
 
-async function fhirFetch(path: string, token: string, init?: RequestInit): Promise<Response> {
-  return fetch(`${OPENEMR_FHIR_URL}${path}`, {
-    ...init,
-    headers: {
-      authorization: `Bearer ${token}`,
-      "content-type": "application/fhir+json",
-      accept: "application/fhir+json",
-      ...(init?.headers ?? {}),
-    },
+async function fhirCreate<T extends { id: string }>(resourceType: string, resource: Record<string, unknown>): Promise<T> {
+  const res = await fetch(`${FHIR_SERVER_URL}/${resourceType}`, {
+    method: "POST",
+    headers: { "content-type": "application/fhir+json" },
+    body: JSON.stringify(resource),
   });
-}
-
-// Only Patient supports FHIR create on this OpenEMR version; it also discards the identifier we send, so its returned uuid is the only way back to this record.
-async function createOpenemrPatient(resource: Record<string, unknown>, token: string): Promise<string> {
-  const res = await fhirFetch("/Patient", token, { method: "POST", body: JSON.stringify(resource) });
   if (!res.ok) {
-    throw new Error(`POST Patient failed: ${res.status} ${await res.text()}`);
+    throw new Error(`POST ${resourceType} failed: ${res.status} ${await res.text()}`);
   }
-  const created = (await res.json()) as { uuid: string };
-  return created.uuid;
+  return (await res.json()) as T;
 }
 
-async function linkOpenemrPatient(patientUuid: string, openemrPatientUuid: string): Promise<void> {
-  const res = await fetch(`${HEALTHKIT_URL}/patients/${patientUuid}/openemr-link`, {
+async function linkFhirPatient(patientUuid: string, fhirPatientId: string): Promise<void> {
+  const res = await fetch(`${HEALTHKIT_URL}/patients/${patientUuid}/fhir-link`, {
     method: "PATCH",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ openemr_patient_uuid: openemrPatientUuid }),
+    body: JSON.stringify({ fhir_patient_id: fhirPatientId }),
   });
   if (!res.ok) {
-    throw new Error(`PATCH openemr-link failed: ${res.status} ${await res.text()}`);
+    throw new Error(`PATCH fhir-link failed: ${res.status} ${await res.text()}`);
   }
 }
 
-async function seedOpenemr(data: SeedData, patient: HealthkitPatient, token: string): Promise<void> {
-  if (patient.openemr_patient_uuid) {
-    log(`OpenEMR already has Patient/${patient.openemr_patient_uuid} for ${data.patient.mrn}; skipping.`);
+async function seedFhir(seed: SeedPatient, patient: HealthkitPatient): Promise<void> {
+  if (patient.fhir_patient_id) {
+    log(`fhir-server already has Patient/${patient.fhir_patient_id} for ${seed.patient.mrn}; skipping.`);
     return;
   }
 
-  const openemrPatientUuid = await createOpenemrPatient(data.openemr.patient, token);
-  log(`created OpenEMR Patient/${openemrPatientUuid}`);
-  await linkOpenemrPatient(patient.uuid, openemrPatientUuid);
+  const fhirPatient = await fhirCreate<{ id: string }>("Patient", seed.fhir.patient);
+  log(`created fhir-server Patient/${fhirPatient.id}`);
+  const subject = { reference: `Patient/${fhirPatient.id}` };
+
+  const encounter = await fhirCreate<{ id: string }>("Encounter", { ...seed.fhir.encounter, subject });
+  log(`created fhir-server Encounter/${encounter.id}`);
+
+  for (const condition of seed.fhir.conditions) {
+    const created = await fhirCreate<{ id: string }>("Condition", { ...condition, subject });
+    log(`created fhir-server Condition/${created.id}`);
+  }
+
+  for (const observation of seed.fhir.observations) {
+    const created = await fhirCreate<{ id: string }>("Observation", {
+      ...observation,
+      subject,
+      encounter: { reference: `Encounter/${encounter.id}` },
+    });
+    log(`created fhir-server Observation/${created.id}`);
+  }
+
+  await linkFhirPatient(patient.uuid, fhirPatient.id);
 }
 
 // --- main -------------------------------------------------------------------
 
 async function main(): Promise<void> {
-  const data = (await Bun.file(SEED_DATA_FILE).json()) as SeedData;
+  const patients = (await Bun.file(SEED_DATA_FILE).json()) as SeedPatient[];
 
   await waitForHealthy(`${HEALTHKIT_URL}/health`, "apple-healthkit-simulator");
-  const patient = await seedHealthkit(data);
+  await waitForHealthy(`${FHIR_SERVER_URL}/metadata`, "fhir-server");
 
-  const token = await loadSeedToken(SEED_ENV_FILE);
-  await seedOpenemr(data, patient, token);
+  for (const seed of patients) {
+    const patient = await seedHealthkit(seed);
+    await seedFhir(seed, patient);
+  }
 
   log("done.");
 }

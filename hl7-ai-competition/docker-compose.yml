@@ -88,59 +88,45 @@ services:
         - path: ./whatsapp-simulator/src
           action: rebuild
 
-  openemr-db:
-    image: mysql:8.4
-    container_name: openemr-db
-    command:
-      - "--character-set-server=utf8mb4"
-      - "--collation-server=utf8mb4_unicode_ci"
+  fhir-server-db:
+    image: postgres:16-alpine
+    container_name: fhir-server-db
     environment:
-      MYSQL_ROOT_PASSWORD: root
+      POSTGRES_DB: fhirdb
+      POSTGRES_USER: fhir
+      POSTGRES_PASSWORD: fhir
     volumes:
-      - openemr-db:/var/lib/mysql
+      - fhir-server-db:/var/lib/postgresql/data
     healthcheck:
-      test:
-        - "CMD"
-        - "mysqladmin"
-        - "ping"
-        - "-h"
-        - "localhost"
-        - "-proot"
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U fhir -d fhirdb"]
+      interval: 5s
       timeout: 5s
       retries: 10
-      start_period: 30s
     restart: unless-stopped
 
-  openemr:
-    image: openemr/openemr:8.0.0.3
-    container_name: openemr
+  # WSO2 FHIR R4 server (github.com/wso2/fhir-server): Go + Postgres, no auth of
+  # its own (see its README's Multi-Tenancy/Security note) - fine for a local
+  # demo, put a gateway/auth proxy in front for anything real.
+  fhir-server:
+    build:
+      context: "https://github.com/wso2/fhir-server.git#v0.5.0"
+    image: care-loop/fhir-server:v0.5.0
+    container_name: fhir-server
     ports:
-      - "3001:80"
+      - "9090:9090"
     environment:
-      MYSQL_HOST: openemr-db
-      MYSQL_ROOT_PASS: root
-      MYSQL_USER: openemr
-      MYSQL_PASS: openemr
-      OE_USER: admin
-      OE_PASS: pass
-      # Enable REST + FHIR APIs and password grant on first setup (OpenEMR
-      # globals applied via OPENEMR_SETTING_<global>).
-      OPENEMR_SETTING_rest_api: 1
-      OPENEMR_SETTING_rest_fhir_api: 1
-      OPENEMR_SETTING_site_addr_oath: "http://localhost"
-      OPENEMR_SETTING_oauth_password_grant: 1
-    volumes:
-      - openemr-sites:/var/www/localhost/htdocs/openemr/sites
+      DATABASE_URL: "postgres://fhir:fhir@fhir-server-db:5432/fhirdb?sslmode=disable"
+      FHIR_CREATE_TABLES: "true"
+      SERVER_PORT: "9090"
+      BASE_URL: "http://localhost:9090/fhir/r4"
     depends_on:
-      openemr-db:
+      fhir-server-db:
         condition: service_healthy
     restart: unless-stopped
 
-  # FHIR R4 -> MCP bridge in front of OpenEMR. Behind the "fhir" profile so it
-  # starts only after bootstrap-fhir.sh mints a token. Uses internal plain HTTP:
-  # the client verifies TLS with no skip option, so HTTP sidesteps OpenEMR's
-  # self-signed cert; the bearer token is still required.
+  # FHIR R4 -> MCP bridge in front of fhir-server. No token needed: fhir-server
+  # has no auth of its own (see above), so FHIR_SERVER_DISABLE_AUTHORIZATION is
+  # the documented way to point the bridge at a publicly-accessible FHIR server.
   fhir-mcp-server:
     # Built from the pinned upstream tag rather than the published image, which
     # is arm64-only; building uses $TARGETPLATFORM so it works on any host arch.
@@ -148,22 +134,15 @@ services:
       context: "https://github.com/wso2/fhir-mcp-server.git#0.10.0"
     image: care-loop/fhir-mcp-server:0.10.0
     container_name: fhir-mcp-server
-    profiles:
-      - fhir
     ports:
       - "8001:8000"
     environment:
       FHIR_MCP_HOST: 0.0.0.0
       FHIR_MCP_PORT: 8000
-      FHIR_SERVER_BASE_URL: "http://openemr/apis/default/fhir"
-      # Static token mode (demo): bearer token from .fhir-mcp.env (TTL widened
-      # by bootstrap). Future: SMART auth-code grant so the server self-refreshes.
+      FHIR_SERVER_BASE_URL: "http://fhir-server:9090/fhir/r4"
       FHIR_SERVER_DISABLE_AUTHORIZATION: "True"
-    env_file:
-      - path: .fhir-mcp.env
-        required: false
     depends_on:
-      - openemr
+      - fhir-server
     restart: unless-stopped
 
   front-desk-dashboard:
@@ -197,7 +176,39 @@ services:
         - path: ./front-desk-dashboard/src
           action: rebuild
 
+  vitals-cron-service:
+    build:
+      context: ./vitals-cron-service
+    image: vitals-cron-service:latest
+    container_name: vitals-cron-service
+    ports:
+      - "8003:8000"
+    environment:
+      VITALS_CRON_HEALTHKIT_URL: "http://apple-healthkit-simulator:8000"
+      VITALS_CRON_FHIR_SERVER_URL: "http://fhir-server:9090/fhir/r4"
+    healthcheck:
+      test:
+        - "CMD"
+        - "python"
+        - "-c"
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    depends_on:
+      - apple-healthkit-simulator
+      - fhir-server
+    develop:
+      watch:
+        - path: ./vitals-cron-service/pyproject.toml
+          action: rebuild
+        - path: ./vitals-cron-service/uv.lock
+          action: rebuild
+        - path: ./vitals-cron-service/src
+          action: rebuild
+
 volumes:
   healthkit-data:
-  openemr-db:
-  openemr-sites:
+  fhir-server-db:

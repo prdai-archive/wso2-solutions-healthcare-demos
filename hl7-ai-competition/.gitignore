@@ -1,4 +1,0 @@
-# Generated FHIR MCP bridge token (minted at bootstrap, never commit)
-.fhir-mcp.env
-# Generated write-scoped token for scripts/seed.ts, never commit
-.fhir-seed.env

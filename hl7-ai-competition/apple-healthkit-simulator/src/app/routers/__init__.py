@@ -43,16 +43,16 @@ patient_router = build_router(
 )
 
 
-class OpenemrLink(BaseModel):
-    openemr_patient_uuid: str
+class FhirLink(BaseModel):
+    fhir_patient_id: str
 
 
-@patient_router.patch("/{uuid}/openemr-link", response_model=PatientRead)
-def link_openemr_patient(uuid: str, link: OpenemrLink, session: Annotated[Session, Depends(get_session)]) -> Patient:
+@patient_router.patch("/{uuid}/fhir-link", response_model=PatientRead)
+def link_fhir_patient(uuid: str, link: FhirLink, session: Annotated[Session, Depends(get_session)]) -> Patient:
     patient = session.exec(select(Patient).where(Patient.uuid == uuid)).first()
     if patient is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"patient '{uuid}' not found")
-    patient.openemr_patient_uuid = link.openemr_patient_uuid
+    patient.fhir_patient_id = link.fhir_patient_id
     session.add(patient)
     session.commit()
     session.refresh(patient)

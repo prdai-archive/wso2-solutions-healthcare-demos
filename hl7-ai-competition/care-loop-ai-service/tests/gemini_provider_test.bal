@@ -2,6 +2,30 @@ import ballerina/ai;
 import ballerina/test;
 
 @test:Config {}
+function testRetryableDelayParsesRetryInfo() {
+    error err = error("Too Many Requests", statusCode = 429, body = {
+        'error: {
+            details: [
+                {"@type": "type.googleapis.com/google.rpc.RetryInfo", retryDelay: "20s"}
+            ]
+        }
+    });
+    test:assertEquals(retryableDelay(err), <decimal>20);
+}
+
+@test:Config {}
+function testRetryableDelayFallsBackToDefault() {
+    error err = error("Too Many Requests", statusCode = 429, body = {'error: {details: []}});
+    test:assertEquals(retryableDelay(err), DEFAULT_RETRY_DELAY);
+}
+
+@test:Config {}
+function testRetryableDelayNilForNonRetryableStatus() {
+    error err = error("Bad Request", statusCode = 400, body = {});
+    test:assertEquals(retryableDelay(err), ());
+}
+
+@test:Config {}
 function testToGeminiContentUserMessage() returns error? {
     json content = check toGeminiContent({role: ai:USER, content: "hello"});
     test:assertEquals(content, {role: "user", parts: [{text: "hello"}]});

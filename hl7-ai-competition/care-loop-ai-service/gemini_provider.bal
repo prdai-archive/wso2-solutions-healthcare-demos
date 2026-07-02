@@ -2,12 +2,7 @@ import ballerina/ai;
 import ballerina/http;
 import ballerina/jballerina.java;
 
-# A minimal `ai:ModelProvider` for Gemini's `generateContent` REST API, since neither
-# `ballerina/ai` nor `ballerinax` ships an official Gemini provider (only WSO2's own
-# gateway and OpenAI/Azure OpenAI, whose model name is a closed enum that can't
-# name a Gemini model). Wire format (roles, functionCall/functionResponse shape)
-# confirmed against the live API, not docs alone - Google's docs disagreed with
-# themselves on whether function results use role "user" or "function".
+# A minimal `ai:ModelProvider` for Gemini's `generateContent` REST API - no official one ships for Ballerina.
 public isolated distinct client class GeminiModelProvider {
     *ai:ModelProvider;
 
@@ -64,12 +59,7 @@ public isolated distinct client class GeminiModelProvider {
         return toAssistantMessage(response);
     }
 
-    // Unused by ai:Agent (its FunctionCallAgent only calls chat()). ai:ModelProvider's
-    // generate() is dependently-typed (return type depends on the `td` param), which
-    // Ballerina only allows on external functions - same reason every other first-party
-    // provider binds this to a small Java class instead of a plain Ballerina body. Bound to
-    // libs/gemini-generate-stub.jar (see GeminiGenerateStub.java in that dir), which errors
-    // clearly if ever called rather than silently misbehaving.
+    // Unused by ai:Agent; dependently-typed generate() must be external in Ballerina, so this binds to the stub in libs/.
     isolated remote function generate(ai:Prompt prompt, typedesc<anydata> td = <>) returns td|ai:Error = @java:Method {
         'class: "care_loop.care_loop_ai_service.GeminiGenerateStub"
     } external;
@@ -109,9 +99,7 @@ isolated function toFunctionDeclarations(ai:ChatCompletionFunctions[] tools) ret
         select {name: tool.name, description: tool.description, parameters: sanitizeSchema(tool.parameters ?: {})};
 }
 
-// Gemini's function-declaration parameters are an OpenAPI 3.0 schema subset - it rejects
-// standard JSON Schema keywords like "examples"/"additionalProperties" that fhir-mcp-server's
-// tool schemas include, so strip anything outside that subset before sending.
+// Gemini's function-declaration schema rejects JSON Schema keywords fhir-mcp-server's tool schemas include.
 isolated function sanitizeSchema(json schema) returns json {
     if schema is map<json> {
         map<json> cleaned = {};

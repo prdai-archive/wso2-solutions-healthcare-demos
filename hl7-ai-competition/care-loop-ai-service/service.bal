@@ -25,11 +25,6 @@ final ai:Agent questionnaireAgent = check new (
 
 service /questionnaires on new http:Listener(listenPort) {
 
-    # Runs the questionnaire-drafting agent for a patient: the agent itself calls the FHIR
-    # MCP server's search tool for recent Observations, then drafts the Questionnaire.
-    #
-    # + request - the patient to draft a questionnaire for
-    # + return - the drafted FHIR Questionnaire, or an error if the agent run failed
     resource function post .(QuestionnaireRequest request) returns QuestionnaireResponse|http:InternalServerError {
         string cutoff = sinceDate(request.lookbackDays);
         string query = string `Patient id: ${request.patientId}. Date cutoff: ${cutoff}.`;

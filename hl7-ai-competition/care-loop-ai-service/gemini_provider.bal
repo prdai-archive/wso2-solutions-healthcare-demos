@@ -1,6 +1,13 @@
 import ballerina/ai;
 import ballerina/http;
 import ballerina/jballerina.java;
+import ballerina/lang.regexp;
+import ballerina/lang.runtime;
+import ballerina/lang.value;
+import ballerina/log;
+
+const int MAX_RETRIES = 3;
+const decimal DEFAULT_RETRY_DELAY = 2;
 
 # A minimal `ai:ModelProvider` for Gemini's `generateContent` REST API - no official one ships for Ballerina.
 public isolated distinct client class GeminiModelProvider {
@@ -51,18 +58,70 @@ public isolated distinct client class GeminiModelProvider {
             requestBody["tools"] = [{functionDeclarations: toFunctionDeclarations(tools)}];
         }
 
-        json|error response = self.geminiClient->post(
-            string `/v1beta/models/${self.model}:generateContent?key=${self.apiKey}`, requestBody);
-        if response is error {
-            return error ai:LlmConnectionError("failed to call Gemini", response);
+        json|ai:Error response = self.postWithRetry(requestBody);
+        if response is ai:Error {
+            return response;
         }
         return toAssistantMessage(response);
+    }
+
+    private isolated function postWithRetry(json requestBody) returns json|ai:Error {
+        foreach int attempt in 0 ..< MAX_RETRIES {
+            json|error response = self.geminiClient->post(
+                string `/v1beta/models/${self.model}:generateContent?key=${self.apiKey}`, requestBody);
+            if response !is error {
+                return response;
+            }
+            decimal? retryDelay = retryableDelay(response);
+            if retryDelay is () || attempt == MAX_RETRIES - 1 {
+                return error ai:LlmConnectionError("failed to call Gemini", response);
+            }
+            log:printWarn("Gemini call failed, retrying", attempt = attempt, retryDelay = retryDelay, 'error = response);
+            runtime:sleep(retryDelay);
+        }
+        return error ai:LlmConnectionError("failed to call Gemini: retries exhausted");
     }
 
     // Unused by ai:Agent; dependently-typed generate() must be external in Ballerina, so this binds to the stub in libs/.
     isolated remote function generate(ai:Prompt prompt, typedesc<anydata> td = <>) returns td|ai:Error = @java:Method {
         'class: "care_loop.care_loop_ai_service.GeminiGenerateStub"
     } external;
+}
+
+// Retryable Gemini errors are 429 (rate limit) and 5xx; other errors (bad request, auth) are not.
+isolated function retryableDelay(error err) returns decimal? {
+    value:Cloneable statusCode = err.detail()["statusCode"];
+    if statusCode !is int || (statusCode != 429 && statusCode < 500) {
+        return ();
+    }
+    value:Cloneable body = err.detail()["body"];
+    if body !is anydata {
+        return DEFAULT_RETRY_DELAY;
+    }
+    return retryDelaySeconds(body) ?: DEFAULT_RETRY_DELAY;
+}
+
+// Gemini's 429/503 bodies include a RetryInfo detail like {"retryDelay": "20s"}.
+isolated function retryDelaySeconds(anydata body) returns decimal? {
+    json|error errorBody = body.cloneWithType();
+    if errorBody is error {
+        return ();
+    }
+    json[]|error details = errorBody.'error.details.ensureType();
+    if details is error {
+        return ();
+    }
+    foreach json detail in details {
+        string|error retryDelay = detail.retryDelay.ensureType();
+        if retryDelay is string {
+            string digits = regexp:replaceAll(re `[^0-9.]`, retryDelay, "");
+            decimal|error seconds = decimal:fromString(digits);
+            if seconds is decimal {
+                return seconds;
+            }
+        }
+    }
+    return ();
 }
 
 isolated function toGeminiContent(ai:ChatMessage message) returns json|error {

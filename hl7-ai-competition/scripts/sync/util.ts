@@ -11,9 +11,7 @@ export async function waitForHealthy(url: string, label: string, timeoutMs = 120
         log(`${label} is up.`);
         return;
       }
-    } catch {
-      // keep polling
-    }
+    } catch {}
     if (performance.now() - start > timeoutMs) {
       throw new Error(`Timed out waiting for ${label} at ${url}`);
     }

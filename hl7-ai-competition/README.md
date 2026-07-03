@@ -56,9 +56,8 @@ the next 24 hours of hourly vitals (heart rate, SpO2, respiratory rate, blood
 pressure) per patient into apple-healthkit-simulator only, timestamped into
 the future from "now". apple-healthkit-simulator's `Patient.fhir_patient_id`
 column (set via `PATCH /patients/{uuid}/fhir-link`) links the two systems'
-patient records. fhir-sync carries this data into care-loop-fhir-server on its
-own schedule (hourly); trigger it immediately with `docker compose restart
-fhir-sync`.
+patient records. `make seed` also restarts fhir-sync, which mirrors this data
+into care-loop-fhir-server on startup and then hourly after that.
 
 apple-healthkit-simulator's hourly job picks up each hour's worth of readings
 as real time reaches them, ready to forward once `HEALTHKIT_VITALS_TARGET_URL`

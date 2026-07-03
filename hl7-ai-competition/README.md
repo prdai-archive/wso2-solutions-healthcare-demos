@@ -34,25 +34,23 @@ Earlier stages: [v1](assets/architecture-diagram-v1.png),
 - care-loop-fhir-server — HAPI FHIR server (`hapiproject/hapi`, single
   container, built-in H2 DB), the Care Loop's own internal FHIR store. Port
   9091 (`/fhir`). Kept in sync from ehr-fhir-server by fhir-sync; this is what
-  fhir-mcp-server actually reads from. Not wso2/fhir-server here because that
-  server's `identifier` search is broken for Encounter/MedicationRequest/
-  Observation (a misaligned row in its search-param seed CSV), which the sync
-  job's dependency resolution needs to work correctly.
-- fhir-sync — Bun script (`scripts/sync/`) that polls ehr-fhir-server for
-  resources changed since the last run (`_lastUpdated`) and creates them in
-  care-loop-fhir-server, rewriting cross-resource references (e.g.
-  `Observation.encounter`) to the new server's ids along the way. Runs hourly
-  in a loop inside its own container; state (per-type watermark + ehr-id ->
-  internal-id map) lives in `/data/state.json` on a docker volume, not derived
-  from either FHIR server's search - ehr-fhir-server's `_lastUpdated=gt` filter
-  is inclusive of the exact same second, so re-deriving state from search
-  results would double-sync anything created in the same second.
+  fhir-mcp-server actually reads from. Not wso2/fhir-server here because
+  fhir-sync creates resources by `PUT`-ing them under their original EHR id
+  (so both systems agree on ids and references need no rewriting), and
+  wso2/fhir-server's capability statement reports `updateCreate: false` - it
+  rejects a `PUT` to an id that doesn't exist yet with a 404, so it can't be
+  the target of this sync design.
+- fhir-sync — Bun script (`scripts/sync/`) that polls ehr-fhir-server hourly
+  for resources changed since the last run (`_lastUpdated`) and `PUT`s each
+  one into care-loop-fhir-server under its original EHR id. Because the id is
+  preserved, cross-resource references (e.g. `Observation.encounter`) are
+  already correct on the internal side - nothing to remap - and re-syncing the
+  same resource twice is just a harmless update, not a duplicate. Per-type
+  watermarks live in `/data/state.json` on a docker volume.
 - fhir-mcp-server — WSO2 FHIR R4 to MCP bridge (`wso2/fhir-mcp-server`) in
   front of care-loop-fhir-server, exposing the FHIR API as MCP tools on port
   8001. Reaches it through care-loop-fhir-server-readonly-proxy (nginx), which
-  403s anything but GET/HEAD, so the bridge can only read. ehr-fhir-server has
-  the same read-only proxy in front of it (ehr-fhir-server-readonly-proxy),
-  used only by fhir-sync.
+  403s anything but GET/HEAD, so the bridge can only read.
 
 Run the stack with `make up`, or `make watch` to run it in the foreground and
 rebuild on change.

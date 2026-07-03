@@ -1,8 +1,7 @@
-import { loadState, mappedId, recordSync, saveState, watermark } from "./state";
+import { loadState, saveState, watermark } from "./state";
 import { log } from "./util";
-import { REFERENCE_FIELDS, SYNC_ORDER } from "./types";
+import { SYNC_RESOURCE_TYPES } from "./types";
 import type { FhirBundle, FhirResource } from "./types";
-import type { SyncState } from "./state";
 
 export const EHR_FHIR_SERVER_URL = process.env.EHR_FHIR_SERVER_URL ?? "http://localhost:9090/fhir/r4";
 export const CARE_LOOP_FHIR_SERVER_URL = process.env.CARE_LOOP_FHIR_SERVER_URL ?? "http://localhost:9091/fhir";
@@ -15,16 +14,19 @@ async function fhirGet(baseUrl: string, path: string): Promise<FhirBundle> {
   return (await res.json()) as FhirBundle;
 }
 
-async function fhirCreate(baseUrl: string, resourceType: string, resource: Record<string, unknown>): Promise<FhirResource> {
-  const res = await fetch(`${baseUrl}/${resourceType}`, {
-    method: "POST",
+// PUT-by-id, not POST: the internal store keeps the EHR's own resource id, so
+// references (Encounter.subject, Observation.encounter, ...) already point to
+// the right id on both sides - no id mapping or reference rewriting needed.
+// It also makes re-syncing a resource a harmless no-op update, not a duplicate.
+async function fhirPut(resourceType: string, resource: Record<string, unknown>): Promise<void> {
+  const res = await fetch(`${CARE_LOOP_FHIR_SERVER_URL}/${resourceType}/${resource.id}`, {
+    method: "PUT",
     headers: { "content-type": "application/fhir+json" },
     body: JSON.stringify(resource),
   });
   if (!res.ok) {
-    throw new Error(`POST ${resourceType} failed: ${res.status} ${await res.text()}`);
+    throw new Error(`PUT ${resourceType}/${resource.id} failed: ${res.status} ${await res.text()}`);
   }
-  return (await res.json()) as FhirResource;
 }
 
 // The server's pagination "next" links are built from its own configured BASE_URL,
@@ -44,55 +46,20 @@ async function fetchDiff(resourceType: string, since: string): Promise<FhirResou
   return resources;
 }
 
-function remapReferences(state: SyncState, resourceType: string, copy: Record<string, unknown>): boolean {
-  for (const [field, refType] of Object.entries(REFERENCE_FIELDS[resourceType] ?? {})) {
-    const ref = (copy[field] as { reference?: string } | undefined)?.reference;
-    if (!ref) {
-      continue;
-    }
-    const ehrId = ref.split("/").pop();
-    const internalId = ehrId && mappedId(state, refType, ehrId);
-    if (!internalId) {
-      return false;
-    }
-    copy[field] = { reference: `${refType}/${internalId}` };
-  }
-  return true;
-}
-
-async function syncResourceType(state: SyncState, resourceType: string): Promise<void> {
-  const since = watermark(state, resourceType);
-  const diff = await fetchDiff(resourceType, since);
-  log(`${resourceType}: ${diff.length} resource(s) changed since ${since}`);
-
-  for (const resource of diff) {
-    const { id: ehrId, meta, ...rest } = resource;
-
-    // ehr-fhir-server's _lastUpdated "gt" filter is inclusive of the exact same
-    // second (confirmed: gt<timestamp> still matches a resource with that exact
-    // lastUpdated), so a resource can reappear in the very next diff. The id map
-    // makes re-syncing it a no-op instead of a duplicate.
-    if (mappedId(state, resourceType, ehrId)) {
-      continue;
-    }
-
-    const copy: Record<string, unknown> = { ...rest, resourceType };
-
-    if (!remapReferences(state, resourceType, copy)) {
-      log(`skipping ${resourceType}/${ehrId}: a referenced resource is not yet synced`);
-      continue;
-    }
-
-    const created = await fhirCreate(CARE_LOOP_FHIR_SERVER_URL, resourceType, copy);
-    recordSync(state, resourceType, ehrId, created.id, meta?.lastUpdated ?? since);
-    log(`synced ${resourceType}/${ehrId} -> care-loop-fhir-server ${resourceType}/${created.id}`);
-  }
-}
-
 export async function syncAll(): Promise<void> {
   const state = await loadState();
-  for (const resourceType of SYNC_ORDER) {
-    await syncResourceType(state, resourceType);
+  for (const resourceType of SYNC_RESOURCE_TYPES) {
+    const since = watermark(state, resourceType);
+    const diff = await fetchDiff(resourceType, since);
+    log(`${resourceType}: ${diff.length} resource(s) changed since ${since}`);
+
+    for (const resource of diff) {
+      await fhirPut(resourceType, resource);
+      log(`synced ${resourceType}/${resource.id}`);
+      if ((resource.meta?.lastUpdated ?? since) > watermark(state, resourceType)) {
+        state[resourceType] = resource.meta?.lastUpdated ?? since;
+      }
+    }
     await saveState(state);
   }
 }

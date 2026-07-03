@@ -123,15 +123,6 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  ehr-fhir-server-readonly-proxy:
-    image: nginx:1.27-alpine
-    container_name: ehr-fhir-server-readonly-proxy
-    volumes:
-      - ./ehr-fhir-server-readonly-proxy/nginx.conf:/etc/nginx/nginx.conf:ro
-    depends_on:
-      - ehr-fhir-server
-    restart: unless-stopped
-
   # The Care Loop's internal FHIR store - kept in sync from ehr-fhir-server by
   # fhir-sync below. The AI agent (via fhir-mcp-server) reads from this, never
   # from the EHR directly. HAPI FHIR (not wso2/fhir-server) because wso2/fhir-server
@@ -164,14 +155,14 @@ services:
     image: care-loop/fhir-sync:latest
     container_name: fhir-sync
     environment:
-      EHR_FHIR_SERVER_URL: "http://ehr-fhir-server-readonly-proxy:8080/fhir/r4"
+      EHR_FHIR_SERVER_URL: "http://ehr-fhir-server:9090/fhir/r4"
       CARE_LOOP_FHIR_SERVER_URL: "http://care-loop-fhir-server:8080/fhir"
       SYNC_INTERVAL_SECONDS: "3600"
       SYNC_STATE_FILE: "/data/state.json"
     volumes:
       - fhir-sync-state:/data
     depends_on:
-      - ehr-fhir-server-readonly-proxy
+      - ehr-fhir-server
       - care-loop-fhir-server
     restart: unless-stopped
 

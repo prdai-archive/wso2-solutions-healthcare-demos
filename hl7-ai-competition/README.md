@@ -29,24 +29,15 @@ Earlier stages: [v1](assets/architecture-diagram-v1.png),
 - ehr-fhir-server — WSO2 FHIR R4 server (`wso2/fhir-server`, Go + Postgres)
   standing in for the clinic's EHR/EMR FHIR API. Port 9090 (`/fhir/r4`). Has no
   auth of its own; fine for this local demo, put a gateway/auth proxy in front
-  for anything real. This is the source of truth `fhir-sync` reads from - never
-  queried directly by the AI agent.
-- care-loop-fhir-server — HAPI FHIR server (`hapiproject/hapi`, single
-  container, built-in H2 DB), the Care Loop's own internal FHIR store. Port
-  9091 (`/fhir`). Kept in sync from ehr-fhir-server by fhir-sync; this is what
-  fhir-mcp-server actually reads from. Not wso2/fhir-server here because
-  fhir-sync creates resources by `PUT`-ing them under their original EHR id
-  (so both systems agree on ids and references need no rewriting), and
-  wso2/fhir-server's capability statement reports `updateCreate: false` - it
-  rejects a `PUT` to an id that doesn't exist yet with a 404, so it can't be
-  the target of this sync design.
+  for anything real.
+- care-loop-fhir-server — HAPI FHIR server (`hapiproject/hapi`), the Care
+  Loop's own internal FHIR store, port 9091 (`/fhir`). Kept in sync from
+  ehr-fhir-server by fhir-sync; this is what fhir-mcp-server actually reads
+  from.
 - fhir-sync — Bun script (`scripts/sync/`) that polls ehr-fhir-server hourly
-  for resources changed since the last run (`_lastUpdated`) and `PUT`s each
-  one into care-loop-fhir-server under its original EHR id. Because the id is
-  preserved, cross-resource references (e.g. `Observation.encounter`) are
-  already correct on the internal side - nothing to remap - and re-syncing the
-  same resource twice is just a harmless update, not a duplicate. Per-type
-  watermarks live in `/data/state.json` on a docker volume.
+  for resources changed since the last run and `PUT`s each one into
+  care-loop-fhir-server under its original EHR id, so references need no
+  remapping.
 - fhir-mcp-server — WSO2 FHIR R4 to MCP bridge (`wso2/fhir-mcp-server`) in
   front of care-loop-fhir-server, exposing the FHIR API as MCP tools on port
   8001. Reaches it through care-loop-fhir-server-readonly-proxy (nginx), which
@@ -66,9 +57,9 @@ the next 24 hours of hourly vitals (heart rate, SpO2, respiratory rate, blood
 pressure) per patient into apple-healthkit-simulator only, timestamped into
 the future from "now". apple-healthkit-simulator's `Patient.fhir_patient_id`
 column (set via `PATCH /patients/{uuid}/fhir-link`) links the two systems'
-patient records. fhir-sync then carries ehr-fhir-server's data over into
-care-loop-fhir-server on its own schedule (hourly) - trigger it immediately
-with `docker compose restart fhir-sync` if you don't want to wait.
+patient records. fhir-sync carries this data into care-loop-fhir-server on its
+own schedule (hourly); trigger it immediately with `docker compose restart
+fhir-sync`.
 
 apple-healthkit-simulator's hourly job picks up each hour's worth of readings
 as real time reaches them, ready to forward once `HEALTHKIT_VITALS_TARGET_URL`

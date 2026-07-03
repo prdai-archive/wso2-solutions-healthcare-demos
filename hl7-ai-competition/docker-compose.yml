@@ -104,8 +104,6 @@ services:
       retries: 10
     restart: unless-stopped
 
-  # Stands in for the clinic's EHR/EMR FHIR API - source of truth, synced into
-  # care-loop-fhir-server below rather than queried directly by the AI agent.
   ehr-fhir-server:
     build:
       context: "https://github.com/wso2/fhir-server.git#v0.5.0"
@@ -123,12 +121,6 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  # The Care Loop's internal FHIR store - kept in sync from ehr-fhir-server by
-  # fhir-sync below. The AI agent (via fhir-mcp-server) reads from this, never
-  # from the EHR directly. HAPI FHIR (not wso2/fhir-server) because wso2/fhir-server
-  # v0.5.0's identifier search is broken for Encounter/MedicationRequest/Observation -
-  # a misaligned row in its search-param seed CSV - which the sync job depends on
-  # for id-mapping and dedup. Single container, built-in H2 DB, no separate Postgres.
   care-loop-fhir-server:
     image: hapiproject/hapi:v8.10.0-2
     container_name: care-loop-fhir-server
@@ -167,7 +159,6 @@ services:
     restart: unless-stopped
 
   fhir-mcp-server:
-    # Built from the pinned tag, not the published image, which is arm64-only.
     build:
       context: "https://github.com/wso2/fhir-mcp-server.git#0.10.0"
     image: care-loop/fhir-mcp-server:0.10.0

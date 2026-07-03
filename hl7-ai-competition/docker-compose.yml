@@ -88,15 +88,15 @@ services:
         - path: ./whatsapp-simulator/src
           action: rebuild
 
-  fhir-server-db:
+  ehr-fhir-server-db:
     image: postgres:16-alpine
-    container_name: fhir-server-db
+    container_name: ehr-fhir-server-db
     environment:
       POSTGRES_DB: fhirdb
       POSTGRES_USER: fhir
       POSTGRES_PASSWORD: fhir
     volumes:
-      - fhir-server-db:/var/lib/postgresql/data
+      - ehr-fhir-server-db:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U fhir -d fhirdb"]
       interval: 5s
@@ -104,30 +104,75 @@ services:
       retries: 10
     restart: unless-stopped
 
-  fhir-server:
+  # Stands in for the clinic's EHR/EMR FHIR API - source of truth, synced into
+  # care-loop-fhir-server below rather than queried directly by the AI agent.
+  ehr-fhir-server:
     build:
       context: "https://github.com/wso2/fhir-server.git#v0.5.0"
     image: care-loop/fhir-server:v0.5.0
-    container_name: fhir-server
+    container_name: ehr-fhir-server
     ports:
       - "9090:9090"
     environment:
-      DATABASE_URL: "postgres://fhir:fhir@fhir-server-db:5432/fhirdb?sslmode=disable"
+      DATABASE_URL: "postgres://fhir:fhir@ehr-fhir-server-db:5432/fhirdb?sslmode=disable"
       FHIR_CREATE_TABLES: "true"
       SERVER_PORT: "9090"
       BASE_URL: "http://localhost:9090/fhir/r4"
     depends_on:
-      fhir-server-db:
+      ehr-fhir-server-db:
         condition: service_healthy
     restart: unless-stopped
 
-  fhir-server-readonly-proxy:
+  ehr-fhir-server-readonly-proxy:
     image: nginx:1.27-alpine
-    container_name: fhir-server-readonly-proxy
+    container_name: ehr-fhir-server-readonly-proxy
     volumes:
-      - ./fhir-server-readonly-proxy/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ehr-fhir-server-readonly-proxy/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
-      - fhir-server
+      - ehr-fhir-server
+    restart: unless-stopped
+
+  # The Care Loop's internal FHIR store - kept in sync from ehr-fhir-server by
+  # fhir-sync below. The AI agent (via fhir-mcp-server) reads from this, never
+  # from the EHR directly. HAPI FHIR (not wso2/fhir-server) because wso2/fhir-server
+  # v0.5.0's identifier search is broken for Encounter/MedicationRequest/Observation -
+  # a misaligned row in its search-param seed CSV - which the sync job depends on
+  # for id-mapping and dedup. Single container, built-in H2 DB, no separate Postgres.
+  care-loop-fhir-server:
+    image: hapiproject/hapi:v8.10.0-2
+    container_name: care-loop-fhir-server
+    ports:
+      - "9091:8080"
+    environment:
+      hapi.fhir.fhir_version: R4
+    volumes:
+      - care-loop-fhir-server-data:/data/hapi
+    restart: unless-stopped
+
+  care-loop-fhir-server-readonly-proxy:
+    image: nginx:1.27-alpine
+    container_name: care-loop-fhir-server-readonly-proxy
+    volumes:
+      - ./care-loop-fhir-server-readonly-proxy/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - care-loop-fhir-server
+    restart: unless-stopped
+
+  fhir-sync:
+    build:
+      context: ./scripts/sync
+    image: care-loop/fhir-sync:latest
+    container_name: fhir-sync
+    environment:
+      EHR_FHIR_SERVER_URL: "http://ehr-fhir-server-readonly-proxy:8080/fhir/r4"
+      CARE_LOOP_FHIR_SERVER_URL: "http://care-loop-fhir-server:8080/fhir"
+      SYNC_INTERVAL_SECONDS: "3600"
+      SYNC_STATE_FILE: "/data/state.json"
+    volumes:
+      - fhir-sync-state:/data
+    depends_on:
+      - ehr-fhir-server-readonly-proxy
+      - care-loop-fhir-server
     restart: unless-stopped
 
   fhir-mcp-server:
@@ -141,10 +186,10 @@ services:
     environment:
       FHIR_MCP_HOST: 0.0.0.0
       FHIR_MCP_PORT: 8000
-      FHIR_SERVER_BASE_URL: "http://fhir-server-readonly-proxy:8080/fhir/r4"
+      FHIR_SERVER_BASE_URL: "http://care-loop-fhir-server-readonly-proxy:8080/fhir"
       FHIR_SERVER_DISABLE_AUTHORIZATION: "True"
     depends_on:
-      - fhir-server-readonly-proxy
+      - care-loop-fhir-server-readonly-proxy
     restart: unless-stopped
 
   front-desk-dashboard:
@@ -180,4 +225,6 @@ services:
 
 volumes:
   healthkit-data:
-  fhir-server-db:
+  ehr-fhir-server-db:
+  care-loop-fhir-server-data:
+  fhir-sync-state:

@@ -26,13 +26,33 @@ Earlier stages: [v1](assets/architecture-diagram-v1.png),
 - [whatsapp-simulator](whatsapp-simulator/) — Next.js chat UI that renders a
   pushed questionnaire and posts the conversation transcript to a callback URL
   (port 3000).
-- fhir-server — WSO2 FHIR R4 server (`wso2/fhir-server`, Go + Postgres) standing
-  in for an EHR/EMR's FHIR API. Port 9090 (`/fhir/r4`). Has no auth of its own;
-  fine for this local demo, put a gateway/auth proxy in front for anything real.
-- fhir-mcp-server — WSO2 FHIR R4 to MCP bridge (`wso2/fhir-mcp-server`) in front
-  of fhir-server, exposing the FHIR API as MCP tools on port 8001. Reaches
-  fhir-server through fhir-server-readonly-proxy (nginx), which 403s anything
-  but GET/HEAD, so the bridge can only read.
+- ehr-fhir-server — WSO2 FHIR R4 server (`wso2/fhir-server`, Go + Postgres)
+  standing in for the clinic's EHR/EMR FHIR API. Port 9090 (`/fhir/r4`). Has no
+  auth of its own; fine for this local demo, put a gateway/auth proxy in front
+  for anything real. This is the source of truth `fhir-sync` reads from - never
+  queried directly by the AI agent.
+- care-loop-fhir-server — HAPI FHIR server (`hapiproject/hapi`, single
+  container, built-in H2 DB), the Care Loop's own internal FHIR store. Port
+  9091 (`/fhir`). Kept in sync from ehr-fhir-server by fhir-sync; this is what
+  fhir-mcp-server actually reads from. Not wso2/fhir-server here because that
+  server's `identifier` search is broken for Encounter/MedicationRequest/
+  Observation (a misaligned row in its search-param seed CSV), which the sync
+  job's dependency resolution needs to work correctly.
+- fhir-sync — Bun script (`scripts/sync/`) that polls ehr-fhir-server for
+  resources changed since the last run (`_lastUpdated`) and creates them in
+  care-loop-fhir-server, rewriting cross-resource references (e.g.
+  `Observation.encounter`) to the new server's ids along the way. Runs hourly
+  in a loop inside its own container; state (per-type watermark + ehr-id ->
+  internal-id map) lives in `/data/state.json` on a docker volume, not derived
+  from either FHIR server's search - ehr-fhir-server's `_lastUpdated=gt` filter
+  is inclusive of the exact same second, so re-deriving state from search
+  results would double-sync anything created in the same second.
+- fhir-mcp-server — WSO2 FHIR R4 to MCP bridge (`wso2/fhir-mcp-server`) in
+  front of care-loop-fhir-server, exposing the FHIR API as MCP tools on port
+  8001. Reaches it through care-loop-fhir-server-readonly-proxy (nginx), which
+  403s anything but GET/HEAD, so the bridge can only read. ehr-fhir-server has
+  the same read-only proxy in front of it (ehr-fhir-server-readonly-proxy),
+  used only by fhir-sync.
 
 Run the stack with `make up`, or `make watch` to run it in the foreground and
 rebuild on change.
@@ -42,13 +62,15 @@ rebuild on change.
 `make up` also runs `make seed`, which runs `scripts/seed/index.ts` (Bun):
 loads the three demo patients in `scripts/seed/data/patients.json` (one
 stable, one borderline, one at-risk) into apple-healthkit-simulator's own
-REST API and into fhir-server as FHIR `Patient`/`Encounter`/`Condition`/
+REST API and into ehr-fhir-server as FHIR `Patient`/`Encounter`/`Condition`/
 `AllergyIntolerance`/`MedicationRequest`/`Observation` resources, then seeds
 the next 24 hours of hourly vitals (heart rate, SpO2, respiratory rate, blood
 pressure) per patient into apple-healthkit-simulator only, timestamped into
 the future from "now". apple-healthkit-simulator's `Patient.fhir_patient_id`
 column (set via `PATCH /patients/{uuid}/fhir-link`) links the two systems'
-patient records.
+patient records. fhir-sync then carries ehr-fhir-server's data over into
+care-loop-fhir-server on its own schedule (hourly) - trigger it immediately
+with `docker compose restart fhir-sync` if you don't want to wait.
 
 apple-healthkit-simulator's hourly job picks up each hour's worth of readings
 as real time reaches them, ready to forward once `HEALTHKIT_VITALS_TARGET_URL`

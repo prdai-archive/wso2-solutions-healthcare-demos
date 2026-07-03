@@ -1,5 +1,5 @@
 import { log } from "./util";
-import { SYNC_RESOURCE_TYPES } from "./types";
+import { SYNC_LEVELS } from "./types";
 import type { FhirBundle, FhirResource } from "./types";
 
 export const EHR_FHIR_SERVER_URL = process.env.EHR_FHIR_SERVER_URL ?? "http://localhost:9090/fhir/r4";
@@ -45,13 +45,16 @@ async function putResource(resourceType: string, resource: Record<string, unknow
   }
 }
 
+async function syncResourceType(resourceType: string): Promise<void> {
+  const resources = await fetchAll(resourceType);
+  log(`${resourceType}: ${resources.length} resource(s) in ehr-fhir-server`);
+  await Promise.all(
+    resources.map((resource) => putResource(resourceType, resource).then(() => log(`synced ${resourceType}/${resource.id}`))),
+  );
+}
+
 export async function syncAll(): Promise<void> {
-  for (const resourceType of SYNC_RESOURCE_TYPES) {
-    const resources = await fetchAll(resourceType);
-    log(`${resourceType}: ${resources.length} resource(s) in ehr-fhir-server`);
-    for (const resource of resources) {
-      await putResource(resourceType, resource);
-      log(`synced ${resourceType}/${resource.id}`);
-    }
+  for (const level of SYNC_LEVELS) {
+    await Promise.all(level.map(syncResourceType));
   }
 }

@@ -34,10 +34,9 @@ Earlier stages: [v1](assets/architecture-diagram-v1.png),
   Loop's own internal FHIR store, port 9091 (`/fhir`). Kept in sync from
   ehr-fhir-server by fhir-sync; this is what fhir-mcp-server actually reads
   from.
-- fhir-sync — Bun script (`scripts/sync/`) that polls ehr-fhir-server hourly
-  for resources changed since the last run and `PUT`s each one into
-  care-loop-fhir-server under its original EHR id, so references need no
-  remapping.
+- fhir-sync — Bun script (`scripts/sync/`) that mirrors every resource from
+  ehr-fhir-server into care-loop-fhir-server every hour, `PUT`-ing each one
+  under its original EHR id so references need no remapping.
 - fhir-mcp-server — WSO2 FHIR R4 to MCP bridge (`wso2/fhir-mcp-server`) in
   front of care-loop-fhir-server, exposing the FHIR API as MCP tools on port
   8001. Reaches it through care-loop-fhir-server-readonly-proxy (nginx), which

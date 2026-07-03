@@ -150,9 +150,6 @@ services:
       EHR_FHIR_SERVER_URL: "http://ehr-fhir-server:9090/fhir/r4"
       CARE_LOOP_FHIR_SERVER_URL: "http://care-loop-fhir-server:8080/fhir"
       SYNC_INTERVAL_SECONDS: "3600"
-      SYNC_STATE_FILE: "/data/state.json"
-    volumes:
-      - fhir-sync-state:/data
     depends_on:
       - ehr-fhir-server
       - care-loop-fhir-server
@@ -209,4 +206,3 @@ volumes:
   healthkit-data:
   ehr-fhir-server-db:
   care-loop-fhir-server-data:
-  fhir-sync-state:

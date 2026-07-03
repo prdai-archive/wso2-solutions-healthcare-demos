@@ -1,10 +1,15 @@
-import { loadState, saveState, watermark } from "./state";
+import { loadWatermark, saveWatermark } from "./state";
 import { log } from "./util";
 import { SYNC_RESOURCE_TYPES } from "./types";
 import type { FhirBundle, FhirResource } from "./types";
 
 export const EHR_FHIR_SERVER_URL = process.env.EHR_FHIR_SERVER_URL ?? "http://localhost:9090/fhir/r4";
 export const CARE_LOOP_FHIR_SERVER_URL = process.env.CARE_LOOP_FHIR_SERVER_URL ?? "http://localhost:9091/fhir";
+
+// Overlap this far into the past on every run, rather than trusting the EHR's
+// exact clock: PUT is idempotent, so re-syncing something we already have is
+// free, while missing something because of clock skew is not.
+const WATERMARK_SAFETY_BUFFER_MS = 5 * 60 * 1000;
 
 async function fhirGet(baseUrl: string, path: string): Promise<FhirBundle> {
   const res = await fetch(`${baseUrl}${path}`, { headers: { accept: "application/fhir+json" } });
@@ -47,19 +52,17 @@ async function fetchDiff(resourceType: string, since: string): Promise<FhirResou
 }
 
 export async function syncAll(): Promise<void> {
-  const state = await loadState();
+  const since = await loadWatermark();
+  const runStartedAt = new Date(Date.now() - WATERMARK_SAFETY_BUFFER_MS).toISOString().split(".")[0] + "Z";
+
   for (const resourceType of SYNC_RESOURCE_TYPES) {
-    const since = watermark(state, resourceType);
     const diff = await fetchDiff(resourceType, since);
     log(`${resourceType}: ${diff.length} resource(s) changed since ${since}`);
-
     for (const resource of diff) {
       await fhirPut(resourceType, resource);
       log(`synced ${resourceType}/${resource.id}`);
-      if ((resource.meta?.lastUpdated ?? since) > watermark(state, resourceType)) {
-        state[resourceType] = resource.meta?.lastUpdated ?? since;
-      }
     }
-    await saveState(state);
   }
+
+  await saveWatermark(runStartedAt);
 }

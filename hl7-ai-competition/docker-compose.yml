@@ -66,6 +66,7 @@ services:
       - "3000:3000"
     environment:
       NODE_ENV: production
+      COLLECTOR_SERVICE_URL: "http://care-loop-collector-service:8004"
     healthcheck:
       test:
         - "CMD"
@@ -213,6 +214,21 @@ services:
       - ./care-loop-ai-service/Config.toml:/home/ballerina/Config.toml:ro
     depends_on:
       - fhir-mcp-server
+    restart: unless-stopped
+
+  care-loop-collector-service:
+    build:
+      context: ./care-loop-collector-service
+    image: care-loop-collector-service:latest
+    container_name: care-loop-collector-service
+    ports:
+      - "8004:8004"
+    volumes:
+      - ./care-loop-collector-service/Config.toml:/home/ballerina/Config.toml:ro
+    depends_on:
+      - care-loop-ai-service
+      - care-loop-fhir-server
+      - whatsapp-simulator
     restart: unless-stopped
 
 volumes:

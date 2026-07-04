@@ -47,16 +47,22 @@ Earlier stages: [v1](assets/architecture-diagram-v1.png),
   tool itself to pull that patient's recent Observations, then drafts a FHIR
   `Questionnaire` (questions only, no answers) targeted at the vitals trend.
   Not wired into the rest of the loop yet — this is a standalone component
-  for now. Needs a `Config.toml` (copy `Config.toml.example`) with a real
-  `geminiApiKey`; gitignored, never commit it. See `TODO.md` for the WSO2
-  Agent Manager registration this is deferred on.
+  for now. Uses `ballerina/ai`'s built-in `Wso2ModelProvider` (via
+  `ai:getDefaultModelProvider()`), configured through the `wso2ProviderConfig`
+  table in `Config.toml` (copy `Config.toml.example`); gitignored, never
+  commit it. See `TODO.md` for the WSO2 Agent Manager registration this is
+  deferred on.
 
-  Neither `ballerina/ai` nor `ballerinax` ships a Gemini model provider, so
-  `gemini_provider.bal` implements `ai:ModelProvider` directly against
-  Gemini's REST API. `ai:ModelProvider.generate()` is unused by `ai:Agent`
-  (its function-call agent only calls `chat()`) but is dependently-typed,
-  which Ballerina only allows on an external function — `libs/` has the tiny
-  compiled Java stub that satisfies this (source alongside it).
+- [care-loop-collector-service](care-loop-collector-service/) — standalone
+  Ballerina bridge (port 8004). `POST /generate` fetches every `Patient` from
+  care-loop-fhir-server, asks care-loop-ai-service to draft a Questionnaire
+  per patient, converts each into whatsapp-simulator's chat shape, and opens
+  one chat session per patient there. `POST /transcripts` is the callback
+  each session posts its completed answers to; it builds a FHIR
+  `QuestionnaireResponse` from them and saves it back to
+  care-loop-fhir-server. Triggered from the "Generate Questionnaires" button
+  on whatsapp-simulator's home page, which also lists every chat this
+  produces. Needs a `Config.toml` (copy `Config.toml.example`); gitignored.
 
 Run the stack with `make up`, or `make watch` to run it in the foreground and
 rebuild on change.

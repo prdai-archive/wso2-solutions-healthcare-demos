@@ -1,9 +1,10 @@
 import ballerina/ai;
 import ballerina/http;
 import ballerina/lang.value;
+import ballerinax/ai.openai;
 
 final ai:McpToolKit fhirToolkit = check new (fhirMcpUrl);
-final ai:ModelProvider wso2Provider = check ai:getDefaultModelProvider();
+final ai:ModelProvider openAiProvider = check new openai:ModelProvider(openAiApiKey, openai:GPT_4_1_NANO);
 
 final ai:Agent questionnaireAgent = check new (
     systemPrompt = {
@@ -13,11 +14,12 @@ final ai:Agent questionnaireAgent = check new (
             (type="Observation", searchParam={"patient": <id>}) - skip "get_capabilities", this
             param is already valid; the server's date filter is unreliable, so fetch everything
             and reason over the dates in the results yourself. Reply with ONLY the Questionnaire
-            JSON: resourceType, status "active", title, and 4-6 item entries (linkId, text, type
+            JSON: resourceType, status "active", title, and 4-6 item entries (text, type
             "boolean"/"decimal"/"string") as plain-language symptom questions matched to the
-            vitals trend in the results. No markdown, no prose, no answers.`
+            vitals trend in the results. Do not include a linkId - that is assigned separately.
+            No markdown, no prose, no answers.`
     },
-    model = wso2Provider,
+    model = openAiProvider,
     tools = [fhirToolkit],
     verbose = true
 );

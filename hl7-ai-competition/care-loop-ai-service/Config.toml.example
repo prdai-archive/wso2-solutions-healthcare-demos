@@ -1,6 +1,3 @@
 fhirMcpUrl = "http://fhir-mcp-server:8000/mcp"
 listenPort = 8003
-
-[ballerina.ai.wso2ProviderConfig]
-serviceUrl = "your-wso2-intelligence-service-url"
-accessToken = "your-wso2-access-token"
+openAiApiKey = "your-openai-api-key"

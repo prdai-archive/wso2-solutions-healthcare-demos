@@ -1,6 +1,7 @@
 import ballerina/http;
 import ballerina/lang.runtime;
 import ballerina/log;
+import ballerina/uuid;
 
 final http:Client fhirClient = check new (fhirServerUrl);
 final http:Client aiClient = check new (aiServiceUrl);
@@ -182,12 +183,11 @@ isolated function toWhatsappQuestionnaire(json questionnaire) returns WhatsappQu
 
     WhatsappQuestion[] questions = [];
     foreach json item in items {
-        string|error linkId = trap <string>(checkpanic item.linkId);
         string|error text = trap <string>(checkpanic item.text);
-        if linkId is error || text is error {
+        if text is error {
             continue;
         }
-        questions.push({id: linkId, text});
+        questions.push({id: uuid:createType4AsString(), text});
     }
 
     return {title, questions};
@@ -196,7 +196,7 @@ isolated function toWhatsappQuestionnaire(json questionnaire) returns WhatsappQu
 isolated function buildQuestionnaireResponse(TranscriptCallback callback, GeneratedSession session) returns json {
     json[] items = [];
     foreach ChatMessage message in callback.messages {
-        string? questionId = message.questionId;
+        string? questionId = message.questionId ?: message.replyTo?.questionId;
         if message.role == "user" && questionId is string {
             items.push({
                 linkId: questionId,

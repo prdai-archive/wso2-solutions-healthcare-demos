@@ -1,0 +1,3 @@
+[ballerina.ai.wso2ProviderConfig]
+serviceUrl = "https://example.invalid/test"
+accessToken = "test-token-not-used"

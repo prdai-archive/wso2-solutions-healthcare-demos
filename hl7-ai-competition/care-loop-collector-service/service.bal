@@ -106,13 +106,15 @@ service / on new http:Listener(listenPort) {
         }
 
         GenerateResult[] results = [];
-        foreach var f in pending {
-            GenerateResult|error result = wait f;
+        foreach int i in 0 ..< pending.length() {
+            GenerateResult|error result = wait pending[i];
             if result is error {
                 // processPatient has no throw points other than the http/error branches it
                 // already handles internally, so this is unreachable in practice; kept as a
                 // defensive fallback so a `wait` failure can't take down the whole response.
-                results.push({patientId: "unknown", patientName: "unknown", 'error: "internal error: " + result.message()});
+                var patient = patients[i];
+                log:printError("processPatient strand failed", patientId = patient.id, 'error = result);
+                results.push({patientId: patient.id, patientName: patient.name, 'error: "internal error: " + result.message()});
             } else {
                 results.push(result);
             }

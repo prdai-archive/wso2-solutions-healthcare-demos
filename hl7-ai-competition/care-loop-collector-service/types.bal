@@ -1,3 +1,10 @@
+# + id - FHIR Patient id
+# + name - display name extracted from the Patient resource
+public type Patient record {|
+    string id;
+    string name;
+|};
+
 # + patientId - FHIR Patient id to draft a questionnaire for
 public type AiQuestionnaireRequest record {|
     string patientId;

@@ -41,7 +41,7 @@ isolated map<GeneratedSession> generatedSessions = {};
 # Isolated so it can be run concurrently via `start`: it only touches its own locals,
 # the module-level `final http:Client`s (safe for concurrent calls - see service.bal
 # header comment on `whatsappClient`), and `generatedSessions` through a `lock` block.
-isolated function processPatient(record {|string id; string name;|} patient) returns GenerateResult {
+isolated function processPatient(Patient patient) returns GenerateResult {
     GenerateResult result = {patientId: patient.id, patientName: patient.name};
 
     AiQuestionnaireRequest aiRequest = {patientId: patient.id};
@@ -92,7 +92,7 @@ service / on new http:Listener(listenPort) {
             return <http:InternalServerError>{body: {message: "failed to fetch patients: " + bundle.message()}};
         }
 
-        record {|string id; string name;|}[] patients = extractPatients(bundle);
+        Patient[] patients = extractPatients(bundle);
 
         // Fan out one strand per patient with `start` so all AI-questionnaire and whatsapp-session
         // calls run concurrently instead of N times sequentially; `wait` each future in patient
@@ -145,8 +145,8 @@ service / on new http:Listener(listenPort) {
     }
 }
 
-isolated function extractPatients(json bundle) returns record {|string id; string name;|}[] {
-    record {|string id; string name;|}[] patients = [];
+isolated function extractPatients(json bundle) returns Patient[] {
+    Patient[] patients = [];
     json[]|error entries = trap <json[]>(checkpanic bundle.entry);
     if entries is error {
         return patients;

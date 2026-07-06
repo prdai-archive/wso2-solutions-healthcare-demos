@@ -105,10 +105,7 @@ export function QuestionnaireChat({ id }: { id: string }) {
         role: "user",
         text: trimmed,
         time: now(),
-        // An explicit reply shows the quoted question and becomes the new
-        // active question. A plain follow-up carries the active question's
-        // id (without the quote UI) so it is bundled into the same answer
-        // until the patient replies to a different question.
+        // A plain follow-up carries the active question's id (no quote UI) so it bundles into the same answer until the next explicit reply.
         replyTo: reply,
         questionId: reply ? undefined : activeQuestion?.questionId,
       },

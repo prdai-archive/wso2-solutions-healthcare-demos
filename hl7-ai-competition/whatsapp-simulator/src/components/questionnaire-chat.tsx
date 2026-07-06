@@ -19,6 +19,9 @@ export function QuestionnaireChat({ id }: { id: string }) {
   const [messages, setMessages] = React.useState<Message[]>([]);
   const [draft, setDraft] = React.useState("");
   const [replyingTo, setReplyingTo] = React.useState<ReplyRef | null>(null);
+  const [activeQuestion, setActiveQuestion] = React.useState<ReplyRef | null>(
+    null,
+  );
   const [outcome, setOutcome] = React.useState<Outcome | null>(null);
 
   const scrollRef = React.useRef<HTMLDivElement>(null);
@@ -91,6 +94,9 @@ export function QuestionnaireChat({ id }: { id: string }) {
     const reply = replyingTo ?? undefined;
     setDraft("");
     setReplyingTo(null);
+    if (reply) {
+      setActiveQuestion(reply);
+    }
     resetInputHeight();
     setMessages((prev) => [
       ...prev,
@@ -99,7 +105,12 @@ export function QuestionnaireChat({ id }: { id: string }) {
         role: "user",
         text: trimmed,
         time: now(),
+        // An explicit reply shows the quoted question and becomes the new
+        // active question. A plain follow-up carries the active question's
+        // id (without the quote UI) so it is bundled into the same answer
+        // until the patient replies to a different question.
         replyTo: reply,
+        questionId: reply ? undefined : activeQuestion?.questionId,
       },
     ]);
   }

@@ -53,6 +53,29 @@ isolated function buildQuestionnaireResponse(TranscriptCallback callback, Genera
     return questionnaireResponse;
 }
 
+// Bot messages carry the linkId of the question they asked in `questionId`; matching that back onto each
+// user answer (directly, or via replyTo for bundled follow-ups) gives the question text emergency-answers needs.
+isolated function buildEmergencyAnswers(TranscriptCallback callback) returns EmergencyAnswer[] {
+    map<string> questionTextByLinkId = {};
+    foreach ChatMessage message in callback.messages {
+        string? questionId = message.questionId;
+        if message.role == "bot" && questionId is string {
+            questionTextByLinkId[questionId] = message.text;
+        }
+    }
+
+    EmergencyAnswer[] answers = [];
+    foreach ChatMessage message in callback.messages {
+        string? questionId = message.questionId ?: message.replyTo?.questionId;
+        if message.role != "user" || questionId is () {
+            continue;
+        }
+        string question = questionTextByLinkId[questionId] ?: message.replyTo?.questionText ?: questionId;
+        answers.push({question, answer: message.text});
+    }
+    return answers;
+}
+
 // create()'s default MINIMAL preference returns {resourceId, version}, not a full resource - fall back to "id" in case that ever changes.
 isolated function extractFhirId(fhir:FHIRResponse response) returns string? {
     json|xml resourceValue = response.'resource;

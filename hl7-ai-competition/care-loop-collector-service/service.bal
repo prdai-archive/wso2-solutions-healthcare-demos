@@ -37,6 +37,52 @@ isolated function postWithRetry(http:Client 'client, string path, json body, typ
 
 isolated map<GeneratedSession> generatedSessions = {};
 
+# Runs one patient's questionnaire generation + whatsapp session creation end to end.
+# Isolated so it can be run concurrently via `start`: it only touches its own locals,
+# the module-level `final http:Client`s (safe for concurrent calls - see service.bal
+# header comment on `whatsappClient`), and `generatedSessions` through a `lock` block.
+isolated function processPatient(record {|string id; string name;|} patient) returns GenerateResult {
+    GenerateResult result = {patientId: patient.id, patientName: patient.name};
+
+    AiQuestionnaireRequest aiRequest = {patientId: patient.id};
+    AiQuestionnaireResponse|http:ClientError aiResponse = aiClient->post("/questionnaires", aiRequest);
+    if aiResponse is http:ClientError {
+        result.'error = "questionnaire generation failed: " + aiResponse.message();
+        return result;
+    }
+
+    WhatsappQuestionnaire|error whatsappQuestionnaire = toWhatsappQuestionnaire(aiResponse.questionnaire);
+    if whatsappQuestionnaire is error {
+        result.'error = "failed to convert questionnaire: " + whatsappQuestionnaire.message();
+        return result;
+    }
+
+    CreateSessionRequest sessionRequest = {
+        questionnaire: whatsappQuestionnaire,
+        callbackUrl: collectorPublicUrl + "/transcripts",
+        patientId: patient.id,
+        patientName: patient.name
+    };
+    anydata|http:ClientError sessionResult = postWithRetry(whatsappClient, "/api/sessions", sessionRequest, CreateSessionResponse);
+    if sessionResult is http:ClientError {
+        result.'error = "failed to create whatsapp session: " + sessionResult.message();
+        return result;
+    }
+    CreateSessionResponse sessionResponse = <CreateSessionResponse>sessionResult;
+
+    lock {
+        generatedSessions[sessionResponse.id] = {
+            patientId: patient.id,
+            patientName: patient.name,
+            questionnaire: aiResponse.questionnaire.clone()
+        };
+    }
+
+    result.sessionId = sessionResponse.id;
+    result.path = sessionResponse.path;
+    return result;
+}
+
 service / on new http:Listener(listenPort) {
 
     resource function post generate() returns GenerateResponse|http:InternalServerError {
@@ -47,51 +93,29 @@ service / on new http:Listener(listenPort) {
         }
 
         record {|string id; string name;|}[] patients = extractPatients(bundle);
-        GenerateResult[] results = [];
 
+        // Fan out one strand per patient with `start` so all AI-questionnaire and whatsapp-session
+        // calls run concurrently instead of N times sequentially; `wait` each future in patient
+        // order below, which fixes the `results` order to match `patients` regardless of which
+        // strand actually finishes first (order doesn't matter to any consumer - see whatsapp-simulator
+        // - but keeping it deterministic makes logs/responses easier to reason about).
+        future<GenerateResult>[] pending = [];
         foreach var patient in patients {
-            GenerateResult result = {patientId: patient.id, patientName: patient.name};
+            future<GenerateResult> f = start processPatient(patient);
+            pending.push(f);
+        }
 
-            AiQuestionnaireRequest aiRequest = {patientId: patient.id};
-            AiQuestionnaireResponse|http:ClientError aiResponse = aiClient->post("/questionnaires", aiRequest);
-            if aiResponse is http:ClientError {
-                result.'error = "questionnaire generation failed: " + aiResponse.message();
+        GenerateResult[] results = [];
+        foreach var f in pending {
+            GenerateResult|error result = wait f;
+            if result is error {
+                // processPatient has no throw points other than the http/error branches it
+                // already handles internally, so this is unreachable in practice; kept as a
+                // defensive fallback so a `wait` failure can't take down the whole response.
+                results.push({patientId: "unknown", patientName: "unknown", 'error: "internal error: " + result.message()});
+            } else {
                 results.push(result);
-                continue;
             }
-
-            WhatsappQuestionnaire|error whatsappQuestionnaire = toWhatsappQuestionnaire(aiResponse.questionnaire);
-            if whatsappQuestionnaire is error {
-                result.'error = "failed to convert questionnaire: " + whatsappQuestionnaire.message();
-                results.push(result);
-                continue;
-            }
-
-            CreateSessionRequest sessionRequest = {
-                questionnaire: whatsappQuestionnaire,
-                callbackUrl: collectorPublicUrl + "/transcripts",
-                patientId: patient.id,
-                patientName: patient.name
-            };
-            anydata|http:ClientError sessionResult = postWithRetry(whatsappClient, "/api/sessions", sessionRequest, CreateSessionResponse);
-            if sessionResult is http:ClientError {
-                result.'error = "failed to create whatsapp session: " + sessionResult.message();
-                results.push(result);
-                continue;
-            }
-            CreateSessionResponse sessionResponse = <CreateSessionResponse>sessionResult;
-
-            lock {
-                generatedSessions[sessionResponse.id] = {
-                    patientId: patient.id,
-                    patientName: patient.name,
-                    questionnaire: aiResponse.questionnaire.clone()
-                };
-            }
-
-            result.sessionId = sessionResponse.id;
-            result.path = sessionResponse.path;
-            results.push(result);
         }
 
         return {results};

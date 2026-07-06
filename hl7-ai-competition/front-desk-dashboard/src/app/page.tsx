@@ -7,6 +7,7 @@ import { EhrTasks } from "@/components/ehr-tasks";
 import { PageHeader } from "@/components/page-header";
 import { StatCard } from "@/components/stat-card";
 import { TaskQueue } from "@/components/task-queue";
+import { Separator } from "@/components/ui/separator";
 import { WaitingRoom } from "@/components/waiting-room";
 import { useData } from "@/lib/store";
 
@@ -16,7 +17,7 @@ export default function DashboardPage() {
   const header = (
     <PageHeader
       title="Good morning, Maya"
-      description="Heart-failure alerts flagged for triage are below. Assign each to a clinician."
+      description="Care team tasks requested from the EHR are below. Open one to see the full task."
     />
   );
 
@@ -28,7 +29,17 @@ export default function DashboardPage() {
     <>
       {header}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <EhrTasks />
+
+      <div className="flex items-center gap-3 pt-2">
+        <Separator className="flex-1" />
+        <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+          Other workflows (in progress)
+        </span>
+        <Separator className="flex-1" />
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Open alerts"
           value={openAlerts}
@@ -55,17 +66,15 @@ export default function DashboardPage() {
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <div className="xl:col-span-2">
           <TaskQueue tasks={data.tasks} />
         </div>
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-4">
           <WaitingRoom />
           <AppointmentsList />
         </div>
       </div>
-
-      <EhrTasks />
     </>
   );
 }

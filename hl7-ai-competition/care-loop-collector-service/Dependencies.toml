@@ -367,6 +367,9 @@ dependencies = [
 	{org = "ballerina", name = "uuid"},
 	{org = "ballerinax", name = "health.base"}
 ]
+modules = [
+	{org = "ballerinax", packageName = "health.fhir.r4", moduleName = "health.fhir.r4"}
+]
 
 [[package]]
 org = "ballerinax"
@@ -392,6 +395,7 @@ dependencies = [
 	{org = "ballerina", name = "test"},
 	{org = "ballerina", name = "uuid"},
 	{org = "ballerinai", name = "observe"},
+	{org = "ballerinax", name = "health.fhir.r4"},
 	{org = "ballerinax", name = "health.fhir.r4.international401"}
 ]
 modules = [

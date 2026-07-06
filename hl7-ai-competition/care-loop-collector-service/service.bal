@@ -2,6 +2,7 @@ import ballerina/http;
 import ballerina/lang.runtime;
 import ballerina/log;
 import ballerina/uuid;
+import ballerinax/health.fhir.r4;
 import ballerinax/health.fhir.r4.international401;
 
 final http:Client fhirClient = check new (fhirServerUrl);
@@ -148,17 +149,15 @@ service / on new http:Listener(listenPort) {
 
 isolated function extractPatients(json bundle) returns Patient[] {
     Patient[] patients = [];
-    json[]|error entries = trap <json[]>(checkpanic bundle.entry);
-    if entries is error {
+    r4:Bundle|error typedBundle = bundle.cloneWithType(r4:Bundle);
+    if typedBundle is error {
         return patients;
     }
-    foreach json entry in entries {
-        json|error patientResource = entry.'resource;
-        if patientResource is error {
-            continue;
-        }
-        string|error id = trap <string>(checkpanic patientResource.id);
-        if id is error {
+    foreach r4:BundleEntry entry in typedBundle.entry ?: [] {
+        anydata|r4:FHIRWireFormat? entryResource = entry?.'resource;
+        international401:Patient|error patientResource = entryResource.cloneWithType(international401:Patient);
+        string? id = patientResource is international401:Patient ? patientResource.id : ();
+        if patientResource is error || id is () {
             continue;
         }
         patients.push({id, name: extractPatientName(patientResource, id)});
@@ -166,27 +165,20 @@ isolated function extractPatients(json bundle) returns Patient[] {
     return patients;
 }
 
-isolated function extractPatientName(json patientResource, string fallbackId) returns string {
-    json[]|error names = trap <json[]>(checkpanic patientResource.name);
-    if names is error || names.length() == 0 {
+isolated function extractPatientName(international401:Patient patientResource, string fallbackId) returns string {
+    r4:HumanName[]? names = patientResource.name;
+    if names is () || names.length() == 0 {
         return fallbackId;
     }
-    json name = names[0];
+    r4:HumanName name = names[0];
 
-    string|error text = trap <string>(checkpanic name.text);
-    if text is string {
-        return text;
+    if name.text is string {
+        return <string>name.text;
     }
 
-    string|error family = trap <string>(checkpanic name.family);
-    json[]|error givenList = trap <json[]>(checkpanic name.given);
-    string given = "";
-    if givenList is json[] && givenList.length() > 0 {
-        string|error firstGiven = trap <string>(givenList[0]);
-        if firstGiven is string {
-            given = firstGiven;
-        }
-    }
+    string? family = name.family;
+    string[]? givenList = name.given;
+    string given = givenList is string[] && givenList.length() > 0 ? givenList[0] : "";
     if family is string && given != "" {
         return given + " " + family;
     }

@@ -78,7 +78,8 @@ isolated function runVitalsReadyCycle(string patientId) {
 
     log:printWarn("vitals-ready: ML probability crossed escalation threshold, starting emergency questionnaire",
             patientId = patientId, probability = heartRiskResponse.probability);
-    putPendingCase(patientId, {mlProbability: heartRiskResponse.probability, observationRefs});
+    PatientDisplay display = patientDisplay(patient, patientId, age, sex);
+    putPendingCase(patientId, {mlProbability: heartRiskResponse.probability, observationRefs, display});
 
     http:Response|http:ClientError generateResult = collectorClient->post(
             "/patients/" + patientId + "/generate",
@@ -92,49 +93,61 @@ isolated function runVitalsReadyCycle(string patientId) {
 
 isolated function runTimeoutWatcher(string patientId, float mlProbability) {
     runtime:sleep(<decimal>questionnaireTimeoutHours * 3600);
-    if !isPendingCaseStillOutstanding(patientId) {
+    PendingCase? pendingCase = getPendingCase(patientId);
+    if pendingCase is () {
         return;
     }
     log:printWarn("emergency questionnaire timed out with no patient response, fail-safe escalating on ML probability alone",
             patientId = patientId, mlProbability = mlProbability);
     resolvePendingCase(patientId);
 
-    international401:Task task = buildTimeoutEscalationTask(patientId, mlProbability);
+    HeartRiskResponse timeoutHeartRisk = {probability: mlProbability, prediction: 1, threshold: mlEscalationThreshold, selected_model: "unavailable - questionnaire timed out"};
+    international401:RiskAssessment riskAssessment = buildMlOnlyRiskAssessment(patientId, pendingCase.observationRefs, timeoutHeartRisk);
+    fhir:FHIRResponse|fhir:FHIRError raSaveResult = fhirConnector->create(riskAssessment.toJson());
+    string? riskAssessmentId = raSaveResult is fhir:FHIRResponse ? extractFhirId(raSaveResult) : ();
+    if raSaveResult is fhir:FHIRError {
+        log:printError("timeout escalation: failed to save RiskAssessment", patientId = patientId, 'error = raSaveResult);
+    }
+
+    international401:Task task = buildTimeoutEscalationTask(patientId, mlProbability, pendingCase.display, riskAssessmentId);
     fhir:FHIRResponse|fhir:FHIRError saveResult = ehrFhirConnector->create(task.toJson());
     if saveResult is fhir:FHIRError {
         log:printError("timeout escalation: failed to save Task to ehr-fhir-server", patientId = patientId, 'error = saveResult);
     }
 }
 
-# Runs the emergency-answers cycle: cancel the timeout watcher (via the checked-resolved-flag
-# pattern), get the agent's own assessment, always save a combined RiskAssessment, and escalate
-# to ehr-fhir-server only if both the ML and agentic thresholds independently clear.
-isolated function runEmergencyAnswersCycle(EmergencyAnswersRequest request) returns error? {
-    PendingCase? pendingCase = getPendingCase(request.patientId);
-    if pendingCase is () {
-        return error("no pending case for patientId: " + request.patientId);
-    }
-    resolvePendingCase(request.patientId);
-
+# Runs the emergency-answers cycle in the background - the agent's now-broader MCP search
+# autonomy means /risk-assessment can take multiple tool round-trips, which was blowing past
+# whatsapp-simulator's own request timeout back to it when this ran synchronously in the
+# resource function. The pending-case lookup/resolve stays synchronous (fast, in-memory, and
+# needed to answer 202 vs 404 correctly and avoid double-processing), only the slow part moves
+# to `start`.
+isolated function runEmergencyAnswersCycle(EmergencyAnswersRequest request, PendingCase pendingCase) {
     AiRiskAssessmentRequest aiRequest = {
         patientId: request.patientId,
         mlProbability: pendingCase.mlProbability,
         answers: request.answers
     };
-    AiRiskAssessmentResponse aiResponse = check aiClient->post("/risk-assessment", aiRequest, targetType = AiRiskAssessmentResponse);
+    AiRiskAssessmentResponse|http:ClientError aiResponse = aiClient->post("/risk-assessment", aiRequest, targetType = AiRiskAssessmentResponse);
+    if aiResponse is http:ClientError {
+        log:printError("emergency-answers: risk-assessment call failed", patientId = request.patientId, 'error = aiResponse);
+        return;
+    }
 
     international401:RiskAssessment riskAssessment = buildCombinedRiskAssessment(
             request.patientId, pendingCase.observationRefs, pendingCase.mlProbability, aiResponse);
     fhir:FHIRResponse|fhir:FHIRError saveResult = fhirConnector->create(riskAssessment.toJson());
+    string? riskAssessmentId = saveResult is fhir:FHIRResponse ? extractFhirId(saveResult) : ();
     if saveResult is fhir:FHIRError {
         log:printError("emergency-answers: failed to save RiskAssessment", patientId = request.patientId, 'error = saveResult);
     }
 
     if pendingCase.mlProbability >= mlEscalationThreshold && aiResponse.probability >= agenticEscalationThreshold {
-        international401:Task task = buildEscalationTask(request.patientId, pendingCase.mlProbability, aiResponse);
+        international401:Task task = buildEscalationTask(
+                request.patientId, pendingCase.mlProbability, aiResponse, pendingCase.display, request.answers, riskAssessmentId);
         fhir:FHIRResponse|fhir:FHIRError taskSaveResult = ehrFhirConnector->create(task.toJson());
         if taskSaveResult is fhir:FHIRError {
-            return error("failed to save Task to ehr-fhir-server: " + taskSaveResult.message());
+            log:printError("emergency-answers: failed to save Task to ehr-fhir-server", patientId = request.patientId, 'error = taskSaveResult);
         }
     }
 }

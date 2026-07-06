@@ -1,5 +1,4 @@
 import ballerina/http;
-import ballerina/log;
 
 service / on new http:Listener(listenPort) {
 
@@ -11,15 +10,16 @@ service / on new http:Listener(listenPort) {
         return http:ACCEPTED;
     }
 
-    resource function post emergency\-answers(EmergencyAnswersRequest request) returns http:Ok|http:NotFound|http:InternalServerError {
-        error? result = runEmergencyAnswersCycle(request);
-        if result is error {
-            log:printError("emergency-answers failed", patientId = request.patientId, 'error = result);
-            if result.message().startsWith("no pending case") {
-                return <http:NotFound>{body: {message: result.message()}};
-            }
-            return <http:InternalServerError>{body: {message: result.message()}};
+    # Acks immediately once the pending case is confirmed to exist, then runs the (potentially
+    # multi-tool-call, slower) agentic assessment + FHIR writes in the background - see the
+    # comment on runEmergencyAnswersCycle for why.
+    resource function post emergency\-answers(EmergencyAnswersRequest request) returns http:Accepted|http:NotFound {
+        PendingCase? pendingCase = getPendingCase(request.patientId);
+        if pendingCase is () {
+            return <http:NotFound>{body: {message: "no pending case for patientId: " + request.patientId}};
         }
-        return http:OK;
+        resolvePendingCase(request.patientId);
+        _ = start runEmergencyAnswersCycle(request, pendingCase);
+        return http:ACCEPTED;
     }
 }

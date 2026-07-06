@@ -59,14 +59,21 @@ public type AiRiskAssessmentRequest record {|
 
 # + probability - the agent's own assessed probability, 0-1
 # + risk - the agent's own assessed risk level
+# + reasoning - the agent's own plain-language explanation
+# + referencedResources - "Observation/{id}" resources the agent says it actually consulted
 public type AiRiskAssessmentResponse record {|
     float probability;
     "low"|"moderate"|"high" risk;
+    string reasoning;
+    string[] referencedResources;
 |};
 
 # + mlProbability - the heart-risk-service probability that triggered escalation
 # + observationRefs - "Observation/{id}" references for the vitals used to compute max_hr
+# + display - the patient's name/age/sex, fetched once at escalation time so the Task built
+#   later doesn't need to re-fetch the Patient resource
 public type PendingCase record {|
     float mlProbability;
     string[] observationRefs;
+    PatientDisplay display;
 |};

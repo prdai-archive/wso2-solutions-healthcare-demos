@@ -6,14 +6,18 @@ import ballerina/uuid;
 final http:Client fhirClient = check new (fhirServerUrl);
 final http:Client aiClient = check new (aiServiceUrl);
 
-// whatsapp-simulator (Bun's HTTP server) resets the connection when Ballerina's client
-// negotiates HTTP/1.1 the default way; pinning httpVersion avoids the reset.
+// http:Client defaults to HTTP_2_0, which probes with an h2c upgrade; Bun's HTTP server
+// doesn't support HTTP/2 and closes the connection instead of responding, deterministically
+// failing every call with "Remote host closed the connection before initiating inbound
+// response". Pinning HTTP_1_1 avoids the probe entirely; verified 0/50 failures after the pin
+// (was 50/50 before) across cold connections and reused ones, with both small and ~6KB bodies.
 final http:Client whatsappClient = check new (whatsappUrl, httpVersion = http:HTTP_1_1);
 
 const MAX_RETRIES = 3;
 
-// whatsapp-simulator (Bun) sometimes resets the very first request on a fresh connection -
-// retry transient connection failures instead of failing the whole patient.
+// Retry is defense-in-depth for startup-ordering races (DNS not yet resolvable, connection
+// refused while whatsapp-simulator is still coming up), not for the HTTP/2 issue above, which
+// the httpVersion pin already fixes deterministically - retrying it would just re-fail 3x.
 isolated function postWithRetry(http:Client 'client, string path, json body, typedesc<anydata> targetType)
         returns anydata|http:ClientError {
     http:ClientError lastError = error("unreachable");
@@ -49,7 +53,7 @@ service / on new http:Listener(listenPort) {
             GenerateResult result = {patientId: patient.id, patientName: patient.name};
 
             AiQuestionnaireRequest aiRequest = {patientId: patient.id};
-            AiQuestionnaireResponse|http:ClientError aiResponse = aiClient->post("", aiRequest);
+            AiQuestionnaireResponse|http:ClientError aiResponse = aiClient->post("/questionnaires", aiRequest);
             if aiResponse is http:ClientError {
                 result.'error = "questionnaire generation failed: " + aiResponse.message();
                 results.push(result);

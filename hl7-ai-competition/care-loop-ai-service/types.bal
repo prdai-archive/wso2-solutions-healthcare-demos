@@ -26,7 +26,12 @@ public type RiskAssessmentRequest record {|
 
 # + probability - the agent's own assessed probability of a cardiac event, 0-1
 # + risk - the agent's own assessed risk level
+# + reasoning - plain-language explanation citing the vitals trend, the ML probability, and the answers
+# + referencedResources - "Observation/{id}"-style references the agent actually saw in a tool result;
+# never a guess - empty if it isn't sure of any real id
 public type RiskAssessmentResponse record {|
     float probability;
     "low"|"moderate"|"high" risk;
+    string reasoning;
+    string[] referencedResources;
 |};

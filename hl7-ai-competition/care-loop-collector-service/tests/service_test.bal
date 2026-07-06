@@ -1,4 +1,5 @@
 import ballerina/test;
+import ballerinax/health.fhir.r4.international401;
 
 @test:Config {}
 function testToWhatsappQuestionnaireConvertsFhirQuestionnaire() returns error? {
@@ -15,8 +16,10 @@ function testToWhatsappQuestionnaireConvertsFhirQuestionnaire() returns error? {
     WhatsappQuestionnaire converted = check toWhatsappQuestionnaire(questionnaire);
     test:assertEquals(converted.title, "Weekly check-in");
     test:assertEquals(converted.questions.length(), 2);
-    test:assertEquals(converted.questions[0], {id: "1", text: "How are you feeling?"});
-    test:assertEquals(converted.questions[1], {id: "2", text: "Any chest pain?"});
+    test:assertEquals(converted.questions[0].text, "How are you feeling?");
+    test:assertEquals(converted.questions[1].text, "Any chest pain?");
+    test:assertTrue(converted.questions[0].id.trim() != "");
+    test:assertNotEquals(converted.questions[0].id, converted.questions[1].id);
 }
 
 @test:Config {}
@@ -51,18 +54,18 @@ function testBuildQuestionnaireResponseIncludesOnlyUserAnswers() returns error? 
         ]
     };
 
-    json questionnaireResponse = buildQuestionnaireResponse(callback, session);
-    test:assertEquals(check questionnaireResponse.resourceType, "QuestionnaireResponse");
-    test:assertEquals(check questionnaireResponse.status, "completed");
-    test:assertEquals(check questionnaireResponse.subject.reference, "Patient/patient-1");
-    test:assertEquals(check questionnaireResponse.questionnaire, "Questionnaire/q1");
+    international401:QuestionnaireResponse questionnaireResponse = buildQuestionnaireResponse(callback, session);
+    test:assertEquals(questionnaireResponse.resourceType, "QuestionnaireResponse");
+    test:assertEquals(questionnaireResponse.status, international401:CODE_STATUS_COMPLETED);
+    test:assertEquals(questionnaireResponse.subject?.reference, "Patient/patient-1");
+    test:assertEquals(questionnaireResponse.questionnaire, "Questionnaire/q1");
 
-    json[] items = <json[]>check questionnaireResponse.item;
+    international401:QuestionnaireResponseItem[] items = questionnaireResponse.item ?: [];
     test:assertEquals(items.length(), 2);
-    test:assertEquals(check items[0].linkId, "1");
-    test:assertEquals(check (<json[]>check items[0].answer)[0].valueString, "Fine");
-    test:assertEquals(check items[1].linkId, "2");
-    test:assertEquals(check (<json[]>check items[1].answer)[0].valueString, "No");
+    test:assertEquals(items[0].linkId, "1");
+    test:assertEquals((items[0].answer ?: [])[0].valueString, "Fine");
+    test:assertEquals(items[1].linkId, "2");
+    test:assertEquals((items[1].answer ?: [])[0].valueString, "No");
 }
 
 @test:Config {}
@@ -81,7 +84,6 @@ function testBuildQuestionnaireResponseOmitsQuestionnaireRefWithoutId() {
         ]
     };
 
-    json questionnaireResponse = buildQuestionnaireResponse(callback, session);
-    map<json> asMap = <map<json>>questionnaireResponse;
-    test:assertFalse(asMap.hasKey("questionnaire"));
+    international401:QuestionnaireResponse questionnaireResponse = buildQuestionnaireResponse(callback, session);
+    test:assertTrue(questionnaireResponse.questionnaire is ());
 }

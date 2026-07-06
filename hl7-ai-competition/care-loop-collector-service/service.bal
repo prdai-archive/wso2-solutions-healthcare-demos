@@ -2,6 +2,7 @@ import ballerina/http;
 import ballerina/lang.runtime;
 import ballerina/log;
 import ballerina/uuid;
+import ballerinax/health.fhir.r4.international401;
 
 final http:Client fhirClient = check new (fhirServerUrl);
 final http:Client aiClient = check new (aiServiceUrl);
@@ -134,7 +135,7 @@ service / on new http:Listener(listenPort) {
             return <http:NotFound>{body: {message: "unknown sessionId: " + callback.sessionId}};
         }
 
-        json questionnaireResponse = buildQuestionnaireResponse(callback, session);
+        international401:QuestionnaireResponse questionnaireResponse = buildQuestionnaireResponse(callback, session);
         http:Response|http:ClientError saveResult = fhirClient->post("/QuestionnaireResponse", questionnaireResponse);
         if saveResult is http:ClientError {
             return <http:BadGateway>{body: {message: "failed to save QuestionnaireResponse: " + saveResult.message()}};
@@ -223,8 +224,8 @@ isolated function toWhatsappQuestionnaire(json questionnaire) returns WhatsappQu
     return {title, questions};
 }
 
-isolated function buildQuestionnaireResponse(TranscriptCallback callback, GeneratedSession session) returns json {
-    json[] items = [];
+isolated function buildQuestionnaireResponse(TranscriptCallback callback, GeneratedSession session) returns international401:QuestionnaireResponse {
+    international401:QuestionnaireResponseItem[] items = [];
     foreach ChatMessage message in callback.messages {
         string? questionId = message.questionId ?: message.replyTo?.questionId;
         if message.role == "user" && questionId is string {
@@ -235,16 +236,15 @@ isolated function buildQuestionnaireResponse(TranscriptCallback callback, Genera
         }
     }
 
-    map<json> questionnaireResponse = {
-        resourceType: "QuestionnaireResponse",
-        status: "completed",
+    international401:QuestionnaireResponse questionnaireResponse = {
+        status: international401:CODE_STATUS_COMPLETED,
         subject: {reference: "Patient/" + session.patientId},
         item: items
     };
 
     string|error questionnaireId = trap <string>(checkpanic session.questionnaire.id);
     if questionnaireId is string {
-        questionnaireResponse["questionnaire"] = "Questionnaire/" + questionnaireId;
+        questionnaireResponse.questionnaire = "Questionnaire/" + questionnaireId;
     }
 
     return questionnaireResponse;

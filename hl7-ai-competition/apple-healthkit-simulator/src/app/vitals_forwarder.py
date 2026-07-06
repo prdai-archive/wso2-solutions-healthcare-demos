@@ -45,13 +45,17 @@ def fetch_recent_vitals(session: Session, patient_id: int, since: datetime, unti
 def _as_observation(reading: QuantitySample, fhir_patient_id: str) -> dict:
     code, display, unit, ucum_code = VITALS_OBSERVATION_CODES[reading.quantity_type]
     category_system = "http://terminology.hl7.org/CodeSystem/observation-category"
+    # start_date is stored naive but is UTC-implicit everywhere else in this app - isoformat()
+    # on a naive datetime omits the timezone designator, which fails strict RFC 3339 parsers
+    # (e.g. Ballerina's time:utcFromString) even though FHIR's dateTime accepts it unqualified.
+    effective = reading.start_date if reading.start_date.tzinfo else reading.start_date.replace(tzinfo=UTC)
     return {
         "resourceType": "Observation",
         "status": "final",
         "category": [{"coding": [{"system": category_system, "code": "vital-signs"}]}],
         "code": {"coding": [{"system": "http://loinc.org", "code": code, "display": display}]},
         "subject": {"reference": f"Patient/{fhir_patient_id}"},
-        "effectiveDateTime": reading.start_date.isoformat(),
+        "effectiveDateTime": effective.isoformat(),
         "valueQuantity": {
             "value": reading.value,
             "unit": unit,

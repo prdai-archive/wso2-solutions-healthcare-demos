@@ -9,6 +9,11 @@ services:
     environment:
       HEALTHKIT_DATABASE_URL: "sqlite:///./data/healthkit.db"
       HEALTHKIT_VITALS_TARGET_URL: "http://care-loop-collector-service:8004/vitals"
+      # Demo-speed cadence (real default is hourly, matching the seed data's hourly-spaced
+      # readings). The forward window equals this interval, so consecutive checks tile the
+      # timeline with no gaps/overlaps regardless of how short it is - every hourly-spaced
+      # reading still gets caught exactly once, just sooner.
+      HEALTHKIT_VITALS_FORWARD_INTERVAL_HOURS: "0.1"
     volumes:
       - healthkit-data:/app/data
     healthcheck:

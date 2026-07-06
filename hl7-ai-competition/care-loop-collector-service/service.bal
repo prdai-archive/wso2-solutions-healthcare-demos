@@ -2,24 +2,20 @@ import ballerina/http;
 import ballerina/lang.runtime;
 import ballerina/log;
 import ballerina/uuid;
+import ballerinax/health.clients.fhir;
 import ballerinax/health.fhir.r4;
 import ballerinax/health.fhir.r4.international401;
 
-final http:Client fhirClient = check new (fhirServerUrl);
+// Capability-statement validation would GET /metadata at construction time, racing this service's own startup against care-loop-fhir-server's - disabled.
+final fhir:FHIRConnector fhirConnector = check new ({baseURL: fhirServerUrl}, enableCapabilityStatementValidation = false);
 final http:Client aiClient = check new (aiServiceUrl);
 
-// http:Client defaults to HTTP_2_0, which probes with an h2c upgrade; Bun's HTTP server
-// doesn't support HTTP/2 and closes the connection instead of responding, deterministically
-// failing every call with "Remote host closed the connection before initiating inbound
-// response". Pinning HTTP_1_1 avoids the probe entirely; verified 0/50 failures after the pin
-// (was 50/50 before) across cold connections and reused ones, with both small and ~6KB bodies.
+// http:Client defaults to HTTP_2_0, which probes with an h2c upgrade that Bun's HTTP server resets the connection on instead of answering - pinning HTTP_1_1 avoids it (verified 0/50 failures vs 50/50 before).
 final http:Client whatsappClient = check new (whatsappUrl, httpVersion = http:HTTP_1_1);
 
 const MAX_RETRIES = 3;
 
-// Retry is defense-in-depth for startup-ordering races (DNS not yet resolvable, connection
-// refused while whatsapp-simulator is still coming up), not for the HTTP/2 issue above, which
-// the httpVersion pin already fixes deterministically - retrying it would just re-fail 3x.
+// Retry is defense-in-depth for startup-ordering races (DNS/connection-refused), not the HTTP/2 issue above, which the httpVersion pin already fixes deterministically.
 isolated function postWithRetry(http:Client 'client, string path, json body, typedesc<anydata> targetType)
         returns anydata|http:ClientError {
     http:ClientError lastError = error("unreachable");
@@ -39,10 +35,7 @@ isolated function postWithRetry(http:Client 'client, string path, json body, typ
 
 isolated map<GeneratedSession> generatedSessions = {};
 
-# Runs one patient's questionnaire generation + whatsapp session creation end to end.
-# Isolated so it can be run concurrently via `start`: it only touches its own locals,
-# the module-level `final http:Client`s (safe for concurrent calls - see service.bal
-# header comment on `whatsappClient`), and `generatedSessions` through a `lock` block.
+# Runs one patient's questionnaire generation + whatsapp session creation end to end; isolated so `start` can run it concurrently.
 isolated function processPatient(Patient patient) returns GenerateResult {
     GenerateResult result = {patientId: patient.id, patientName: patient.name};
 
@@ -89,18 +82,14 @@ service / on new http:Listener(listenPort) {
 
     resource function post generate() returns GenerateResponse|http:InternalServerError {
         log:printInfo("generate: fetching patients from FHIR server");
-        json|http:ClientError bundle = fhirClient->get("/Patient");
-        if bundle is http:ClientError {
-            return <http:InternalServerError>{body: {message: "failed to fetch patients: " + bundle.message()}};
+        fhir:FHIRResponse|fhir:FHIRError bundleResponse = fhirConnector->search("Patient");
+        if bundleResponse is fhir:FHIRError {
+            return <http:InternalServerError>{body: {message: "failed to fetch patients: " + bundleResponse.message()}};
         }
 
-        Patient[] patients = extractPatients(bundle);
+        Patient[] patients = extractPatients(<json>bundleResponse.'resource);
 
-        // Fan out one strand per patient with `start` so all AI-questionnaire and whatsapp-session
-        // calls run concurrently instead of N times sequentially; `wait` each future in patient
-        // order below, which fixes the `results` order to match `patients` regardless of which
-        // strand actually finishes first (order doesn't matter to any consumer - see whatsapp-simulator
-        // - but keeping it deterministic makes logs/responses easier to reason about).
+        // Fan out one strand per patient with `start` so calls run concurrently, waited back in patient order for deterministic results.
         future<GenerateResult>[] pending = [];
         foreach var patient in patients {
             future<GenerateResult> f = start processPatient(patient);
@@ -111,9 +100,7 @@ service / on new http:Listener(listenPort) {
         foreach int i in 0 ..< pending.length() {
             GenerateResult|error result = wait pending[i];
             if result is error {
-                // processPatient has no throw points other than the http/error branches it
-                // already handles internally, so this is unreachable in practice; kept as a
-                // defensive fallback so a `wait` failure can't take down the whole response.
+                // Unreachable in practice - processPatient has no unhandled throw points - kept as a defensive fallback.
                 var patient = patients[i];
                 log:printError("processPatient strand failed", patientId = patient.id, 'error = result);
                 results.push({patientId: patient.id, patientName: patient.name, 'error: "internal error: " + result.message()});
@@ -137,8 +124,8 @@ service / on new http:Listener(listenPort) {
         }
 
         international401:QuestionnaireResponse questionnaireResponse = buildQuestionnaireResponse(callback, session);
-        http:Response|http:ClientError saveResult = fhirClient->post("/QuestionnaireResponse", questionnaireResponse);
-        if saveResult is http:ClientError {
+        fhir:FHIRResponse|fhir:FHIRError saveResult = fhirConnector->create(questionnaireResponse.toJson());
+        if saveResult is fhir:FHIRError {
             return <http:BadGateway>{body: {message: "failed to save QuestionnaireResponse: " + saveResult.message()}};
         }
 
@@ -242,22 +229,15 @@ isolated function buildQuestionnaireResponse(TranscriptCallback callback, Genera
     return questionnaireResponse;
 }
 
-isolated function extractFhirId(http:Response response) returns string? {
-    string|error location = response.getHeader("Location");
-    if location is string {
-        string[] segments = re `/`.split(location);
-        int index = segments.length() - 1;
-        while index >= 0 {
-            if segments[index] != "" && segments[index] != "_history" {
-                return segments[index];
-            }
-            index -= 1;
+// create()'s default MINIMAL preference returns {resourceId, version}, not a full resource - fall back to "id" in case that ever changes.
+isolated function extractFhirId(fhir:FHIRResponse response) returns string? {
+    json|xml resourceValue = response.'resource;
+    if resourceValue is json {
+        string|error resourceId = trap <string>(checkpanic resourceValue.resourceId);
+        if resourceId is string {
+            return resourceId;
         }
-    }
-
-    json|error payload = response.getJsonPayload();
-    if payload is json {
-        string|error id = trap <string>(checkpanic payload.id);
+        string|error id = trap <string>(checkpanic resourceValue.id);
         if id is string {
             return id;
         }

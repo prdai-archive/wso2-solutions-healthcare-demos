@@ -3,6 +3,7 @@
 import { CalendarCheck, ClipboardList, UserCheck, Users } from "lucide-react";
 
 import { AppointmentsList } from "@/components/appointments-list";
+import { EhrTasks } from "@/components/ehr-tasks";
 import { PageHeader } from "@/components/page-header";
 import { StatCard } from "@/components/stat-card";
 import { TaskQueue } from "@/components/task-queue";
@@ -63,6 +64,8 @@ export default function DashboardPage() {
           <AppointmentsList />
         </div>
       </div>
+
+      <EhrTasks />
     </>
   );
 }

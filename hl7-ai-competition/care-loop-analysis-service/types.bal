@@ -51,24 +51,38 @@ public type EmergencyAnswersRequest record {|
 # + patientId - the FHIR Patient id being assessed
 # + mlProbability - the heart-risk-service probability that triggered this assessment
 # + answers - the patient's emergency-questionnaire answers
-# + display - the patient's name/age/sex, so ai-service can compose the Task narrative itself
 public type AiRiskAssessmentRequest record {|
     string patientId;
     float mlProbability;
     QuestionAnswer[] answers;
-    PatientDisplay display;
 |};
 
 # + probability - the agent's own assessed probability, 0-1
 # + risk - the agent's own assessed risk level
 # + reasoning - the agent's own plain-language explanation
 # + referencedResources - "Observation/{id}" resources the agent says it actually consulted
-# + description - ready-to-use Task.description narrative, composed by ai-service from its own reasoning/citations
 public type AiRiskAssessmentResponse record {|
     float probability;
     "low"|"moderate"|"high" risk;
     string reasoning;
     string[] referencedResources;
+|};
+
+# + patientId - the FHIR Patient id the Task is for
+# + mlProbability - the heart-risk-service probability that triggered this assessment
+# + answers - the patient's emergency-questionnaire answers
+# + display - the patient's name/age/sex
+# + agentic - the already-computed risk assessment to narrate
+public type TaskDescriptionRequest record {|
+    string patientId;
+    float mlProbability;
+    QuestionAnswer[] answers;
+    PatientDisplay display;
+    AiRiskAssessmentResponse agentic;
+|};
+
+# + description - ready-to-use Task.description narrative
+public type TaskDescriptionResponse record {|
     string description;
 |};
 

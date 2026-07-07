@@ -34,7 +34,7 @@ isolated function riskAssessmentReference(string? riskAssessmentId, string displ
 }
 
 isolated function buildEscalationTask(string patientId, float mlProbability, AiRiskAssessmentResponse agentic,
-        PatientDisplay display, string? mlRiskAssessmentId, string? agenticRiskAssessmentId) returns international401:Task {
+        PatientDisplay display, string description, string? mlRiskAssessmentId, string? agenticRiskAssessmentId) returns international401:Task {
     float worstProbability = mlProbability > agentic.probability ? mlProbability : agentic.probability;
 
     international401:Task task = {
@@ -42,7 +42,7 @@ isolated function buildEscalationTask(string patientId, float mlProbability, AiR
         intent: international401:CODE_INTENT_ORDER,
         priority: priorityForProbability(worstProbability),
         'for: {reference: "Patient/" + patientId, display: display.patientName},
-        description: agentic.description
+        description
     };
 
     r4:Reference[] basedOn = [

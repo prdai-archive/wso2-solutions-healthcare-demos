@@ -118,8 +118,7 @@ isolated function runEmergencyAnswersCycle(EmergencyAnswersRequest request, Pend
     AiRiskAssessmentRequest aiRequest = {
         patientId: request.patientId,
         mlProbability: pendingCase.heartRisk.probability,
-        answers: request.answers,
-        display: pendingCase.display
+        answers: request.answers
     };
     AiRiskAssessmentResponse|http:ClientError aiResponse = aiClient->post("/risk-assessment", aiRequest, targetType = AiRiskAssessmentResponse);
     if aiResponse is http:ClientError {
@@ -143,9 +142,23 @@ isolated function runEmergencyAnswersCycle(EmergencyAnswersRequest request, Pend
     }
 
     if pendingCase.heartRisk.probability >= mlEscalationThreshold && aiResponse.probability >= agenticEscalationThreshold {
+        TaskDescriptionRequest descriptionRequest = {
+            patientId: request.patientId,
+            mlProbability: pendingCase.heartRisk.probability,
+            answers: request.answers,
+            display: pendingCase.display,
+            agentic: aiResponse
+        };
+        TaskDescriptionResponse|http:ClientError descriptionResponse =
+            aiClient->post("/task-description", descriptionRequest, targetType = TaskDescriptionResponse);
+        if descriptionResponse is http:ClientError {
+            log:printError("emergency-answers: task-description call failed", patientId = request.patientId, 'error = descriptionResponse);
+            return;
+        }
+
         international401:Task task = buildEscalationTask(
                 request.patientId, pendingCase.heartRisk.probability, aiResponse, pendingCase.display,
-                mlRiskAssessmentId, agenticRiskAssessmentId);
+                descriptionResponse.description, mlRiskAssessmentId, agenticRiskAssessmentId);
         fhir:FHIRResponse|fhir:FHIRError taskSaveResult = ehrFhirConnector->create(task.toJson());
         if taskSaveResult is fhir:FHIRError {
             log:printError("emergency-answers: failed to save Task to ehr-fhir-server", patientId = request.patientId, 'error = taskSaveResult);

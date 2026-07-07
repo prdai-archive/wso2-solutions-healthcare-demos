@@ -118,7 +118,8 @@ isolated function runEmergencyAnswersCycle(EmergencyAnswersRequest request, Pend
     AiRiskAssessmentRequest aiRequest = {
         patientId: request.patientId,
         mlProbability: pendingCase.mlProbability,
-        answers: request.answers
+        answers: request.answers,
+        display: pendingCase.display
     };
     AiRiskAssessmentResponse|http:ClientError aiResponse = aiClient->post("/risk-assessment", aiRequest, targetType = AiRiskAssessmentResponse);
     if aiResponse is http:ClientError {
@@ -136,7 +137,7 @@ isolated function runEmergencyAnswersCycle(EmergencyAnswersRequest request, Pend
 
     if pendingCase.mlProbability >= mlEscalationThreshold && aiResponse.probability >= agenticEscalationThreshold {
         international401:Task task = buildEscalationTask(
-                request.patientId, pendingCase.mlProbability, aiResponse, pendingCase.display, request.answers, riskAssessmentId);
+                request.patientId, pendingCase.mlProbability, aiResponse, pendingCase.display, riskAssessmentId);
         fhir:FHIRResponse|fhir:FHIRError taskSaveResult = ehrFhirConnector->create(task.toJson());
         if taskSaveResult is fhir:FHIRError {
             log:printError("emergency-answers: failed to save Task to ehr-fhir-server", patientId = request.patientId, 'error = taskSaveResult);

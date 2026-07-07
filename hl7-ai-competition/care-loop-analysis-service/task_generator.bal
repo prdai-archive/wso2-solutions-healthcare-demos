@@ -15,14 +15,6 @@ isolated function extractFhirId(fhir:FHIRResponse response) returns string? {
     return id is string ? id : ();
 }
 
-isolated function answersNarrative(QuestionAnswer[] answers) returns string {
-    if answers.length() == 0 {
-        return "";
-    }
-    string[] parts = answers.map(qa => string `"${qa.question}" -> "${qa.answer}"`);
-    return "Patient-reported answers: " + string:'join(" | ", ...parts) + ".";
-}
-
 isolated function priorityForProbability(float probability) returns international401:TaskPriority {
     if probability >= 0.85 {
         return international401:CODE_PRIORITY_STAT;
@@ -34,24 +26,15 @@ isolated function priorityForProbability(float probability) returns internationa
 }
 
 isolated function buildEscalationTask(string patientId, float mlProbability, AiRiskAssessmentResponse agentic,
-        PatientDisplay display, QuestionAnswer[] answers, string? riskAssessmentId) returns international401:Task {
+        PatientDisplay display, string? riskAssessmentId) returns international401:Task {
     float worstProbability = mlProbability > agentic.probability ? mlProbability : agentic.probability;
-
-    string citations = agentic.referencedResources.length() > 0
-        ? " Cited: " + string:'join(", ", ...agentic.referencedResources) + "."
-        : "";
-
-    string description = string `Patient ${display.patientName} (${display.ageSexSummary}) flagged for review.
-ML risk model probability: ${mlProbability}. Agentic assessment probability: ${agentic.probability} (risk=${agentic.risk}). Both escalation thresholds cleared.
-Agentic reasoning: ${agentic.reasoning}${citations}
-${answersNarrative(answers)}`;
 
     international401:Task task = {
         status: international401:CODE_STATUS_REQUESTED,
         intent: international401:CODE_INTENT_ORDER,
         priority: priorityForProbability(worstProbability),
         'for: {reference: "Patient/" + patientId, display: display.patientName},
-        description
+        description: agentic.description
     };
     if riskAssessmentId is string {
         task.reasonReference = {

@@ -15,13 +15,22 @@ public type QuestionAnswer record {|
     string answer;
 |};
 
+# + patientName - display name extracted from the Patient resource, falling back to the patientId
+# + ageSexSummary - e.g. "68F", for a compact narrative lead-in
+public type PatientDisplay record {|
+    string patientName;
+    string ageSexSummary;
+|};
+
 # + patientId - FHIR Patient id to assess
 # + mlProbability - probability of a cardiac event from care-loop-heart-risk-service
 # + answers - the patient's questionnaire answers
+# + display - the patient's name/age/sex, used to compose the Task narrative below
 public type RiskAssessmentRequest record {|
     string patientId;
     float mlProbability;
     QuestionAnswer[] answers;
+    PatientDisplay display;
 |};
 
 # + probability - the agent's own assessed probability of a cardiac event, 0-1
@@ -29,9 +38,23 @@ public type RiskAssessmentRequest record {|
 # + reasoning - plain-language explanation citing the vitals trend, the ML probability, and the answers
 # + referencedResources - "Observation/{id}"-style references the agent actually saw in a tool result;
 # never a guess - empty if it isn't sure of any real id
+public type AgenticAssessment record {|
+    float probability;
+    "low"|"moderate"|"high" risk;
+    string reasoning;
+    string[] referencedResources;
+|};
+
+# + probability - the agent's own assessed probability of a cardiac event, 0-1
+# + risk - the agent's own assessed risk level
+# + reasoning - plain-language explanation citing the vitals trend, the ML probability, and the answers
+# + referencedResources - "Observation/{id}"-style references the agent actually saw in a tool result;
+# never a guess - empty if it isn't sure of any real id
+# + description - ready-to-use Task.description narrative, drafted by a separate LLM call
 public type RiskAssessmentResponse record {|
     float probability;
     "low"|"moderate"|"high" risk;
     string reasoning;
     string[] referencedResources;
+    string description;
 |};

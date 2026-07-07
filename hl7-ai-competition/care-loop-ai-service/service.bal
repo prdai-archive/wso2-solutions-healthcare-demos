@@ -1,11 +1,11 @@
 import ballerina/ai;
 import ballerina/http;
 import ballerina/lang.value;
+import ballerina/log;
 import ballerinax/ai.openai;
 
 final ai:McpToolKit fhirToolkit = check new (fhirMcpUrl);
 final ai:ModelProvider openAiProvider = check new openai:ModelProvider(openAiApiKey, openai:GPT_4_1_NANO);
-// nano's reasoning and referencedResources drifted out of sync (citing resolved conditions it said were irrelevant); mini verified consistent live across multiple patients.
 final ai:ModelProvider riskAssessmentProvider = check new openai:ModelProvider(openAiApiKey, openai:GPT_4_1);
 
 final ai:Agent questionnaireAgent = check new (
@@ -24,6 +24,16 @@ final ai:Agent riskAssessmentAgent = check new (
         instructions: riskAssessmentSystemPrompt
     },
     model = riskAssessmentProvider,
+    tools = [fhirToolkit],
+    verbose = true
+);
+
+final ai:Agent taskDescriptionAgent = check new (
+    systemPrompt = {
+        role: "Care Loop clinical documentation assistant",
+        instructions: taskDescriptionSystemPrompt
+    },
+    model = openAiProvider,
     tools = [fhirToolkit],
     verbose = true
 );
@@ -59,15 +69,38 @@ service /risk\-assessment on sharedListener {
             return <http:InternalServerError>{body: {message: "agent run failed: " + result.message()}};
         }
 
-        json|error assessment = value:fromJsonString(result);
-        if assessment is error {
-            return <http:InternalServerError>{body: {message: "agent did not return valid JSON: " + assessment.message()}};
+        json|error assessmentJson = value:fromJsonString(result);
+        if assessmentJson is error {
+            return <http:InternalServerError>{body: {message: "agent did not return valid JSON: " + assessmentJson.message()}};
         }
 
-        RiskAssessmentResponse|error response = assessment.cloneWithType();
-        if response is error {
-            return <http:InternalServerError>{body: {message: "agent JSON did not match expected shape: " + response.message()}};
+        AgenticAssessment|error assessment = assessmentJson.cloneWithType();
+        if assessment is error {
+            return <http:InternalServerError>{body: {message: "agent JSON did not match expected shape: " + assessment.message()}};
         }
-        return response;
+
+        string descriptionQuery = string `Patient: ${request.display.patientName} (${request.display.ageSexSummary}).
+ML probability: ${request.mlProbability}. Agentic probability: ${assessment.probability} (risk=${assessment.risk}).
+Agentic reasoning: ${assessment.reasoning}
+Referenced resources: ${assessment.referencedResources.toJsonString()}
+Patient answers: ${request.answers.toJsonString()}`;
+
+        string|ai:Error descriptionResult = taskDescriptionAgent.run(descriptionQuery);
+        string description;
+        if descriptionResult is ai:Error {
+            log:printWarn("task-description agent failed, falling back to a plain summary", 'error = descriptionResult);
+            description = string `Patient ${request.display.patientName} flagged for review. ML probability: ${
+                request.mlProbability}. Agentic probability: ${assessment.probability} (risk=${assessment.risk}).`;
+        } else {
+            description = descriptionResult;
+        }
+
+        return {
+            probability: assessment.probability,
+            risk: assessment.risk,
+            reasoning: assessment.reasoning,
+            referencedResources: assessment.referencedResources,
+            description
+        };
     }
 }

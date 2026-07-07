@@ -5,15 +5,15 @@ import ballerina/log;
 import ballerinax/ai.openai;
 
 final ai:McpToolKit fhirToolkit = check new (fhirMcpUrl);
-final ai:ModelProvider openAiProvider = check new openai:ModelProvider(openAiApiKey, openai:GPT_4_1_NANO);
-final ai:ModelProvider riskAssessmentProvider = check new openai:ModelProvider(openAiApiKey, openai:GPT_4_1);
+final ai:ModelProvider nanoModelProvider = check new openai:ModelProvider(openAiApiKey, openai:GPT_4_1_NANO);
+final ai:ModelProvider fullModelProvider = check new openai:ModelProvider(openAiApiKey, openai:GPT_4_1);
 
 final ai:Agent questionnaireAgent = check new (
     systemPrompt = {
         role: "Care Loop clinical assistant",
         instructions: questionnaireSystemPrompt
     },
-    model = openAiProvider,
+    model = nanoModelProvider,
     tools = [fhirToolkit],
     verbose = true
 );
@@ -23,7 +23,7 @@ final ai:Agent riskAssessmentAgent = check new (
         role: "Care Loop clinical assistant",
         instructions: riskAssessmentSystemPrompt
     },
-    model = riskAssessmentProvider,
+    model = fullModelProvider,
     tools = [fhirToolkit],
     verbose = true
 );
@@ -33,7 +33,7 @@ final ai:Agent taskDescriptionAgent = check new (
         role: "Care Loop clinical documentation assistant",
         instructions: taskDescriptionSystemPrompt
     },
-    model = openAiProvider,
+    model = nanoModelProvider,
     tools = [fhirToolkit],
     verbose = true
 );

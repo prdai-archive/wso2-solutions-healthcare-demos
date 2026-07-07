@@ -1,5 +1,6 @@
 "use client";
 
+import type { EhrRiskAssessment } from "@/app/api/risk-assessments/[id]/route";
 import type { EhrTaskDetail } from "@/app/api/tasks/[id]/route";
 
 import { ArrowLeft } from "lucide-react";
@@ -135,6 +136,111 @@ function TaskDetail({ task }: { task: EhrTaskDetail }) {
   );
 }
 
+function RiskAssessmentCard({
+  basedOn,
+}: {
+  basedOn: { id: string; display: string | undefined };
+}) {
+  const [assessment, setAssessment] = React.useState<EhrRiskAssessment | null>(
+    null,
+  );
+  const [status, setStatus] = React.useState<"loading" | "ready" | "error">(
+    "loading",
+  );
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      try {
+        const response = await fetch(`/api/risk-assessments/${basedOn.id}`);
+        const body = await response.json();
+        if (cancelled) return;
+        if (!response.ok || !body.riskAssessment) {
+          setStatus("error");
+          return;
+        }
+        setAssessment(body.riskAssessment);
+        setStatus("ready");
+      } catch {
+        if (!cancelled) setStatus("error");
+      }
+    }
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [basedOn.id]);
+
+  const label = basedOn.display ?? `RiskAssessment/${basedOn.id}`;
+
+  if (status === "loading") {
+    return (
+      <div className="rounded-lg border p-4 text-sm text-muted-foreground">
+        Loading {label}…
+      </div>
+    );
+  }
+  if (status === "error" || !assessment) {
+    return (
+      <div className="rounded-lg border p-4 text-sm text-muted-foreground">
+        Could not load {label}.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2 rounded-lg border p-4">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-semibold text-foreground">{label}</p>
+        <Badge variant="outline" className="font-mono">
+          RiskAssessment/{basedOn.id}
+        </Badge>
+      </div>
+      {assessment.method ? (
+        <p className="text-xs text-muted-foreground">{assessment.method}</p>
+      ) : null}
+      <div className="flex flex-wrap gap-2">
+        {assessment.predictions.map((prediction) => (
+          <Badge key={prediction.rationale ?? prediction.probability} variant="outline">
+            {prediction.probability !== undefined
+              ? `${Math.round(prediction.probability * 100)}%`
+              : "—"}
+            {prediction.rationale ? ` · ${prediction.rationale}` : ""}
+          </Badge>
+        ))}
+      </div>
+      {assessment.note ? (
+        <p className="text-sm leading-relaxed">{assessment.note}</p>
+      ) : null}
+    </div>
+  );
+}
+
+function TaskRiskAssessments({
+  basedOn,
+}: {
+  basedOn: { id: string; display: string | undefined }[];
+}) {
+  if (basedOn.length === 0) return null;
+  return (
+    <Card className="border-foreground/15">
+      <CardHeader className="border-b pb-5">
+        <CardTitle className="text-xl">Basis</CardTitle>
+        <CardDescription>
+          Risk assessments this Task is based on.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3 pt-6">
+        {basedOn.map((ref) => (
+          <RiskAssessmentCard key={ref.id} basedOn={ref} />
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function TaskDetailPage() {
   const params = useParams<{ id: string }>();
   const [task, setTask] = React.useState<EhrTaskDetail | null>(null);
@@ -182,7 +288,10 @@ export default function TaskDetailPage() {
       ) : status === "error" || !task ? (
         <TaskNotFound id={params.id} />
       ) : (
-        <TaskDetail task={task} />
+        <>
+          <TaskDetail task={task} />
+          <TaskRiskAssessments basedOn={task.basedOnRiskAssessments} />
+        </>
       )}
     </div>
   );

@@ -15,6 +15,14 @@ export interface EhrTaskDetail {
   description: string;
   authoredOn: string | undefined;
   lastModified: string | undefined;
+  basedOnRiskAssessments: { id: string; display: string | undefined }[];
+}
+
+function riskAssessmentId(reference: string | undefined): string | undefined {
+  const marker = "/RiskAssessment/";
+  const index = reference?.lastIndexOf(marker);
+  if (reference === undefined || index === undefined || index === -1) return undefined;
+  return reference.slice(index + marker.length);
 }
 
 function toEhrTaskDetail(task: FhirTask): EhrTaskDetail {
@@ -22,6 +30,10 @@ function toEhrTaskDetail(task: FhirTask): EhrTaskDetail {
   const patientId = subjectRef?.startsWith("Patient/")
     ? subjectRef.slice("Patient/".length)
     : subjectRef;
+
+  const basedOnRiskAssessments = (task.basedOn ?? [])
+    .map((ref) => ({ id: riskAssessmentId(ref.reference), display: ref.display }))
+    .filter((ref): ref is { id: string; display: string | undefined } => ref.id !== undefined);
 
   return {
     id: task.id ?? "",
@@ -34,6 +46,7 @@ function toEhrTaskDetail(task: FhirTask): EhrTaskDetail {
       "Task requested",
     authoredOn: task.authoredOn,
     lastModified: task.lastModified,
+    basedOnRiskAssessments,
   };
 }
 

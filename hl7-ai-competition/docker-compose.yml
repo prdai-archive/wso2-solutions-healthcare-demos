@@ -184,8 +184,10 @@ services:
     environment:
       NODE_ENV: production
       EHR_FHIR_SERVER_URL: "http://ehr-fhir-server:9090/fhir/r4"
+      CARE_LOOP_FHIR_SERVER_URL: "http://care-loop-fhir-server-readonly-proxy:8080/fhir"
     depends_on:
       - ehr-fhir-server
+      - care-loop-fhir-server-readonly-proxy
     healthcheck:
       test:
         - "CMD"

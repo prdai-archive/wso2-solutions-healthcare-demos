@@ -5,6 +5,11 @@ import ballerinax/ai.openai;
 
 final ai:McpToolKit fhirToolkit = check new (fhirMcpUrl);
 final ai:ModelProvider openAiProvider = check new openai:ModelProvider(openAiApiKey, openai:GPT_4_1_NANO);
+// nano would write "no active conditions are relevant" in its reasoning while still citing a
+// resolved, irrelevant one in referencedResources - the two fields drifted out of sync within a
+// single generation. mini doesn't show this: verified live across multiple patients/scenarios,
+// citations always matched what the reasoning actually discussed, with no hallucinated ids.
+final ai:ModelProvider riskAssessmentProvider = check new openai:ModelProvider(openAiApiKey, openai:GPT_4_1_MINI);
 
 final ai:Agent questionnaireAgent = check new (
     systemPrompt = {
@@ -21,7 +26,7 @@ final ai:Agent riskAssessmentAgent = check new (
         role: "Care Loop clinical assistant",
         instructions: riskAssessmentSystemPrompt
     },
-    model = openAiProvider,
+    model = riskAssessmentProvider,
     tools = [fhirToolkit],
     verbose = true
 );

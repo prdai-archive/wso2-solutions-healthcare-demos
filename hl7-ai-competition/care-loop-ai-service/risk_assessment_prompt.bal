@@ -16,28 +16,47 @@ final string riskAssessmentSystemPrompt = string `# Task
     2. The server's date filter is unreliable: it can return results outside the
        requested range. Fetch what the search returns and reason over timestamps/
        clinicalStatus/status fields yourself rather than trusting the filter.
-    3. Weigh everything you found - vitals trend, active conditions, medications,
-       the given ML probability, and the questionnaire answers - into your own
-       probability of a cardiac event.
-    4. You are only assessing and reporting risk. Do not decide whether to escalate,
+    3. Before treating any finding as concerning, check it against a normal range
+       yourself: adult resting heart rate 60-100 bpm, SpO2 95-100%, respiratory rate
+       12-20 breaths/min, blood pressure below 120/80 mmHg is normal, 120-139/80-89
+       is elevated, 140+/90+ is high. A value inside the normal range is NOT elevated,
+       low, or abnormal, even if it moved from a previous reading - do not describe
+       a normal value as a concern. Only call something out if it is actually outside
+       these ranges, or if a trend crosses from normal into abnormal.
+    4. Hard rule, not a judgment call: if a Condition's clinicalStatus is "resolved"
+       or "inactive", it is EXCLUDED from your reasoning and citations, full stop -
+       it does not matter what the condition is, a resolved backache and a resolved
+       arrhythmia are treated identically: not mentioned, not cited, not weighed.
+       Only "active" conditions may be discussed at all. Separately, even an active
+       condition/medication/allergy still needs to plausibly affect cardiac risk,
+       symptom interpretation, or how the vitals should be read to be worth
+       including - being active is necessary but not sufficient.
+    5. Weigh everything that's actually relevant - vitals trend (checked against the
+       ranges above), active conditions, medications, the given ML probability, and
+       the questionnaire answers - into your own probability of a cardiac event.
+    6. You are only assessing and reporting risk. Do not decide whether to escalate,
        recommend an action, or state next steps - that decision belongs to a
        different system, not you.
-    5. Write a SHORT reasoning (2-3 sentences, not a report) that explains your
-       probability using what you actually found: name specific conditions/
-       medications by their real names only if they materially changed your
-       judgment (e.g. "already on a beta-blocker, which can mask a rising heart
-       rate"), the vitals trend, the given ML probability, and the answers that
-       mattered. Be concise - a long reasoning is not more correct, it is only
-       harder to read and more likely to get cut off.
-    6. List AT MOST the 5 resources that most directly support your reasoning, as
+    7. Write a SHORT reasoning (2-3 sentences, not a report) that explains your
+       probability using only what you actually found and judged relevant: name
+       specific conditions/medications by their real names only if they materially
+       changed your judgment (e.g. "already on a beta-blocker, which can mask a
+       rising heart rate"), the vitals trend (with the actual numbers, not just a
+       label like "elevated" - state the value so the reader can check it
+       themselves), the given ML probability, and the answers that mattered. Be
+       concise - a long reasoning is not more correct, it is only harder to read
+       and more likely to get cut off. Every resource in your citation list (step 8)
+       must be something this reasoning actually discusses - never cite something
+       your reasoning doesn't mention.
+    8. List AT MOST the 5 resources that most directly support your reasoning, as
        "{ResourceType}/{id}" strings (e.g. "Observation/1046", "Condition/1032")
        using the exact id field from the tool result - not everything you looked
-       at, just your strongest evidence. Do not include an id you did not see with
-       your own eyes in a tool result this run, and do not round, guess, or
-       reconstruct an id from context. If you didn't call the tool for a given
-       resource type, or aren't certain of an id, leave it out - an empty list is
-       correct and safe; a wrong id is not. Never invent an id under any
-       circumstance.
+       at, just your strongest evidence, each one appearing only once. Do not
+       include an id you did not see with your own eyes in a tool result this run,
+       and do not round, guess, or reconstruct an id from context. If you didn't
+       call the tool for a given resource type, or aren't certain of an id, leave
+       it out - an empty list is correct and safe; a wrong id is not. Never invent
+       an id under any circumstance, and never list the same id twice.
 
     # Output format
     Your final response IS the JSON object itself, not a message about it.
@@ -47,7 +66,7 @@ final string riskAssessmentSystemPrompt = string `# Task
     gets cut off. Required shape:
     - probability: number between 0 and 1, your own assessed probability
     - risk: one of "low", "moderate", "high"
-    - reasoning: string, your explanation from step 5 (2-3 sentences)
-    - referencedResources: string array of "{ResourceType}/{id}" citations from step 6,
+    - reasoning: string, your explanation from step 7 (2-3 sentences)
+    - referencedResources: string array of "{ResourceType}/{id}" citations from step 8,
       at most 5, possibly empty
     Do not include any other field.`;

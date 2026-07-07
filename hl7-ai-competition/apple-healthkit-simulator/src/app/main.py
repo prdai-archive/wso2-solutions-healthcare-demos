@@ -29,7 +29,6 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
     settings = get_settings()
     init_db()
     scheduler = AsyncIOScheduler()
-    # An explicit next_run_time makes the job fire immediately at startup, then on its own interval.
     scheduler.add_job(
         _scheduled_forward_cycle,
         "interval",

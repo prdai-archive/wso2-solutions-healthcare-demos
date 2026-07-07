@@ -24,6 +24,59 @@ function formatBirthDate(birthDate: string | undefined): string | undefined {
   return parsed.toLocaleDateString(undefined, { dateStyle: "medium" });
 }
 
+function PatientsLoading() {
+  return (
+    <div className="flex h-[560px] items-center justify-center text-sm text-muted-foreground">
+      Loading patients…
+    </div>
+  );
+}
+
+function PatientsEmpty() {
+  return (
+    <div className="flex h-[560px] flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground">
+      <Users className="size-6" />
+      No patients found.
+    </div>
+  );
+}
+
+function PatientListItem({ patient }: { patient: EhrPatient }) {
+  return (
+    <li>
+      <Link
+        href={`/patients/${patient.id}`}
+        className="flex items-center gap-4 px-6 py-4 transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
+      >
+        <span className="mt-1 size-1.5 shrink-0 rounded-full bg-foreground" />
+        <div className="min-w-0 flex-1 space-y-1">
+          <p className="text-sm font-semibold text-foreground">
+            {patient.name}
+          </p>
+          <p className="truncate text-xs text-muted-foreground">
+            {formatBirthDate(patient.birthDate) ?? "DOB unknown"}
+            {patient.gender ? ` · ${patient.gender}` : ""}
+          </p>
+        </div>
+        <Badge variant="outline" className="shrink-0 font-mono">
+          Patient/{patient.id}
+        </Badge>
+        <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+      </Link>
+    </li>
+  );
+}
+
+function PatientList({ patients }: { patients: EhrPatient[] }) {
+  return (
+    <ul className="divide-y">
+      {patients.map((patient) => (
+        <PatientListItem key={patient.id} patient={patient} />
+      ))}
+    </ul>
+  );
+}
+
 export default function PatientsPage() {
   const [patients, setPatients] = React.useState<EhrPatient[]>([]);
   const [loaded, setLoaded] = React.useState(false);
@@ -77,40 +130,11 @@ export default function PatientsPage() {
         <CardContent className="p-0">
           <ScrollArea className="h-[560px]">
             {!loaded ? (
-              <div className="flex h-[560px] items-center justify-center text-sm text-muted-foreground">
-                Loading patients…
-              </div>
+              <PatientsLoading />
             ) : patients.length === 0 ? (
-              <div className="flex h-[560px] flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground">
-                <Users className="size-6" />
-                No patients found.
-              </div>
+              <PatientsEmpty />
             ) : (
-              <ul className="divide-y">
-                {patients.map((patient) => (
-                  <li key={patient.id}>
-                    <Link
-                      href={`/patients/${patient.id}`}
-                      className="flex items-center gap-4 px-6 py-4 transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
-                    >
-                      <span className="mt-1 size-1.5 shrink-0 rounded-full bg-foreground" />
-                      <div className="min-w-0 flex-1 space-y-1">
-                        <p className="text-sm font-semibold text-foreground">
-                          {patient.name}
-                        </p>
-                        <p className="truncate text-xs text-muted-foreground">
-                          {formatBirthDate(patient.birthDate) ?? "DOB unknown"}
-                          {patient.gender ? ` · ${patient.gender}` : ""}
-                        </p>
-                      </div>
-                      <Badge variant="outline" className="shrink-0 font-mono">
-                        Patient/{patient.id}
-                      </Badge>
-                      <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+              <PatientList patients={patients} />
             )}
           </ScrollArea>
         </CardContent>

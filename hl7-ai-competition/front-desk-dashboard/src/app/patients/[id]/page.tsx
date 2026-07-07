@@ -58,6 +58,149 @@ function Field({
   );
 }
 
+function PatientLoading() {
+  return (
+    <Card>
+      <CardContent className="p-10 text-center text-sm text-muted-foreground">
+        Loading patient…
+      </CardContent>
+    </Card>
+  );
+}
+
+function PatientNotFound({ id }: { id: string }) {
+  return (
+    <Card>
+      <CardContent className="p-10 text-center text-sm text-muted-foreground">
+        Patient {id} could not be found in the EHR.
+      </CardContent>
+    </Card>
+  );
+}
+
+function PatientSummary({
+  patient,
+  age,
+}: {
+  patient: EhrPatientDetail;
+  age: number | undefined;
+}) {
+  return (
+    <Card className="border-foreground/15">
+      <CardHeader className="border-b pb-5">
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-1">
+            <CardTitle className="text-xl">{patient.name}</CardTitle>
+            <CardDescription className="font-mono text-xs">
+              Patient/{patient.id}
+            </CardDescription>
+          </div>
+          {patient.gender ? (
+            <Badge
+              variant="outline"
+              className="h-7 px-3 text-sm font-semibold uppercase tracking-wide"
+            >
+              {patient.gender}
+            </Badge>
+          ) : null}
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-6 pt-6">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+          <Field
+            label="Age"
+            value={
+              age !== undefined ? (
+                age
+              ) : (
+                <span className="text-muted-foreground">Unknown</span>
+              )
+            }
+          />
+          <Field
+            label="Date of birth"
+            value={
+              patient.birthDate ?? (
+                <span className="text-muted-foreground">Unknown</span>
+              )
+            }
+          />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function PatientTasksEmpty() {
+  return (
+    <div className="flex flex-col items-center justify-center gap-2 py-12 text-center text-sm text-muted-foreground">
+      <ClipboardCheck className="size-6" />
+      No active tasks for this patient.
+    </div>
+  );
+}
+
+function PatientTaskListItem({ task }: { task: EhrTask }) {
+  return (
+    <li>
+      <Link
+        href={`/tasks/${task.id}`}
+        className="flex items-center gap-4 px-6 py-4 transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
+      >
+        <span className="mt-1 size-1.5 shrink-0 rounded-full bg-foreground" />
+        <div className="min-w-0 flex-1 space-y-1">
+          <p className="text-sm font-semibold text-foreground">
+            {task.description}
+          </p>
+          <p className="truncate text-xs text-muted-foreground">
+            {formatTimestamp(task.authoredOn) ?? "Not recorded"}
+          </p>
+        </div>
+        <Badge variant="outline" className="shrink-0 uppercase tracking-wide">
+          {task.status}
+        </Badge>
+      </Link>
+    </li>
+  );
+}
+
+function PatientTaskList({ tasks }: { tasks: EhrTask[] }) {
+  return (
+    <ul className="divide-y">
+      {tasks.map((task) => (
+        <PatientTaskListItem key={task.id} task={task} />
+      ))}
+    </ul>
+  );
+}
+
+function PatientTasks({ tasks }: { tasks: EhrTask[] }) {
+  return (
+    <Card className="gap-0 border-foreground/15">
+      <CardHeader className="border-b pb-5">
+        <div className="flex items-center justify-between gap-4">
+          <div className="space-y-1">
+            <CardTitle className="text-xl">Care team tasks</CardTitle>
+            <CardDescription>
+              Requested from the EHR for this patient.
+            </CardDescription>
+          </div>
+          <Badge variant="outline" className="h-7 px-3 text-sm font-semibold">
+            {tasks.length} open
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="p-0">
+        {tasks.length === 0 ? (
+          <PatientTasksEmpty />
+        ) : (
+          <PatientTaskList tasks={tasks} />
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function PatientDetailPage() {
   const params = useParams<{ id: string }>();
   const [patient, setPatient] = React.useState<EhrPatientDetail | null>(null);
@@ -109,115 +252,13 @@ export default function PatientDetailPage() {
       </Button>
 
       {status === "loading" ? (
-        <Card>
-          <CardContent className="p-10 text-center text-sm text-muted-foreground">
-            Loading patient…
-          </CardContent>
-        </Card>
+        <PatientLoading />
       ) : status === "error" || !patient ? (
-        <Card>
-          <CardContent className="p-10 text-center text-sm text-muted-foreground">
-            Patient {params.id} could not be found in the EHR.
-          </CardContent>
-        </Card>
+        <PatientNotFound id={params.id} />
       ) : (
         <>
-          <Card className="border-foreground/15">
-            <CardHeader className="border-b pb-5">
-              <div className="flex items-start justify-between gap-4">
-                <div className="space-y-1">
-                  <CardTitle className="text-xl">{patient.name}</CardTitle>
-                  <CardDescription className="font-mono text-xs">
-                    Patient/{patient.id}
-                  </CardDescription>
-                </div>
-                {patient.gender ? (
-                  <Badge
-                    variant="outline"
-                    className="h-7 px-3 text-sm font-semibold uppercase tracking-wide"
-                  >
-                    {patient.gender}
-                  </Badge>
-                ) : null}
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-6 pt-6">
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                <Field
-                  label="Age"
-                  value={
-                    age !== undefined ? (
-                      age
-                    ) : (
-                      <span className="text-muted-foreground">Unknown</span>
-                    )
-                  }
-                />
-                <Field
-                  label="Date of birth"
-                  value={
-                    patient.birthDate ?? (
-                      <span className="text-muted-foreground">Unknown</span>
-                    )
-                  }
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="gap-0 border-foreground/15">
-            <CardHeader className="border-b pb-5">
-              <div className="flex items-center justify-between gap-4">
-                <div className="space-y-1">
-                  <CardTitle className="text-xl">Care team tasks</CardTitle>
-                  <CardDescription>
-                    Requested from the EHR for this patient.
-                  </CardDescription>
-                </div>
-                <Badge
-                  variant="outline"
-                  className="h-7 px-3 text-sm font-semibold"
-                >
-                  {tasks.length} open
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              {tasks.length === 0 ? (
-                <div className="flex flex-col items-center justify-center gap-2 py-12 text-center text-sm text-muted-foreground">
-                  <ClipboardCheck className="size-6" />
-                  No active tasks for this patient.
-                </div>
-              ) : (
-                <ul className="divide-y">
-                  {tasks.map((task) => (
-                    <li key={task.id}>
-                      <Link
-                        href={`/tasks/${task.id}`}
-                        className="flex items-center gap-4 px-6 py-4 transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
-                      >
-                        <span className="mt-1 size-1.5 shrink-0 rounded-full bg-foreground" />
-                        <div className="min-w-0 flex-1 space-y-1">
-                          <p className="text-sm font-semibold text-foreground">
-                            {task.description}
-                          </p>
-                          <p className="truncate text-xs text-muted-foreground">
-                            {formatTimestamp(task.authoredOn) ?? "Not recorded"}
-                          </p>
-                        </div>
-                        <Badge
-                          variant="outline"
-                          className="shrink-0 uppercase tracking-wide"
-                        >
-                          {task.status}
-                        </Badge>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
+          <PatientSummary patient={patient} age={age} />
+          <PatientTasks tasks={tasks} />
         </>
       )}
     </div>

@@ -28,6 +28,70 @@ function formatAuthoredOn(authoredOn: string | undefined): string | undefined {
   });
 }
 
+function TasksLoading() {
+  return (
+    <div className="flex h-[440px] items-center justify-center text-sm text-muted-foreground">
+      Loading tasks…
+    </div>
+  );
+}
+
+function TasksEmpty() {
+  return (
+    <div className="flex h-[440px] flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground">
+      <ClipboardCheck className="size-6" />
+      No active tasks.
+    </div>
+  );
+}
+
+function TaskListItem({ task }: { task: EhrTask }) {
+  return (
+    <li className="flex items-center gap-4 px-6 py-4 transition-colors hover:bg-muted">
+      <span className="mt-1 size-1.5 shrink-0 rounded-full bg-foreground" />
+      <div className="min-w-0 flex-1 space-y-1">
+        <Link
+          href={`/tasks/${task.id}`}
+          className="block text-sm font-semibold text-foreground focus-visible:outline-none"
+        >
+          {task.description}
+        </Link>
+        <p className="truncate text-xs text-muted-foreground">
+          {task.patientId ? (
+            <Link
+              href={`/patients/${task.patientId}`}
+              className="underline-offset-2 hover:underline"
+            >
+              Patient/{task.patientId}
+            </Link>
+          ) : (
+            "Unknown patient"
+          )}
+          {formatAuthoredOn(task.authoredOn)
+            ? ` · ${formatAuthoredOn(task.authoredOn)}`
+            : ""}
+        </p>
+      </div>
+      <Badge variant="outline" className="shrink-0 uppercase tracking-wide">
+        {task.status}
+      </Badge>
+      <Link href={`/tasks/${task.id}`}>
+        <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+      </Link>
+    </li>
+  );
+}
+
+function TaskList({ tasks }: { tasks: EhrTask[] }) {
+  return (
+    <ul className="divide-y">
+      {tasks.map((task) => (
+        <TaskListItem key={task.id} task={task} />
+      ))}
+    </ul>
+  );
+}
+
 export function EhrTasks() {
   const [tasks, setTasks] = React.useState<EhrTask[]>([]);
   const [loaded, setLoaded] = React.useState(false);
@@ -73,54 +137,11 @@ export function EhrTasks() {
       <CardContent className="p-0">
         <ScrollArea className="h-[440px]">
           {!loaded ? (
-            <div className="flex h-[440px] items-center justify-center text-sm text-muted-foreground">
-              Loading tasks…
-            </div>
+            <TasksLoading />
           ) : tasks.length === 0 ? (
-            <div className="flex h-[440px] flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground">
-              <ClipboardCheck className="size-6" />
-              No active tasks.
-            </div>
+            <TasksEmpty />
           ) : (
-            <ul className="divide-y">
-              {tasks.map((task) => (
-                <li
-                  key={task.id}
-                  className="flex items-center gap-4 px-6 py-4 transition-colors hover:bg-muted"
-                >
-                  <span className="mt-1 size-1.5 shrink-0 rounded-full bg-foreground" />
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <Link
-                      href={`/tasks/${task.id}`}
-                      className="block text-sm font-semibold text-foreground focus-visible:outline-none"
-                    >
-                      {task.description}
-                    </Link>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {task.patientId ? (
-                        <Link
-                          href={`/patients/${task.patientId}`}
-                          className="underline-offset-2 hover:underline"
-                        >
-                          Patient/{task.patientId}
-                        </Link>
-                      ) : (
-                        "Unknown patient"
-                      )}
-                      {formatAuthoredOn(task.authoredOn)
-                        ? ` · ${formatAuthoredOn(task.authoredOn)}`
-                        : ""}
-                    </p>
-                  </div>
-                  <Badge variant="outline" className="shrink-0 uppercase tracking-wide">
-                    {task.status}
-                  </Badge>
-                  <Link href={`/tasks/${task.id}`}>
-                    <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
-                  </Link>
-                </li>
-              ))}
-            </ul>
+            <TaskList tasks={tasks} />
           )}
         </ScrollArea>
       </CardContent>

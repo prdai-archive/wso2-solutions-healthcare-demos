@@ -16,8 +16,7 @@ service / on new http:Listener(listenPort) {
             return <http:BadGateway>{body: {message: "failed to save vitals bundle: " + saveResult.message()}};
         }
 
-        // Best-effort: the vitals save is what matters for this call; a failed nudge to
-        // analysis-service just means that service's next poll/cycle picks it up later instead.
+        // Best-effort: a failed analysis-service nudge just means it picks this up on its next cycle instead.
         http:Response|http:ClientError notifyResult = analysisClient->post("/vitals-ready", {patientId});
         if notifyResult is http:ClientError {
             log:printWarn("failed to notify analysis-service of new vitals", patientId = patientId, 'error = notifyResult);

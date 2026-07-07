@@ -8,9 +8,7 @@ public type PatientDisplay record {|
     string ageSexSummary;
 |};
 
-# Deliberately just identity/demographics - deeper medical history (conditions, medications, etc.)
-# is care-loop-ai-service's risk-assessment agent's own job via its full MCP toolkit access, not
-# something analysis-service pre-fetches and hands over structured.
+# Deliberately just identity/demographics - deeper medical history is the risk-assessment agent's own job via its MCP toolkit.
 isolated function patientDisplay(international401:Patient patient, string fallbackId, int age, "M"|"F" sex) returns PatientDisplay {
     return {patientName: extractPatientDisplayName(patient, fallbackId), ageSexSummary: age.toString() + sex};
 }

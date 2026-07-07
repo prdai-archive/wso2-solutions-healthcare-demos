@@ -1,8 +1,7 @@
 import ballerinax/health.clients.fhir;
 import ballerinax/health.fhir.r4.international401;
 
-# create()'s default MINIMAL preference returns {resourceId, version}, not a full resource - fall
-# back to "id" in case that ever changes. Same pattern already used in care-loop-collector-service.
+# create()'s default MINIMAL preference returns {resourceId, version}, not a full resource - fall back to "id" in case that changes.
 isolated function extractFhirId(fhir:FHIRResponse response) returns string? {
     json|xml resourceValue = response.'resource;
     if resourceValue is xml {

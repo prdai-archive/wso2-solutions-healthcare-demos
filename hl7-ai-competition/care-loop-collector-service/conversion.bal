@@ -53,8 +53,7 @@ isolated function buildQuestionnaireResponse(TranscriptCallback callback, Genera
     return questionnaireResponse;
 }
 
-// Bot messages carry the linkId of the question they asked in `questionId`; matching that back onto each
-// user answer (directly, or via replyTo for bundled follow-ups) gives the question text emergency-answers needs.
+// Matches each user answer back to the bot question's linkId (directly, or via replyTo) to recover the question text.
 isolated function buildEmergencyAnswers(TranscriptCallback callback) returns EmergencyAnswer[] {
     map<string> questionTextByLinkId = {};
     foreach ChatMessage message in callback.messages {

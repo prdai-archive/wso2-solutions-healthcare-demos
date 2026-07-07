@@ -6,9 +6,6 @@ import ballerina/time;
 import ballerinax/health.clients.fhir;
 import ballerinax/health.fhir.r4.international401;
 
-# Runs the whole vitals-ready cycle in the background: fetch patient, derive demographics,
-# find the last hour of vitals, score against heart-risk-service, then either save a
-# RiskAssessment (below threshold) or kick off the emergency questionnaire (at/above it).
 isolated function runVitalsReadyCycle(string patientId) {
     fhir:FHIRResponse|fhir:FHIRError patientResponse = fhirConnector->getById("Patient", patientId);
     if patientResponse is fhir:FHIRError {
@@ -116,12 +113,7 @@ isolated function runTimeoutWatcher(string patientId, float mlProbability) {
     }
 }
 
-# Runs the emergency-answers cycle in the background - the agent's now-broader MCP search
-# autonomy means /risk-assessment can take multiple tool round-trips, which was blowing past
-# whatsapp-simulator's own request timeout back to it when this ran synchronously in the
-# resource function. The pending-case lookup/resolve stays synchronous (fast, in-memory, and
-# needed to answer 202 vs 404 correctly and avoid double-processing), only the slow part moves
-# to `start`.
+# Runs in the background: /risk-assessment's multi-tool-call round-trips were blowing past whatsapp-simulator's request timeout when run synchronously.
 isolated function runEmergencyAnswersCycle(EmergencyAnswersRequest request, PendingCase pendingCase) {
     AiRiskAssessmentRequest aiRequest = {
         patientId: request.patientId,

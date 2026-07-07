@@ -1,6 +1,4 @@
-// apple-healthkit-simulator's vitals_forwarder.py builds each Observation with
-// subject.reference = "Patient/{fhirId}" - the first entry's reference is enough
-// since one bundle only ever carries one patient's readings.
+// Each bundle only ever carries one patient's readings, so the first entry's subject reference is enough.
 isolated function extractPatientIdFromVitalsBundle(json bundle) returns string|error {
     json[] entries = check trap <json[]>(checkpanic bundle.entry);
     if entries.length() == 0 {

@@ -72,12 +72,12 @@ public type AiRiskAssessmentResponse record {|
     string description;
 |};
 
-# + mlProbability - the heart-risk-service probability that triggered escalation
+# + heartRisk - the heart-risk-service response that triggered escalation
 # + observationRefs - "Observation/{id}" references for the vitals used to compute max_hr
 # + display - the patient's name/age/sex, fetched once at escalation time so the Task built
 #   later doesn't need to re-fetch the Patient resource
 public type PendingCase record {|
-    float mlProbability;
+    HeartRiskResponse heartRisk;
     string[] observationRefs;
     PatientDisplay display;
 |};

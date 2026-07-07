@@ -12,32 +12,17 @@ isolated function buildMlOnlyRiskAssessment(string patientId, string[] observati
     };
 }
 
-# One RiskAssessment representing both independent probabilities per the explicit "written every case"
-# decision - two prediction entries (ML, agentic) rather than picking one, since neither supersedes
-# the other and RiskAssessment.prediction is already an array.
-#
 # + patientId - the FHIR Patient id this assessment is for
-# + observationRefs - "Observation/{id}" references for the vitals the ML probability was based on
-# + mlProbability - care-loop-heart-risk-service's probability
 # + agentic - care-loop-ai-service's own probability/risk assessment
-# + return - the combined RiskAssessment, unsaved
-isolated function buildCombinedRiskAssessment(string patientId, string[] observationRefs, float mlProbability, AiRiskAssessmentResponse agentic) returns international401:RiskAssessment {
-    string[] allRefs = observationRefs.clone();
-    foreach string ref in agentic.referencedResources {
-        if allRefs.indexOf(ref) is () {
-            allRefs.push(ref);
-        }
-    }
-    r4:Reference[] basis = allRefs.map(ref => <r4:Reference>{reference: ref});
+# + return - the agentic-only RiskAssessment, unsaved
+isolated function buildAgenticRiskAssessment(string patientId, AiRiskAssessmentResponse agentic) returns international401:RiskAssessment {
+    r4:Reference[] basis = agentic.referencedResources.map(ref => <r4:Reference>{reference: ref});
     return {
         status: international401:CODE_STATUS_FINAL,
         subject: {reference: "Patient/" + patientId},
         basis,
-        method: {text: "care-loop-heart-risk-service ML probability + care-loop-ai-service agentic assessment"},
+        method: {text: "care-loop-ai-service agentic assessment"},
         note: [{text: agentic.reasoning}],
-        prediction: [
-            {probabilityDecimal: <decimal>mlProbability, rationale: "care-loop-heart-risk-service ML probability"},
-            {probabilityDecimal: <decimal>agentic.probability, rationale: "care-loop-ai-service agentic assessment, risk=" + agentic.risk}
-        ]
+        prediction: [{probabilityDecimal: <decimal>agentic.probability, rationale: "risk=" + agentic.risk}]
     };
 }

@@ -76,7 +76,7 @@ isolated function runVitalsReadyCycle(string patientId) {
     log:printWarn("vitals-ready: ML probability crossed escalation threshold, starting emergency questionnaire",
             patientId = patientId, probability = heartRiskResponse.probability);
     PatientDisplay display = patientDisplay(patient, patientId, age, sex);
-    putPendingCase(patientId, {mlProbability: heartRiskResponse.probability, observationRefs, display});
+    putPendingCase(patientId, {heartRisk: heartRiskResponse, observationRefs, display});
 
     http:Response|http:ClientError generateResult = collectorClient->post(
             "/patients/" + patientId + "/generate",
@@ -117,7 +117,7 @@ isolated function runTimeoutWatcher(string patientId, float mlProbability) {
 isolated function runEmergencyAnswersCycle(EmergencyAnswersRequest request, PendingCase pendingCase) {
     AiRiskAssessmentRequest aiRequest = {
         patientId: request.patientId,
-        mlProbability: pendingCase.mlProbability,
+        mlProbability: pendingCase.heartRisk.probability,
         answers: request.answers,
         display: pendingCase.display
     };
@@ -127,17 +127,25 @@ isolated function runEmergencyAnswersCycle(EmergencyAnswersRequest request, Pend
         return;
     }
 
-    international401:RiskAssessment riskAssessment = buildCombinedRiskAssessment(
-            request.patientId, pendingCase.observationRefs, pendingCase.mlProbability, aiResponse);
-    fhir:FHIRResponse|fhir:FHIRError saveResult = fhirConnector->create(riskAssessment.toJson());
-    string? riskAssessmentId = saveResult is fhir:FHIRResponse ? extractFhirId(saveResult) : ();
-    if saveResult is fhir:FHIRError {
-        log:printError("emergency-answers: failed to save RiskAssessment", patientId = request.patientId, 'error = saveResult);
+    international401:RiskAssessment mlRiskAssessment = buildMlOnlyRiskAssessment(
+            request.patientId, pendingCase.observationRefs, pendingCase.heartRisk);
+    fhir:FHIRResponse|fhir:FHIRError mlSaveResult = fhirConnector->create(mlRiskAssessment.toJson());
+    string? mlRiskAssessmentId = mlSaveResult is fhir:FHIRResponse ? extractFhirId(mlSaveResult) : ();
+    if mlSaveResult is fhir:FHIRError {
+        log:printError("emergency-answers: failed to save ML RiskAssessment", patientId = request.patientId, 'error = mlSaveResult);
     }
 
-    if pendingCase.mlProbability >= mlEscalationThreshold && aiResponse.probability >= agenticEscalationThreshold {
+    international401:RiskAssessment agenticRiskAssessment = buildAgenticRiskAssessment(request.patientId, aiResponse);
+    fhir:FHIRResponse|fhir:FHIRError agenticSaveResult = fhirConnector->create(agenticRiskAssessment.toJson());
+    string? agenticRiskAssessmentId = agenticSaveResult is fhir:FHIRResponse ? extractFhirId(agenticSaveResult) : ();
+    if agenticSaveResult is fhir:FHIRError {
+        log:printError("emergency-answers: failed to save agentic RiskAssessment", patientId = request.patientId, 'error = agenticSaveResult);
+    }
+
+    if pendingCase.heartRisk.probability >= mlEscalationThreshold && aiResponse.probability >= agenticEscalationThreshold {
         international401:Task task = buildEscalationTask(
-                request.patientId, pendingCase.mlProbability, aiResponse, pendingCase.display, riskAssessmentId);
+                request.patientId, pendingCase.heartRisk.probability, aiResponse, pendingCase.display,
+                mlRiskAssessmentId, agenticRiskAssessmentId);
         fhir:FHIRResponse|fhir:FHIRError taskSaveResult = ehrFhirConnector->create(task.toJson());
         if taskSaveResult is fhir:FHIRError {
             log:printError("emergency-answers: failed to save Task to ehr-fhir-server", patientId = request.patientId, 'error = taskSaveResult);

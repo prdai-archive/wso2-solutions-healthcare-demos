@@ -1,7 +1,7 @@
 import ballerina/http;
 import ballerinax/health.clients.fhir;
 
-// Capability-statement validation would GET /metadata at construction time, racing this service's own startup against care-loop-fhir-server's / ehr-fhir-server's - disabled, matching care-loop-collector-service/clients.bal.
+// Capability-statement validation races our own startup - disabled, as in care-loop-collector-service/clients.bal.
 final fhir:FHIRConnector fhirConnector = check new ({baseURL: fhirServerUrl}, enableCapabilityStatementValidation = false);
 final fhir:FHIRConnector ehrFhirConnector = check new ({baseURL: ehrFhirServerUrl}, enableCapabilityStatementValidation = false);
 

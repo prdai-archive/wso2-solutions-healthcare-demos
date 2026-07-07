@@ -1,4 +1,5 @@
 import ballerinax/health.clients.fhir;
+import ballerinax/health.fhir.r4;
 import ballerinax/health.fhir.r4.international401;
 
 # create()'s default MINIMAL preference returns {resourceId, version}, not a full resource - fall back to "id" in case that changes.
@@ -25,8 +26,15 @@ isolated function priorityForProbability(float probability) returns internationa
     return international401:CODE_PRIORITY_ROUTINE;
 }
 
+isolated function riskAssessmentReference(string? riskAssessmentId, string display) returns r4:Reference? {
+    if riskAssessmentId is () {
+        return ();
+    }
+    return {reference: fhirServerUrl + "/RiskAssessment/" + riskAssessmentId, display};
+}
+
 isolated function buildEscalationTask(string patientId, float mlProbability, AiRiskAssessmentResponse agentic,
-        PatientDisplay display, string? riskAssessmentId) returns international401:Task {
+        PatientDisplay display, string? mlRiskAssessmentId, string? agenticRiskAssessmentId) returns international401:Task {
     float worstProbability = mlProbability > agentic.probability ? mlProbability : agentic.probability;
 
     international401:Task task = {
@@ -36,11 +44,13 @@ isolated function buildEscalationTask(string patientId, float mlProbability, AiR
         'for: {reference: "Patient/" + patientId, display: display.patientName},
         description: agentic.description
     };
-    if riskAssessmentId is string {
-        task.reasonReference = {
-            reference: fhirServerUrl + "/RiskAssessment/" + riskAssessmentId,
-            display: "Combined ML + agentic RiskAssessment"
-        };
+
+    r4:Reference[] basedOn = [
+        riskAssessmentReference(mlRiskAssessmentId, "ML RiskAssessment"),
+        riskAssessmentReference(agenticRiskAssessmentId, "Agentic RiskAssessment")
+    ].filter(ref => ref is r4:Reference).map(ref => <r4:Reference>ref);
+    if basedOn.length() > 0 {
+        task.basedOn = basedOn;
     }
     return task;
 }
@@ -56,11 +66,9 @@ Questionnaire timed out with no patient response. Fail-safe escalation on ML pro
         'for: {reference: "Patient/" + patientId, display: display.patientName},
         description
     };
-    if riskAssessmentId is string {
-        task.reasonReference = {
-            reference: fhirServerUrl + "/RiskAssessment/" + riskAssessmentId,
-            display: "ML-only RiskAssessment (questionnaire timeout)"
-        };
+    r4:Reference? ref = riskAssessmentReference(riskAssessmentId, "ML RiskAssessment (questionnaire timeout)");
+    if ref is r4:Reference {
+        task.basedOn = [ref];
     }
     return task;
 }

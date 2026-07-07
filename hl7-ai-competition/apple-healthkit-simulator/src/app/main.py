@@ -29,10 +29,7 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
     settings = get_settings()
     init_db()
     scheduler = AsyncIOScheduler()
-    # next_run_time=None (the old value here) sets the job's next_run_time attribute directly
-    # to None instead of leaving it unset, so APScheduler never computes one from the trigger -
-    # the job silently never fires on its own. Passing an actual "now" makes it fire immediately
-    # at startup, then naturally every vitals_forward_interval_hours after that.
+    # An explicit next_run_time makes the job fire immediately at startup, then on its own interval.
     scheduler.add_job(
         _scheduled_forward_cycle,
         "interval",

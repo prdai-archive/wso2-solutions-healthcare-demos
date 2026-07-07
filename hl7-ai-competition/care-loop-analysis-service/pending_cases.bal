@@ -22,10 +22,3 @@ isolated function resolvePendingCase(string patientId) {
         _ = pendingCases.removeIfHasKey(patientId);
     }
 }
-
-# True only if the case is still there and wasn't already resolved by /emergency-answers.
-isolated function isPendingCaseStillOutstanding(string patientId) returns boolean {
-    lock {
-        return pendingCases.hasKey(patientId);
-    }
-}

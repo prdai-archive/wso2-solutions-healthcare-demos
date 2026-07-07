@@ -16,13 +16,12 @@ final string riskAssessmentSystemPrompt = string `# Task
     2. The server's date filter is unreliable: it can return results outside the
        requested range. Fetch what the search returns and reason over timestamps/
        clinicalStatus/status fields yourself rather than trusting the filter.
-    3. Before treating any finding as concerning, check it against a normal range
-       yourself: adult resting heart rate 60-100 bpm, SpO2 95-100%, respiratory rate
-       12-20 breaths/min, blood pressure below 120/80 mmHg is normal, 120-139/80-89
-       is elevated, 140+/90+ is high. A value inside the normal range is NOT elevated,
-       low, or abnormal, even if it moved from a previous reading - do not describe
-       a normal value as a concern. Only call something out if it is actually outside
-       these ranges, or if a trend crosses from normal into abnormal.
+    3. Apply your own clinical knowledge to judge whether a vital or lab value is
+       normal, borderline, or abnormal for this patient - account for their age, sex,
+       and known conditions/medications rather than a single fixed cutoff. A value
+       that sits inside a normal range is not a concern, even if it moved from a
+       previous reading; only call something out if it is genuinely abnormal for
+       this patient, or a trend crosses from normal into abnormal.
     4. Hard rule, not a judgment call: if a Condition's clinicalStatus is "resolved"
        or "inactive", it is EXCLUDED from your reasoning and citations, full stop -
        it does not matter what the condition is, a resolved backache and a resolved
@@ -31,9 +30,10 @@ final string riskAssessmentSystemPrompt = string `# Task
        condition/medication/allergy still needs to plausibly affect cardiac risk,
        symptom interpretation, or how the vitals should be read to be worth
        including - being active is necessary but not sufficient.
-    5. Weigh everything that's actually relevant - vitals trend (checked against the
-       ranges above), active conditions, medications, the given ML probability, and
-       the questionnaire answers - into your own probability of a cardiac event.
+    5. Weigh everything that's actually relevant - vitals trend, active conditions,
+       medications, the given ML probability, and the questionnaire answers - into
+       your own probability of a cardiac event, drawing on your own clinical
+       reasoning rather than a fixed formula.
     6. You are only assessing and reporting risk. Do not decide whether to escalate,
        recommend an action, or state next steps - that decision belongs to a
        different system, not you.

@@ -1,7 +1,7 @@
 import ballerinax/health.fhir.r4;
 import ballerinax/health.fhir.r4.international401;
 
-isolated function buildMlOnlyRiskAssessment(string patientId, string[] observationRefs, HeartRiskResponse heartRisk) returns international401:RiskAssessment {
+isolated function buildMlRiskAssessment(string patientId, string[] observationRefs, HeartRiskResponse heartRisk) returns international401:RiskAssessment {
     r4:Reference[] basis = observationRefs.map(ref => <r4:Reference>{reference: ref});
     return {
         status: international401:CODE_STATUS_FINAL,

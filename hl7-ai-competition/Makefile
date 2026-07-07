@@ -32,4 +32,7 @@ clean: ## Stop the stack and remove volumes
 	$(COMPOSE) down -v
 
 trigger-vitals: ## Force an immediate vitals-forward cycle instead of waiting for the automatic one
-	curl -sS -X POST http://localhost:8000/vitals-cron/run-now | jq .
+	@response=$$(curl -sS -w '\n%{http_code}' -X POST http://localhost:8000/vitals-cron/run-now); \
+	body=$$(echo "$$response" | sed '$$d'); \
+	status=$$(echo "$$response" | tail -n1); \
+	if [ "$$status" = "200" ]; then echo "$$body" | jq .; else echo "request failed (HTTP $$status): $$body"; exit 1; fi

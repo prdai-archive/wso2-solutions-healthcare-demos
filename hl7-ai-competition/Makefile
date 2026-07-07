@@ -2,7 +2,7 @@ COMPOSE := docker compose
 
 .DEFAULT_GOAL := help
 
-.PHONY: help build up watch down ps clean seed
+.PHONY: help build up watch down ps clean seed trigger-vitals
 
 help: ## List available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -30,3 +30,6 @@ ps: ## Show stack service status
 
 clean: ## Stop the stack and remove volumes
 	$(COMPOSE) down -v
+
+trigger-vitals: ## Force an immediate vitals-forward cycle instead of waiting for the automatic one
+	curl -sS -X POST http://localhost:8000/vitals-cron/run-now | jq .

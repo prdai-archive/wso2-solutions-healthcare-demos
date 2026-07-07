@@ -35,3 +35,12 @@ public type RiskAssessmentResponse record {|
     string reasoning;
     string[] referencedResources;
 |};
+
+# + reasoning - the audited (possibly corrected) reasoning text
+# + keepIndices - indices, into the original draft's referencedResources array, of citations that
+# survived the audit - indices only, never re-typed id strings, so a surviving citation can never
+# be corrupted by the audit model mistyping a long id while regenerating it
+public type RiskAssessmentAudit record {|
+    string reasoning;
+    int[] keepIndices;
+|};

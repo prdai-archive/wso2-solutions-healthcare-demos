@@ -15,9 +15,7 @@ import { receptionist } from "@/lib/store";
 
 const titles: Record<string, string> = {
   "/": "Dashboard",
-  "/tasks": "Alerts",
   "/patients": "Patients",
-  "/appointments": "Reviews",
 };
 
 export function SiteHeader() {

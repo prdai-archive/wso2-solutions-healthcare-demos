@@ -2,13 +2,7 @@
 
 /* eslint-disable react-refresh/only-export-components -- provider co-locates DataProvider with the useData hook and receptionist identity */
 
-import type {
-  Appointment,
-  Doctor,
-  Patient,
-  Task,
-  WaitingEntry,
-} from "@/lib/types";
+import type { Appointment, Doctor, Patient, Task } from "@/lib/types";
 
 import * as React from "react";
 
@@ -24,7 +18,6 @@ interface DataSet {
   doctors: Doctor[];
   tasks: Task[];
   appointments: Appointment[];
-  waitingRoom: WaitingEntry[];
 }
 
 const EMPTY: DataSet = {
@@ -32,7 +25,6 @@ const EMPTY: DataSet = {
   doctors: [],
   tasks: [],
   appointments: [],
-  waitingRoom: [],
 };
 
 interface DataApi {
@@ -42,9 +34,6 @@ interface DataApi {
   reopenTask: (taskId: string) => void;
   getPatient: (id: string | null | undefined) => Patient | undefined;
   getDoctor: (id: string | null | undefined) => Doctor | undefined;
-  tasksForPatient: (patientId: string) => Task[];
-  openTasksForPatient: (patientId: string) => Task[];
-  nextReviewForPatient: (patientId: string) => Appointment | undefined;
 }
 
 const DataContext = React.createContext<DataApi | null>(null);
@@ -57,9 +46,6 @@ const EMPTY_API: DataApi = {
   reopenTask: () => {},
   getPatient: () => undefined,
   getDoctor: () => undefined,
-  tasksForPatient: () => [],
-  openTasksForPatient: () => [],
-  nextReviewForPatient: () => undefined,
 };
 
 export function DataProvider({ children }: { children: React.ReactNode }) {

@@ -80,10 +80,3 @@ export interface Appointment {
   modality: Modality;
   status: AppointmentStatus;
 }
-
-export interface WaitingEntry {
-  patientId: string;
-  flaggedAt: string;
-  waitMinutes: number;
-  taskId: string;
-}

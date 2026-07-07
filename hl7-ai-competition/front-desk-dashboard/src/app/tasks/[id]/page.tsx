@@ -127,7 +127,12 @@ export default function TaskDetailPage() {
                 label="Patient"
                 value={
                   task.patientId ? (
-                    <span className="font-mono">Patient/{task.patientId}</span>
+                    <Link
+                      href={`/patients/${task.patientId}`}
+                      className="font-mono underline-offset-2 hover:underline"
+                    >
+                      Patient/{task.patientId}
+                    </Link>
                   ) : (
                     <span className="text-muted-foreground">Unknown</span>
                   )

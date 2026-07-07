@@ -84,26 +84,38 @@ export function EhrTasks() {
           ) : (
             <ul className="divide-y">
               {tasks.map((task) => (
-                <li key={task.id}>
-                  <Link
-                    href={`/tasks/${task.id}`}
-                    className="flex items-center gap-4 px-6 py-4 transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
-                  >
-                    <span className="mt-1 size-1.5 shrink-0 rounded-full bg-foreground" />
-                    <div className="min-w-0 flex-1 space-y-1">
-                      <p className="text-sm font-semibold text-foreground">
-                        {task.description}
-                      </p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {task.patientId ? `Patient/${task.patientId}` : "Unknown patient"}
-                        {formatAuthoredOn(task.authoredOn)
-                          ? ` · ${formatAuthoredOn(task.authoredOn)}`
-                          : ""}
-                      </p>
-                    </div>
-                    <Badge variant="outline" className="shrink-0 uppercase tracking-wide">
-                      {task.status}
-                    </Badge>
+                <li
+                  key={task.id}
+                  className="flex items-center gap-4 px-6 py-4 transition-colors hover:bg-muted"
+                >
+                  <span className="mt-1 size-1.5 shrink-0 rounded-full bg-foreground" />
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <Link
+                      href={`/tasks/${task.id}`}
+                      className="block text-sm font-semibold text-foreground focus-visible:outline-none"
+                    >
+                      {task.description}
+                    </Link>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {task.patientId ? (
+                        <Link
+                          href={`/patients/${task.patientId}`}
+                          className="underline-offset-2 hover:underline"
+                        >
+                          Patient/{task.patientId}
+                        </Link>
+                      ) : (
+                        "Unknown patient"
+                      )}
+                      {formatAuthoredOn(task.authoredOn)
+                        ? ` · ${formatAuthoredOn(task.authoredOn)}`
+                        : ""}
+                    </p>
+                  </div>
+                  <Badge variant="outline" className="shrink-0 uppercase tracking-wide">
+                    {task.status}
+                  </Badge>
+                  <Link href={`/tasks/${task.id}`}>
                     <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
                   </Link>
                 </li>

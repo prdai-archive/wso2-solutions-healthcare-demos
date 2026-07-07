@@ -33,15 +33,21 @@ function toEhrTask(task: FhirTask): EhrTask {
   };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const baseUrl =
     process.env.EHR_FHIR_SERVER_URL ?? "http://localhost:9090/fhir/r4";
+  const patientId = new URL(request.url).searchParams.get("patientId");
+
+  const searchParams: Record<string, string> = { status: "requested" };
+  if (patientId) {
+    searchParams.patient = `Patient/${patientId}`;
+  }
 
   try {
     const client = new Client({ baseUrl });
     const bundle = (await client.resourceSearch({
       resourceType: "Task",
-      searchParams: { status: "requested" },
+      searchParams,
     })) as unknown as Bundle<FhirTask>;
 
     const tasks = (bundle.entry ?? [])

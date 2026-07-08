@@ -64,9 +64,38 @@ end-to-end call: `POST /questionnaires` returned `201` with a real
 AI-generated FHIR `Questionnaire`, using a real `openAiApiKey` supplied via a
 live Kubernetes Secret (never committed).
 
-Two real issues were found and fixed along the way, kept here since they'll
+The full emergency workflow was subsequently verified end to end on
+OpenChoreo, from a completely clean machine state (no prior kind cluster or
+images): seeded demo patients, one EHR-to-care-loop sync cycle
+(`scripts/sync` run once against port-forwarded services), then
+`POST /vitals-cron/run-now` on apple-healthkit-simulator drove vitals ->
+care-loop-collector-service -> care-loop-analysis-service -> ML heart-risk
+(probability 0.91, escalated) -> AI-generated emergency questionnaire ->
+whatsapp-simulator answer submission -> agentic risk assessment (0.95) ->
+`Task` (priority `stat`) created in ehr-fhir-server, with both
+`RiskAssessment`s and the `QuestionnaireResponse` saved in
+care-loop-fhir-server. The below-threshold patient correctly produced only an
+ML `RiskAssessment` (0.34) with no escalation.
+
+Five real issues were found and fixed along the way, kept here since they'll
 bite again if the mechanism changes upstream:
 
+- The ClusterComponentType `deployment/service` defaults every container to
+  256Mi/100m. That OOM-killed care-loop-fhir-server (HAPI wants ~1Gi) and the
+  Ballerina/JVM services. `Component.spec.parameters` does not actually feed
+  `environmentConfigs` in v1.1 (a `parameters` patch never reached the
+  Deployment); the auto-created ReleaseBinding's
+  `componentTypeEnvironmentConfigs` is what the renderer consumes, so
+  `deploy-components.sh` patches those after applying the manifests.
+- `docker save -o` into a `mktemp -d` directory fails under snap-confined
+  docker (`/snap/bin/docker` has a private `/tmp`), with "invalid output
+  path". `deploy-components.sh` stages image tars under the repo instead.
+- care-loop-collector-service and care-loop-analysis-service read all their
+  endpoint URLs from Config.toml-backed configurables, and
+  apple-healthkit-simulator reads its vitals target from `HEALTHKIT_*` env
+  vars. None of these were wired on OpenChoreo, so the services silently ran
+  against `localhost` defaults (and the vitals forwarder was a no-op). Their
+  component.yamls now mount a Config.toml / set the env explicitly.
 - Once a `Config.toml` is mounted via the Workload's `container.files` (needed
   for `openAiApiKey`, a required configurable with no default), Ballerina
   stops honoring the separate env-var override for other configurables, so
@@ -93,3 +122,25 @@ openAiApiKey = "<your-real-key>"'
 kubectl patch deployment/<care-loop-ai-service-deployment> -n <dataplane-namespace> --type=json \
   -p='[{"op":"replace","path":"/spec/template/spec/volumes/0","value":{"name":"<existing-volume-name>","secret":{"secretName":"care-loop-ai-service-realconfig"}}}]'
 ```
+
+## OpenChoreo MCP server (optional, local development)
+
+OpenChoreo's control plane API also serves an MCP endpoint at `/mcp`
+(openchoreo.dev/docs/ai/mcp-servers/). The documented authentication flow
+depends on Thunder (OIDC), which this install intentionally omits, so for
+this local kind cluster the API's authentication is switched off instead.
+Do not do this on any shared or non-local deployment:
+
+```bash
+helm --kube-context kind-openchoreo-migration upgrade openchoreo-control-plane \
+  oci://ghcr.io/openchoreo/helm-charts/openchoreo-control-plane --version 1.1.1 \
+  -n openchoreo-control-plane --reuse-values --set security.enabled=false
+kubectl --context kind-openchoreo-migration port-forward \
+  -n openchoreo-control-plane svc/openchoreo-api 18080:8080 &
+claude mcp add --transport http openchoreo-cp http://localhost:18080/mcp
+```
+
+Verified working: `initialize` over the port-forward returns the
+`openchoreo-api` MCP server info and Claude Code reports the server
+`Connected`. The observability MCP server (`openchoreo-obs`) requires the
+observability plane, which is not part of this install.

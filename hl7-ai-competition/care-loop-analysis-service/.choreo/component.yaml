@@ -33,6 +33,24 @@ spec:
     componentName: care-loop-analysis-service
   container:
     image: care-loop-analysis-service:openchoreo
+    # This service reads its endpoint URLs from Config.toml-backed configurable variables
+    # (config.bal), not container env vars, so the envBindings below don't wire anything at
+    # runtime - this mounted Config.toml is what actually does. Short in-namespace service
+    # names are deliberate: the fully-qualified addresses envBindings injects resolved
+    # intermittently under this cluster's DNS (see openchoreo/README.md).
+    files:
+      - key: Config.toml
+        mountPath: /home/ballerina
+        value: |
+          listenPort = 8005
+          fhirServerUrl = "http://care-loop-fhir-server:8080/fhir"
+          ehrFhirServerUrl = "http://ehr-fhir-server:9090/fhir/r4"
+          heartRiskServiceUrl = "http://care-loop-heart-risk-service:8000"
+          aiServiceUrl = "http://care-loop-ai-service:8003"
+          collectorServiceUrl = "http://care-loop-collector-service:8004"
+          mlEscalationThreshold = 0.5
+          agenticEscalationThreshold = 0.5
+          questionnaireTimeoutHours = 4
   endpoints:
     http:
       type: HTTP
@@ -41,9 +59,8 @@ spec:
   # Five dependency edges per this service's actual docker-compose.yml depends_on
   # (care-loop-heart-risk-service, care-loop-fhir-server, ehr-fhir-server, care-loop-ai-service,
   # care-loop-collector-service). All Workloads in this migration use endpoint name "http".
-  # Note: this service reads these URLs from Config.toml-backed configurable variables, not
-  # container env vars, so envBindings.address alone doesn't wire the dependency at runtime
-  # until Config.toml is templated to pick up these values too.
+  # These edges are for OpenChoreo's dependency model; the runtime wiring happens via the
+  # Config.toml above.
   dependencies:
     endpoints:
       - component: care-loop-heart-risk-service

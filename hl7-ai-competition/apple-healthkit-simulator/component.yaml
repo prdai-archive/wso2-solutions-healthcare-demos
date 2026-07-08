@@ -29,6 +29,14 @@ spec:
     componentName: apple-healthkit-simulator
   container:
     image: "apple-healthkit-simulator:openchoreo"
+    env:
+      # Mirrors docker-compose.yml: without a target URL the vitals-cron forwarder is a no-op
+      # (Settings.vitals_target_url defaults to None), so no vitals would ever reach the
+      # collector on OpenChoreo. Demo-speed cadence matches compose (real default is hourly).
+      - key: HEALTHKIT_VITALS_TARGET_URL
+        value: "http://care-loop-collector-service:8004/vitals"
+      - key: HEALTHKIT_VITALS_FORWARD_INTERVAL_HOURS
+        value: "0.1"
   endpoints:
     http:
       type: HTTP

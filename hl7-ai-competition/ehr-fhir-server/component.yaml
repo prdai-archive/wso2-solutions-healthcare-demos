@@ -1,0 +1,60 @@
+# OpenChoreo Component + Workload definition for ehr-fhir-server (wso2/fhir-server, see docker-compose.yml).
+# Schema verified against https://openchoreo.dev/docs/reference/api/application/component/
+# and https://openchoreo.dev/docs/reference/api/application/workload/ (release-v1.1 docs, 2026-07-08).
+#
+# Depends on ehr-fhir-server-db (see ehr-fhir-server-db/.choreo/component.yaml), matching
+# docker-compose.yml's depends_on: {ehr-fhir-server-db: {condition: service_healthy}}.
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: ehr-fhir-server
+  namespace: default
+spec:
+  owner:
+    projectName: default
+  autoDeploy: true
+  componentType:
+    kind: ClusterComponentType
+    name: deployment/service
+  parameters:
+    imagePullPolicy: Never
+
+---
+
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: ehr-fhir-server
+  namespace: default
+spec:
+  owner:
+    projectName: default
+    componentName: ehr-fhir-server
+  container:
+    # Local tag convention: build the wso2/fhir-server image and load it into the cluster's
+    # containerd (kind load / ctr images import) rather than pulling from a registry.
+    image: ehr-fhir-server:openchoreo
+    env:
+      # Same-namespace k8s DNS resolves the bare component name, so this stays stable across
+      # environments (envBindings.address can't compose a full DSN with embedded credentials).
+      - key: DATABASE_URL
+        value: "postgres://fhir:fhir@ehr-fhir-server-db:5432/fhirdb?sslmode=disable"
+      - key: FHIR_CREATE_TABLES
+        value: "true"
+      - key: SERVER_PORT
+        value: "9090"
+  endpoints:
+    http:
+      type: HTTP
+      port: 9090
+      visibility: [project]
+  dependencies:
+    endpoints:
+      - component: ehr-fhir-server-db
+        name: postgres
+        visibility: project
+        envBindings:
+          # DATABASE_URL above already hardcodes the full DSN (composite strings with
+          # embedded credentials can't be built from envBindings alone) -- this binding
+          # only exists to satisfy the schema's required field and record the real edge.
+          address: EHR_FHIR_SERVER_DB_ADDRESS

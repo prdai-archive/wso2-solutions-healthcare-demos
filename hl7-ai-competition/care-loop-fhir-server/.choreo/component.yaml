@@ -1,0 +1,78 @@
+# OpenChoreo Component CR for care-loop-fhir-server.
+#
+# Schema verified against:
+#   https://openchoreo.dev/docs/reference/api/application/component/
+#   https://openchoreo.dev/docs/reference/api/application/workload/
+#
+# LIMITATIONS (docs don't support what the task asked for at this level, noted
+# rather than invented):
+#   - image, container port, and imagePullPolicy are NOT Component-spec fields.
+#     They belong on the companion Workload CR (spec.container.image,
+#     spec.endpoints.<name>.port). The Workload schema as documented has no
+#     imagePullPolicy field at all (only image/command/args/env/files), so
+#     "parameters.imagePullPolicy: Never" for locally kind-loaded images has
+#     no documented home on either CR — flagging instead of guessing where it
+#     would go.
+#   - Dependencies on other components are declared on the Workload CR via
+#     spec.dependencies.endpoints[], not on the Component CR. The Component
+#     CR has no field for referencing other components/services directly, so
+#     the depends_on list from docker-compose cannot be expressed here.
+#   - The .choreo/component.yaml path is not a convention documented anywhere
+#     in the current OpenChoreo docs (samples in openchoreo/openchoreo use
+#     flat *.yaml files at the sample root). Used here only because it was
+#     offered as the default in the task; happy to move if the project adopts
+#     a different layout.
+#
+# A follow-up workload.yaml (Workload CR) is needed to actually deploy this,
+# carrying image "care-loop-fhir-server:openchoreo", port 8080, and the
+# dependency edges to the other services in docker-compose's depends_on.
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: care-loop-fhir-server
+  namespace: default
+spec:
+  owner:
+    projectName: default
+  autoDeploy: true
+  componentType:
+    kind: ClusterComponentType
+    name: deployment/service
+  # The "service" ClusterComponentType's default environmentConfigs.resources.limits.memory
+  # is 256Mi - HAPI FHIR was observed OOMKilled (exit 137) under that default in this
+  # migration's cluster. Raised via this Component-level parameters override (the documented
+  # mechanism for environmentConfigs values, see other components' imagePullPolicy comments).
+  parameters:
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: "1"
+        memory: 1Gi
+
+---
+
+# Workload for care-loop-fhir-server: uses the public hapiproject/hapi image
+# directly (docker-compose has no build/Dockerfile for this service), so no
+# local build/kind-load step is needed for this one component. docker-compose
+# declares no depends_on for this service, so no dependency edges to add.
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: care-loop-fhir-server
+  namespace: default
+spec:
+  owner:
+    projectName: default
+    componentName: care-loop-fhir-server
+  container:
+    image: "hapiproject/hapi:v8.10.0-2"
+    env:
+      - key: hapi.fhir.fhir_version
+        value: "R4"
+  endpoints:
+    http:
+      type: HTTP
+      port: 8080
+      visibility: [project]

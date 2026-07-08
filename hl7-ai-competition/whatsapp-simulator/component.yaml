@@ -1,0 +1,53 @@
+# OpenChoreo Component + Workload definition for whatsapp-simulator (see docker-compose.yml).
+# Schema verified against https://openchoreo.dev/docs/reference/api/application/component/
+# and https://openchoreo.dev/docs/reference/api/application/workload/ (release-v1.1 docs, 2026-07-08),
+# cross-checked against the openchoreo/openchoreo source (ClusterComponentType "deployment/service"
+# schema, samples/from-image/*) since the docs pages themselves don't inline the full YAML shape.
+#
+# spec.parameters is a RawExtension merged into the target ComponentType's environmentConfigs
+# schema (see docs/resource-kind-reference-guide.md and samples/getting-started/component-types/
+# service.yaml in the openchoreo repo, which defines environmentConfigs.imagePullPolicy, default
+# "IfNotPresent"). Setting parameters.imagePullPolicy: Never here is what makes OpenChoreo use the
+# locally-loaded image below instead of trying to pull it, matching the ehr-fhir-server/component.yaml
+# precedent already in this repo.
+#
+# LIMITATION: the Component CRD has no dependency/connection field of its own -- typed dependencies
+# are declared on the Workload CR via spec.dependencies.endpoints (component, endpoint name,
+# visibility, envBindings). In docker-compose.yml this service has no depends_on entries of its own
+# (other services depend on it, e.g. care-loop-collector-service), so there is no dependency edge to
+# declare on this Workload.
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: whatsapp-simulator
+  namespace: default
+spec:
+  owner:
+    projectName: default
+  autoDeploy: true
+  componentType:
+    kind: ClusterComponentType
+    name: deployment/service
+  parameters:
+    imagePullPolicy: Never
+
+---
+
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: whatsapp-simulator
+  namespace: default
+spec:
+  owner:
+    projectName: default
+    componentName: whatsapp-simulator
+  container:
+    # Local tag convention: build the whatsapp-simulator image and load it into the cluster's
+    # containerd (kind load / ctr images import) rather than pulling from a registry.
+    image: whatsapp-simulator:openchoreo
+  endpoints:
+    http:
+      type: HTTP
+      port: 3000
+      visibility: [external]

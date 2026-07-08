@@ -1,0 +1,68 @@
+# OpenChoreo Component + Workload definition for front-desk-dashboard.
+# Verified against https://openchoreo.dev/docs/reference/api/application/component/
+# and https://openchoreo.dev/docs/reference/api/application/workload/ (docs v1.1.x),
+# and against the front-desk-dashboard service block in ../../docker-compose.yml.
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: front-desk-dashboard
+  namespace: default
+spec:
+  owner:
+    projectName: default
+  # Exposes an HTTP endpoint (port 3002), so this maps to the "service" cluster
+  # component type rather than "web-application" (used for static/SPA frontends
+  # in the react-starter sample).
+  componentType:
+    kind: ClusterComponentType
+    name: deployment/service
+  autoDeploy: true
+  parameters:
+    # Confirmed via spike: for a locally-built image with no registry, `kind
+    # load`/`ctr images import` puts the image directly into the cluster's
+    # containerd, so the kubelet must not attempt to pull it. This parameter
+    # is not part of the generic Component/Workload schema documented above —
+    # it's defined by this cluster's "deployment/service" ClusterComponentType
+    # parameter schema (see openchoreo.dev/docs/platform-engineer-guide/component-types/schema-syntax/
+    # for how ComponentType authors expose such parameters) and was validated
+    # against our actual ClusterComponentType in the spike, not against the
+    # generic docs page.
+    imagePullPolicy: Never
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: front-desk-dashboard
+  namespace: default
+spec:
+  owner:
+    projectName: default
+    componentName: front-desk-dashboard
+  container:
+    # Local tag convention: built and `kind load`-ed by the install/onboarding
+    # flow, not pulled from a registry.
+    image: front-desk-dashboard:openchoreo
+  endpoints:
+    http:
+      type: HTTP
+      port: 3002
+      visibility: [project]
+  dependencies:
+    endpoints:
+      # Every component's Workload in this migration uses the endpoint name
+      # "http" (confirmed by grepping all component.yaml files). The nginx
+      # proxy in docker-compose's depends_on has no Component/Workload of its
+      # own here, so this points at care-loop-fhir-server directly (the
+      # service the proxy forwards to). envBindings.address names match the
+      # real env vars this app reads (docker-compose.yml environment block).
+      - component: ehr-fhir-server
+        name: http
+        visibility: project
+        envBindings:
+          address: EHR_FHIR_SERVER_URL
+      - component: care-loop-fhir-server
+        name: http
+        visibility: project
+        envBindings:
+          address: CARE_LOOP_FHIR_SERVER_URL

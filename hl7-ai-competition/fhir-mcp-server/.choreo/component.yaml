@@ -1,0 +1,82 @@
+# OpenChoreo Component + Workload definition for fhir-mcp-server.
+# Schema verified against openchoreo/openchoreo release-v1.1 CRDs
+# (openchoreo.dev_components.yaml, openchoreo.dev_workloads.yaml) and the
+# gcp-microservices-demo / from-image samples in that repo, since the
+# openchoreo.dev docs site did not render a complete Component/Workload
+# example. Applied with `kubectl apply -f`, same as the samples; OpenChoreo
+# does not auto-discover files by path/convention.
+#
+# TODO(projectName): "care-loop" is an assumed OpenChoreo Project name for
+# this demo, not specified anywhere in the task. Confirm/rename to match
+# whatever Project CR the onboarding flow actually creates.
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: fhir-mcp-server
+  namespace: default
+spec:
+  owner:
+    projectName: default
+  componentType:
+    kind: ClusterComponentType
+    name: deployment/service
+  autoDeploy: true
+
+---
+
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: fhir-mcp-server-workload
+  namespace: default
+spec:
+  owner:
+    componentName: fhir-mcp-server
+    projectName: default
+  endpoints:
+    http:
+      type: HTTP
+      port: 8000
+      basePath: /mcp/
+      # No explicit visibility array: every endpoint implicitly gets
+      # "project" visibility, which is all fhir-mcp-server needs since only
+      # care-loop-ai-service (same project) calls it.
+      # basePath makes the injected dependency address (scheme://host:port/basePath,
+      # per the Workload CRD) resolve to the actual MCP endpoint path the server serves.
+      # Trailing slash is required: the FHIR MCP server's ASGI app mounts the MCP route at
+      # "/mcp/" and 307-redirects a bare "/mcp" POST to "/mcp/" with an empty body, which
+      # Ballerina's mcp:StreamableHttpClient does not correctly re-POST -- confirmed by curl
+      # from a debug pod: POST /mcp -> 307 (Location: .../mcp/, no body); POST /mcp/ -> 200
+      # with a valid MCP initialize response.
+  container:
+    image: "fhir-mcp-server:openchoreo"
+    env:
+      - key: FHIR_MCP_HOST
+        value: "0.0.0.0"
+      - key: FHIR_MCP_PORT
+        value: "8000"
+      - key: FHIR_SERVER_BASE_URL
+        value: "http://care-loop-fhir-server-readonly-proxy:8080/fhir"
+      - key: FHIR_SERVER_DISABLE_AUTHORIZATION
+        value: "True"
+  # TODO(imagePullPolicy): the release-v1.1 Workload CRD's `container` schema
+  # only has image/command/args/env/files — there is no imagePullPolicy field
+  # anywhere in the Component or Workload spec (checked both CRDs directly).
+  # The task described "parameters.imagePullPolicy: Never" from a prior spike;
+  # that could not be confirmed against this schema or any sample in the repo.
+  # If the target ClusterComponentType's Trait defines a custom "parameters"
+  # block that maps to imagePullPolicy, add it under Component.spec.parameters
+  # here once that Trait's schema is confirmed — do not guess its shape.
+  #
+  # fhir-mcp-server's only depends_on in docker-compose is the nginx read-only
+  # proxy in front of care-loop-fhir-server, which has no Component/Workload of
+  # its own in this migration. Pointing the typed dependency at
+  # care-loop-fhir-server directly instead (the real backing service the proxy
+  # forwards to) since that is what's actually modeled as a Component here.
+  dependencies:
+    endpoints:
+      - component: care-loop-fhir-server
+        name: http
+        visibility: project
+        envBindings:
+          address: FHIR_SERVER_BASE_URL

@@ -1,0 +1,49 @@
+# OpenChoreo Component + Workload for care-loop-heart-risk-service.
+# Schema verified against github.com/openchoreo/openchoreo (api/v1alpha1/component_types.go,
+# api/v1alpha1/workload_types.go) and samples/from-image/*, since the current docs site pages
+# did not render a full CR example. See TODO notes below for two places the ask in this task
+# doesn't map cleanly onto the current schema.
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: care-loop-heart-risk-service
+  # Fixed: was namespace "care-loop", which doesn't exist as a k8s namespace and doesn't
+  # match the seeded Project/Environment/ClusterComponentTypes (all in "default", per
+  # getting-started/all.yaml) or the other 9 component.yaml files in this migration.
+  namespace: default
+spec:
+  owner:
+    projectName: default
+  componentType:
+    kind: ClusterComponentType
+    name: deployment/service
+  autoDeploy: true
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: care-loop-heart-risk-service
+  namespace: default
+spec:
+  owner:
+    projectName: default
+    componentName: care-loop-heart-risk-service
+  endpoints:
+    http:
+      type: HTTP
+      port: 8000
+  container:
+    image: "care-loop-heart-risk-service:openchoreo"
+    # TODO: imagePullPolicy is not a Component/Workload field in the current schema — it's an
+    # environmentConfigs value on the "deployment/service" ClusterComponentType, only settable
+    # per-environment via a ReleaseBinding's spec.componentTypeEnvironmentConfigs.imagePullPolicy
+    # (see samples/component-types/component-with-configs/component-with-configs.yaml). That CR
+    # is out of scope here since it's environment-specific, not component-level. Note in practice
+    # the default (IfNotPresent) already satisfies "use the kind-loaded local image without a
+    # pull" as long as the tag exists in containerd before deploy, since IfNotPresent only skips
+    # pulling when the image is already present locally.
+
+  # No dependencies.endpoints block: per docker-compose.yml, the
+  # care-loop-heart-risk-service entry has no `depends_on` at all — nothing else in that file
+  # lists it as a dependency edge, and it depends on nothing itself.

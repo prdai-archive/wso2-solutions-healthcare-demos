@@ -89,7 +89,9 @@ for f in \
   "${REPO_ROOT}/care-loop-collector-service/.openchoreo/component.yaml" \
   "${REPO_ROOT}/care-loop-analysis-service/.openchoreo/component.yaml" \
   "${REPO_ROOT}/scripts/sync/.openchoreo/component.yaml"; do
-  ${KCTL} apply -f "${f}"
+  # Retried once: the autoDeploy controller can create a ReleaseBinding between the Component
+  # apply and the RB create in the same file (AlreadyExists race on fresh clusters).
+  ${KCTL} apply -f "${f}" || { sleep 5; ${KCTL} apply -f "${f}"; }
 done
 
 log "Done. Check pod status with: kubectl get pods -A --context=${KUBE_CONTEXT}"

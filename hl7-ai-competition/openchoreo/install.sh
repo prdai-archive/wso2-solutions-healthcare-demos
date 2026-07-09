@@ -67,16 +67,11 @@ ${HELM} upgrade --install kgateway oci://cr.kgateway.dev/kgateway-dev/charts/kga
   --version v2.2.1 \
   --set controller.extraEnv.KGW_ENABLE_GATEWAY_API_EXPERIMENTAL_FEATURES=true
 
-# NOTE: the four blocks below (backstage-secrets, cluster-gateway-ca extraction, default
-# resources, OpenBao k8s-auth+ClusterSecretStore, ClusterDataPlane registration) were missing
-# from the first version of this script. Without them the control/data plane helm releases come
-# up but are non-functional: backstage crashes (CreateContainerConfigError: secret
-# "backstage-secrets" not found), the cluster-agent in the data plane never starts (FailedMount:
-# configmap "cluster-gateway-ca" not found), no ClusterComponentType/Project/Environment exist
-# for any Component to reference, and no ClusterDataPlane exists for a Workload to schedule onto.
-# Restored by following install/k3d/single-cluster/README.md (release-v1.1) in openchoreo/openchoreo,
-# minus Thunder (OIDC login) and the workflow/observability planes, which are optional and not
-# needed to apply Components/Workloads via kubectl.
+# The blocks below (backstage-secrets, cluster-gateway-ca, seeded default resources, OpenBao
+# auth + ClusterSecretStore, ClusterDataPlane registration) are required on top of the helm
+# charts - without them the planes come up but nothing can deploy. They follow
+# install/k3d/single-cluster/README.md (release-v1.1), minus the optional Thunder (OIDC) and
+# workflow/observability planes.
 log "Creating backstage-secrets (placeholder dev values, matches upstream single-cluster guide)"
 ${KCTL} create namespace openchoreo-control-plane --dry-run=client -o yaml | ${KCTL} apply -f -
 ${KCTL} create secret generic backstage-secrets \

@@ -41,7 +41,6 @@ async function putResource(resourceType: string, resource: Record<string, unknow
     body: JSON.stringify(resource),
   });
   if (res.status === 404) {
-    // wso2/fhir-server has no PUT update-as-create; POST preserves the client-supplied id.
     const created = await fetch(`${CARE_LOOP_FHIR_SERVER_URL}/${resourceType}`, {
       method: "POST",
       headers: { "content-type": "application/fhir+json" },

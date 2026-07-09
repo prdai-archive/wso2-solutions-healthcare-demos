@@ -77,18 +77,18 @@ done
 
 log "Applying Component/Workload manifests"
 for f in \
-  "${REPO_ROOT}/ehr-fhir-server-db/.choreo/component.yaml" \
+  "${REPO_ROOT}/ehr-fhir-server-db/.openchoreo/component.yaml" \
   "${REPO_ROOT}/apple-healthkit-simulator/component.yaml" \
   "${REPO_ROOT}/care-loop-heart-risk-service/component.yaml" \
   "${REPO_ROOT}/whatsapp-simulator/component.yaml" \
   "${REPO_ROOT}/ehr-fhir-server/component.yaml" \
-  "${REPO_ROOT}/care-loop-fhir-server/.choreo/component.yaml" \
-  "${REPO_ROOT}/fhir-mcp-server/.choreo/component.yaml" \
-  "${REPO_ROOT}/front-desk-dashboard/.choreo/component.yaml" \
-  "${REPO_ROOT}/care-loop-ai-service/.choreo/component.yaml" \
-  "${REPO_ROOT}/care-loop-collector-service/.choreo/component.yaml" \
-  "${REPO_ROOT}/care-loop-analysis-service/.choreo/component.yaml" \
-  "${REPO_ROOT}/scripts/sync/.choreo/component.yaml"; do
+  "${REPO_ROOT}/care-loop-fhir-server/.openchoreo/component.yaml" \
+  "${REPO_ROOT}/fhir-mcp-server/.openchoreo/component.yaml" \
+  "${REPO_ROOT}/front-desk-dashboard/.openchoreo/component.yaml" \
+  "${REPO_ROOT}/care-loop-ai-service/.openchoreo/component.yaml" \
+  "${REPO_ROOT}/care-loop-collector-service/.openchoreo/component.yaml" \
+  "${REPO_ROOT}/care-loop-analysis-service/.openchoreo/component.yaml" \
+  "${REPO_ROOT}/scripts/sync/.openchoreo/component.yaml"; do
   ${KCTL} apply -f "${f}"
 done
 

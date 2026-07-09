@@ -29,16 +29,8 @@ spec:
     files:
       - key: Config.toml
         mountPath: /home/ballerina
-        value: |
-          listenPort = 8005
-          fhirServerUrl = "http://care-loop-fhir-server:8080/fhir"
-          ehrFhirServerUrl = "http://ehr-fhir-server:9090/fhir/r4"
-          heartRiskServiceUrl = "http://care-loop-heart-risk-service:8000"
-          aiServiceUrl = "http://care-loop-ai-service:8003"
-          collectorServiceUrl = "http://care-loop-collector-service:8004"
-          mlEscalationThreshold = 0.5
-          agenticEscalationThreshold = 0.5
-          questionnaireTimeoutHours = 4
+        # Injected at deploy time from this service's local gitignored Config.toml (deploy-components.sh).
+        value: "__LOCAL_CONFIG_TOML__"
   endpoints:
     http:
       type: HTTP

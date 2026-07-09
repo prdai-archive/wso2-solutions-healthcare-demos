@@ -36,13 +36,8 @@ spec:
     files:
       - key: Config.toml
         mountPath: /home/ballerina
-        value: |
-          listenPort = 8004
-          aiServiceUrl = "http://care-loop-ai-service:8003"
-          fhirServerUrl = "http://care-loop-fhir-server:8080/fhir"
-          whatsappUrl = "http://whatsapp-simulator:3000"
-          collectorPublicUrl = "http://care-loop-collector-service:8004"
-          analysisServiceUrl = "http://care-loop-analysis-service:8005"
+        # Injected at deploy time from this service's local gitignored Config.toml (deploy-components.sh).
+        value: "__LOCAL_CONFIG_TOML__"
   # Dependency-graph only; runtime wiring is the Config.toml above.
   dependencies:
     endpoints:

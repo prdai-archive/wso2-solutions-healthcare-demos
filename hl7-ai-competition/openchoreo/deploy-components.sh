@@ -49,6 +49,32 @@ for image in postgres:16-alpine hapiproject/hapi:v8.10.0-2; do
   load_image "${image}"
 done
 
+# The three Ballerina services declare `value: "__LOCAL_CONFIG_TOML__"`; the local gitignored
+# <svc>/Config.toml (the same file docker-compose mounts) is injected at apply time so the
+# manifests never duplicate - or leak - its contents.
+CONFIG_SERVICES="care-loop-ai-service care-loop-collector-service care-loop-analysis-service"
+apply_manifest() {
+  local f="$1" svc cfg
+  for svc in ${CONFIG_SERVICES}; do
+    if [[ "${f}" == *"/${svc}/"* ]]; then
+      cfg="${REPO_ROOT}/${svc}/Config.toml"
+      if [ ! -f "${cfg}" ]; then
+        log "ERROR: ${svc}/Config.toml not found - it is gitignored and required (docker-compose mounts the same file)"
+        return 1
+      fi
+      CFG_PATH="${cfg}" python3 - "${f}" <<'PY' | ${KCTL} apply -f -
+import os, pathlib, sys
+manifest = pathlib.Path(sys.argv[1]).read_text()
+cfg = pathlib.Path(os.environ["CFG_PATH"]).read_text().rstrip("\n")
+block = "|\n" + "\n".join(" " * 10 + line for line in cfg.splitlines())
+sys.stdout.write(manifest.replace('"__LOCAL_CONFIG_TOML__"', block))
+PY
+      return 0
+    fi
+  done
+  ${KCTL} apply -f "${f}"
+}
+
 log "Applying Component/Workload manifests"
 for f in \
   "${REPO_ROOT}/ehr-fhir-server-db/.choreo/component.yaml" \
@@ -62,7 +88,7 @@ for f in \
   "${REPO_ROOT}/care-loop-ai-service/.choreo/component.yaml" \
   "${REPO_ROOT}/care-loop-collector-service/.choreo/component.yaml" \
   "${REPO_ROOT}/care-loop-analysis-service/.choreo/component.yaml"; do
-  ${KCTL} apply -f "${f}"
+  apply_manifest "${f}"
 done
 
 # The ComponentType's 256Mi default OOM-kills the JVM services; Component.spec.parameters doesn't reach the Deployment in v1.1, so patch the ReleaseBindings (what the renderer actually reads).
@@ -86,25 +112,4 @@ for rb in ehr-fhir-server-development care-loop-ai-service-development \
   patch_resources "${rb}" '{"cpu":"100m","memory":"512Mi"}' '{"cpu":"1","memory":"768Mi"}'
 done
 
-DP_NS="$(${KCTL} get ns -o name | grep '^namespace/dp-' | head -1 | cut -d/ -f2)"
-mount_local_config() {
-  local svc="$1" cfg="${REPO_ROOT}/$1/Config.toml" deploy vol
-  if [ ! -f "${cfg}" ]; then
-    log "No local ${svc}/Config.toml; keeping the values inlined in its component.yaml"
-    return 0
-  fi
-  log "Mounting local ${svc}/Config.toml via Secret"
-  deploy="$(${KCTL} get deploy -n "${DP_NS}" -o name | grep "${svc}-" | cut -d/ -f2)"
-  vol="$(${KCTL} get deploy "${deploy}" -n "${DP_NS}" -o jsonpath='{.spec.template.spec.volumes[0].name}')"
-  ${KCTL} create secret generic "${svc}-realconfig" -n "${DP_NS}" \
-    --from-file=Config.toml="${cfg}" --dry-run=client -o yaml | ${KCTL} apply -f -
-  ${KCTL} patch deployment/"${deploy}" -n "${DP_NS}" --type=json \
-    -p="[{\"op\":\"replace\",\"path\":\"/spec/template/spec/volumes/0\",\"value\":{\"name\":\"${vol}\",\"secret\":{\"secretName\":\"${svc}-realconfig\"}}}]"
-}
-for svc in care-loop-ai-service care-loop-collector-service care-loop-analysis-service; do
-  mount_local_config "${svc}"
-done
-if [ ! -f "${REPO_ROOT}/care-loop-ai-service/Config.toml" ]; then
-  log "care-loop-ai-service still needs a real openAiApiKey out-of-band (never commit it) - see openchoreo/README.md"
-fi
 log "Done. Check pod status with: kubectl get pods -A --context=${KUBE_CONTEXT}"

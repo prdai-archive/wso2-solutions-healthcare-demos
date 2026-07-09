@@ -39,11 +39,9 @@ spec:
           address: FHIR_MCP_SERVER_URL_UNUSED
   container:
     image: "care-loop-ai-service:openchoreo"
-    # mountPath is the directory, "key" the filename; supply the real openAiApiKey via a live Secret (see openchoreo/README.md) - never commit one.
+    # mountPath is the directory, "key" the filename.
     files:
       - key: Config.toml
         mountPath: /home/ballerina
-        value: |
-          listenPort = 8003
-          fhirMcpUrl = "http://fhir-mcp-server:8000/mcp"
-          openAiApiKey = "placeholder-not-a-real-key"
+        # Injected at deploy time from this service's local gitignored Config.toml (deploy-components.sh).
+        value: "__LOCAL_CONFIG_TOML__"

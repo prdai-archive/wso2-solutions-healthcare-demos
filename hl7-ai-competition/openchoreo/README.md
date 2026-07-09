@@ -58,13 +58,14 @@ Real issues found and fixed (they'll bite again if upstream changes):
 
 ## Config.toml / openAiApiKey
 
-If the local gitignored `Config.toml` of care-loop-ai-service /
-care-loop-collector-service / care-loop-analysis-service exists (the same
-files docker-compose mounts — hostnames already match in-cluster),
-`deploy-components.sh` mounts it via a Secret automatically. Without a local
-ai-service file, supply the real `openAiApiKey` (never commit it) the same
-way: create a Secret from a Config.toml holding the key and patch the
-deployment's volume 0 to `{"secret":{"secretName":"care-loop-ai-service-realconfig"}}`.
+The component.yamls of care-loop-ai-service, care-loop-collector-service and
+care-loop-analysis-service carry a `value: "__LOCAL_CONFIG_TOML__"`
+placeholder; `deploy-components.sh` injects each service's local gitignored
+`Config.toml` (the same file docker-compose mounts — hostnames already match
+in-cluster) at apply time, so the values live in exactly one place and the
+real `openAiApiKey` is never committed. Those three files are required, as
+they are for docker-compose. Note the injected content (key included) lands
+in an in-cluster ConfigMap - fine for this local kind demo only.
 
 ## OpenChoreo MCP server (optional, local development)
 

@@ -1,4 +1,3 @@
-# OpenChoreo Component + Workload for care-loop-ai-service.
 apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
@@ -28,10 +27,7 @@ spec:
     http:
       type: HTTP
       port: 8003
-  # Once a Config.toml is mounted (needed for openAiApiKey), Ballerina stops honoring the
-  # separate env-var override for other configurables, so fhirMcpUrl must be set inside the
-  # mounted Config.toml. Short in-namespace service names are deliberate - the FQDN that
-  # envBindings injects resolved intermittently under this cluster's DNS (see openchoreo/README.md).
+  # fhirMcpUrl must live in the mounted Config.toml (env overrides stop working once a Config.toml is mounted); short service names are deliberate (see openchoreo/README.md).
   dependencies:
     endpoints:
       - project: default
@@ -39,15 +35,11 @@ spec:
         name: http
         visibility: project
         envBindings:
-          # Recorded for OpenChoreo's dependency graph; the actual value used at runtime is the
-          # fhirMcpUrl line in Config.toml below, not this env var (see note above).
+          # Dependency-graph only; runtime uses fhirMcpUrl in Config.toml below.
           address: FHIR_MCP_SERVER_URL_UNUSED
   container:
     image: "care-loop-ai-service:openchoreo"
-    # mountPath must be the directory; "key" becomes the filename (mounting at the full file
-    # path yields a directory, since the ConfigMap volume always targets a directory).
-    # openAiApiKey must be replaced with a real key via a live Secret (see openchoreo/README.md)
-    # - never commit a real key here.
+    # mountPath is the directory, "key" the filename; supply the real openAiApiKey via a live Secret (see openchoreo/README.md) - never commit one.
     files:
       - key: Config.toml
         mountPath: /home/ballerina

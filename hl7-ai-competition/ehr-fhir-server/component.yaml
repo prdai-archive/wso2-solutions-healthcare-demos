@@ -1,4 +1,3 @@
-# OpenChoreo Component + Workload definition for ehr-fhir-server (wso2/fhir-server, see docker-compose.yml).
 apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
@@ -26,11 +25,10 @@ spec:
     projectName: default
     componentName: ehr-fhir-server
   container:
-    # Must be loaded into the cluster's containerd before apply (deploy-components.sh does this).
+    # Image must be pre-loaded into the cluster's containerd (deploy-components.sh does this).
     image: ehr-fhir-server:openchoreo
     env:
-      # Same-namespace k8s DNS resolves the bare component name, so this stays stable across
-      # environments (envBindings.address can't compose a full DSN with embedded credentials).
+      # Bare component name resolves via same-namespace DNS (envBindings can't compose a DSN with credentials).
       - key: DATABASE_URL
         value: "postgres://fhir:fhir@ehr-fhir-server-db:5432/fhirdb?sslmode=disable"
       - key: FHIR_CREATE_TABLES
@@ -48,7 +46,5 @@ spec:
         name: postgres
         visibility: project
         envBindings:
-          # DATABASE_URL above already hardcodes the full DSN (composite strings with
-          # embedded credentials can't be built from envBindings alone) -- this binding
-          # only exists to satisfy the schema's required field and record the real edge.
+          # Dependency-graph only; DATABASE_URL above carries the real DSN.
           address: EHR_FHIR_SERVER_DB_ADDRESS

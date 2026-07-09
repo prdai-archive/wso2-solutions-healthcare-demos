@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Idempotent installer for OpenChoreo (control plane + data plane) on an existing kube context.
-# Encodes the manual spike that proved OpenChoreo works locally. Additive/optional; see README.md.
+# Idempotent installer for OpenChoreo (control plane + data plane) on an existing kube context. See README.md.
 set -euo pipefail
 
 KUBE_CONTEXT="${1:-$(kubectl config current-context)}"
@@ -11,10 +10,7 @@ RAW_BASE="https://raw.githubusercontent.com/openchoreo/openchoreo/${RELEASE_REF}
 
 log() { echo "==> $*"; }
 
-# raw.githubusercontent.com rate-limits anonymous requests (429) under repeated hits, observed
-# in practice fetching the three values-*.yaml files below; curl's own --retry does not back off
-# on 429 by default without --retry-all-errors, so fetch each file once here with manual backoff
-# and reuse the local copy, rather than letting each helm invocation re-fetch inline.
+# raw.githubusercontent.com 429-rate-limits anonymous requests, so fetch once with manual backoff.
 fetch_raw() {
   local url="$1" dest="$2" attempt
   for attempt in 1 2 3 4 5; do
@@ -67,11 +63,7 @@ ${HELM} upgrade --install kgateway oci://cr.kgateway.dev/kgateway-dev/charts/kga
   --version v2.2.1 \
   --set controller.extraEnv.KGW_ENABLE_GATEWAY_API_EXPERIMENTAL_FEATURES=true
 
-# The blocks below (backstage-secrets, cluster-gateway-ca, seeded default resources, OpenBao
-# auth + ClusterSecretStore, ClusterDataPlane registration) are required on top of the helm
-# charts - without them the planes come up but nothing can deploy. They follow
-# install/k3d/single-cluster/README.md (release-v1.1), minus the optional Thunder (OIDC) and
-# workflow/observability planes.
+# The blocks below are required on top of the charts (else nothing can deploy); per install/k3d/single-cluster/README.md, minus optional Thunder/workflow/observability.
 log "Creating backstage-secrets (placeholder dev values, matches upstream single-cluster guide)"
 ${KCTL} create namespace openchoreo-control-plane --dry-run=client -o yaml | ${KCTL} apply -f -
 ${KCTL} create secret generic backstage-secrets \

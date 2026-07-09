@@ -1,4 +1,3 @@
-# OpenChoreo component definition for care-loop-collector-service.
 apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
@@ -28,18 +27,12 @@ spec:
     http:
       type: HTTP
       port: 8004
-      # "internal" visibility requires gateway.ingress.internal on the Environment/DataPlane,
-      # which this single-cluster install doesn't configure - the release fails to render.
+      # "internal" visibility needs gateway.ingress.internal, unset on this install - the release fails to render.
       visibility: [project]
   container:
-    # Must be loaded into the cluster's containerd before apply (deploy-components.sh does
-    # this); there is no registry for this image.
+    # Image must be pre-loaded into the cluster's containerd (deploy-components.sh does this).
     image: care-loop-collector-service:openchoreo
-    # This service reads its endpoint URLs from Config.toml-backed configurable variables
-    # (config.bal), not container env vars, so the envBindings below don't wire anything at
-    # runtime - this mounted Config.toml is what actually does. Short in-namespace service
-    # names are deliberate: the fully-qualified addresses envBindings injects resolved
-    # intermittently under this cluster's DNS (see openchoreo/README.md).
+    # Runtime wiring happens via this Config.toml, not envBindings; short service names are deliberate (see openchoreo/README.md).
     files:
       - key: Config.toml
         mountPath: /home/ballerina
@@ -50,8 +43,7 @@ spec:
           whatsappUrl = "http://whatsapp-simulator:3000"
           collectorPublicUrl = "http://care-loop-collector-service:8004"
           analysisServiceUrl = "http://care-loop-analysis-service:8005"
-  # Per docker-compose.yml depends_on for care-loop-collector-service. These edges are for
-  # OpenChoreo's dependency model; the runtime wiring happens via the Config.toml above.
+  # Dependency-graph only; runtime wiring is the Config.toml above.
   dependencies:
     endpoints:
       - component: care-loop-ai-service

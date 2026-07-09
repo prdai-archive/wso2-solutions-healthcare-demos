@@ -1,7 +1,4 @@
-# OpenChoreo Component + Workload definition for whatsapp-simulator (see docker-compose.yml).
-# NOTE: Component.spec.parameters does not reach the rendered Deployment in OpenChoreo v1.1;
-# the locally-loaded image works because deploy-components.sh pre-loads it into containerd and
-# the default IfNotPresent policy then skips the pull.
+# parameters don't reach the Deployment in v1.1; the image works because deploy-components.sh pre-loads it and IfNotPresent skips the pull.
 apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
@@ -29,7 +26,7 @@ spec:
     projectName: default
     componentName: whatsapp-simulator
   container:
-    # Must be loaded into the cluster's containerd before apply (deploy-components.sh does this).
+    # Image must be pre-loaded into the cluster's containerd (deploy-components.sh does this).
     image: whatsapp-simulator:openchoreo
   endpoints:
     http:

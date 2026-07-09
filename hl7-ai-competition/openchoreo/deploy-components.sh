@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Builds every service's image, loads it into the given kind cluster's containerd (no registry
-# needed), and applies its Component+Workload. Run after install.sh. Requires a kind cluster.
+# Builds each service image, loads it into the kind cluster's containerd (no registry), applies its Component+Workload. Run after install.sh.
 set -euo pipefail
 
 KIND_CLUSTER="${1:?usage: deploy-components.sh <kind-cluster-name> [kube-context]}"
@@ -11,11 +10,7 @@ NODE_CONTAINER="${KIND_CLUSTER}-control-plane"
 
 log() { echo "==> $*"; }
 
-# `kind load docker-image` fails intermittently in some sandboxed docker setups (digest
-# mismatches / tmpfs quirks under /tmp). This save-and-import path is what actually worked.
-# The tar staging dir must not be under /tmp either: snap-confined docker (/snap/bin/docker)
-# has a private /tmp, so `docker save -o /tmp/...` fails with "invalid output path: stat ...:
-# no such file or directory". Stage under the repo, which docker and this shell both see.
+# `kind load docker-image` is flaky under sandboxed docker, and snap docker can't write /tmp - so save-and-import, staged under the repo.
 load_image() {
   local image="$1" tar workdir
   workdir="$(mktemp -d "${REPO_ROOT}/.image-staging.XXXXXX")"
@@ -47,8 +42,7 @@ for svc in "${!BUILD_CONTEXTS[@]}"; do
   load_image "${svc}:openchoreo"
 done
 
-# Public images used directly, no build/load-as-local-tag needed, but still must exist in
-# containerd since imagePullPolicy is Never for these Components too.
+# Public images: no build needed, but must still be pre-loaded into containerd.
 for image in postgres:16-alpine hapiproject/hapi:v8.10.0-2; do
   log "Loading public image ${image} into ${KIND_CLUSTER}"
   docker pull -q --platform linux/amd64 "${image}" >/dev/null
@@ -71,12 +65,7 @@ for f in \
   ${KCTL} apply -f "${f}"
 done
 
-# The seeded deployment/service ClusterComponentType defaults every container to 256Mi/100m.
-# That OOM-kills the JVM-based services: care-loop-fhir-server (HAPI needs ~1Gi) and the four
-# Ballerina services were all observed OOMKilled/crashlooping with the defaults. Component
-# spec.parameters does NOT feed environmentConfigs in v1.1 (verified: a parameters patch never
-# reached the Deployment); the ReleaseBinding's componentTypeEnvironmentConfigs is what the
-# renderer actually consumes, so patch the autoDeploy-created ReleaseBindings here.
+# The ComponentType's 256Mi default OOM-kills the JVM services; Component.spec.parameters doesn't reach the Deployment in v1.1, so patch the ReleaseBindings (what the renderer actually reads).
 log "Raising memory for JVM-based components (ClusterComponentType default 256Mi OOM-kills them)"
 patch_resources() {
   local rb="$1" requests="$2" limits="$3" attempt

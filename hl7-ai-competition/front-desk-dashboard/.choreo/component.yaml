@@ -1,4 +1,3 @@
-# OpenChoreo Component + Workload definition for front-desk-dashboard.
 apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
@@ -12,8 +11,7 @@ spec:
     name: deployment/service
   autoDeploy: true
   parameters:
-    # NOTE: parameters do not reach the rendered Deployment in OpenChoreo v1.1; the local
-    # image works because deploy-components.sh pre-loads it and IfNotPresent skips the pull.
+    # Intent only - parameters don't reach the Deployment in v1.1; deploy-components.sh pre-loads the image and IfNotPresent skips the pull.
     imagePullPolicy: Never
 
 ---
@@ -27,7 +25,7 @@ spec:
     projectName: default
     componentName: front-desk-dashboard
   container:
-    # Must be loaded into the cluster's containerd before apply (deploy-components.sh does this).
+    # Image must be pre-loaded into the cluster's containerd (deploy-components.sh does this).
     image: front-desk-dashboard:openchoreo
   endpoints:
     http:
@@ -36,9 +34,7 @@ spec:
       visibility: [project]
   dependencies:
     endpoints:
-      # The nginx read-only proxy from docker-compose has no Component here, so this points
-      # at care-loop-fhir-server directly. envBindings.address names match the env vars the
-      # app reads (docker-compose.yml environment block).
+      # The compose nginx proxy has no Component here, so point at care-loop-fhir-server directly; envBindings match the env vars the app reads.
       - component: ehr-fhir-server
         name: http
         visibility: project

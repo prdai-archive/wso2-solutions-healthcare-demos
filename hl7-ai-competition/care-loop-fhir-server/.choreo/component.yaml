@@ -1,4 +1,3 @@
-# OpenChoreo Component + Workload for care-loop-fhir-server (HAPI FHIR).
 apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
@@ -11,10 +10,7 @@ spec:
   componentType:
     kind: ClusterComponentType
     name: deployment/service
-  # The "service" ClusterComponentType defaults containers to 256Mi, which OOM-kills HAPI.
-  # NOTE: this parameters block does NOT reach the rendered Deployment in OpenChoreo v1.1 -
-  # deploy-components.sh patches the ReleaseBinding's componentTypeEnvironmentConfigs, which
-  # is what the renderer actually consumes. Kept as a declaration of intent.
+  # Intent only - parameters don't reach the Deployment in v1.1; deploy-components.sh patches the ReleaseBinding instead (256Mi default OOM-kills HAPI).
   parameters:
     resources:
       requests:
@@ -26,8 +22,7 @@ spec:
 
 ---
 
-# Uses the public hapiproject/hapi image (no local build); deploy-components.sh still
-# pre-loads it into the cluster's containerd.
+# Public hapi image, still pre-loaded into containerd by deploy-components.sh.
 apiVersion: openchoreo.dev/v1alpha1
 kind: Workload
 metadata:

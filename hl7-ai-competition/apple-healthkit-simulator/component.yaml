@@ -13,8 +13,7 @@ spec:
 
 ---
 
-# The image below must be loaded into the cluster's containerd before apply
-# (openchoreo/deploy-components.sh does this); there is no registry for it.
+# Image must be pre-loaded into the cluster's containerd (deploy-components.sh does this).
 apiVersion: openchoreo.dev/v1alpha1
 kind: Workload
 metadata:
@@ -27,9 +26,6 @@ spec:
   container:
     image: "apple-healthkit-simulator:openchoreo"
     env:
-      # Mirrors docker-compose.yml: without a target URL the vitals-cron forwarder is a no-op
-      # (Settings.vitals_target_url defaults to None), so no vitals would ever reach the
-      # collector on OpenChoreo. Demo-speed cadence matches compose (real default is hourly).
       - key: HEALTHKIT_VITALS_TARGET_URL
         value: "http://care-loop-collector-service:8004/vitals"
       - key: HEALTHKIT_VITALS_FORWARD_INTERVAL_HOURS

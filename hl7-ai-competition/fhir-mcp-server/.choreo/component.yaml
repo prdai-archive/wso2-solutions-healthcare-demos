@@ -1,4 +1,3 @@
-# OpenChoreo Component + Workload definition for fhir-mcp-server.
 apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
@@ -28,16 +27,7 @@ spec:
       type: HTTP
       port: 8000
       basePath: /mcp/
-      # No explicit visibility array: every endpoint implicitly gets
-      # "project" visibility, which is all fhir-mcp-server needs since only
-      # care-loop-ai-service (same project) calls it.
-      # basePath makes the injected dependency address (scheme://host:port/basePath,
-      # per the Workload CRD) resolve to the actual MCP endpoint path the server serves.
-      # Trailing slash is required: the FHIR MCP server's ASGI app mounts the MCP route at
-      # "/mcp/" and 307-redirects a bare "/mcp" POST to "/mcp/" with an empty body, which
-      # Ballerina's mcp:StreamableHttpClient does not correctly re-POST -- confirmed by curl
-      # from a debug pod: POST /mcp -> 307 (Location: .../mcp/, no body); POST /mcp/ -> 200
-      # with a valid MCP initialize response.
+      # basePath trailing slash is required: bare /mcp 307-redirects with an empty body, which Ballerina's MCP client does not re-POST.
   container:
     image: "fhir-mcp-server:openchoreo"
     env:
@@ -49,11 +39,7 @@ spec:
         value: "http://care-loop-fhir-server-readonly-proxy:8080/fhir"
       - key: FHIR_SERVER_DISABLE_AUTHORIZATION
         value: "True"
-  # fhir-mcp-server's only depends_on in docker-compose is the nginx read-only
-  # proxy in front of care-loop-fhir-server, which has no Component/Workload of
-  # its own in this migration. Pointing the typed dependency at
-  # care-loop-fhir-server directly instead (the real backing service the proxy
-  # forwards to) since that is what's actually modeled as a Component here.
+  # The compose nginx read-only proxy has no Component here, so depend on care-loop-fhir-server directly.
   dependencies:
     endpoints:
       - component: care-loop-fhir-server

@@ -1,6 +1,4 @@
-# OpenChoreo Component + Workload for ehr-fhir-server-db (postgres:16-alpine).
-# Matches docker-compose.yml: POSTGRES_DB=fhirdb, POSTGRES_USER=fhir, POSTGRES_PASSWORD=fhir
-# (non-sensitive local demo defaults, matching what's already committed in docker-compose.yml).
+# Non-sensitive local demo credentials, matching docker-compose.yml.
 apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:

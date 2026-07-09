@@ -86,10 +86,10 @@ Thunder (OIDC), which this install omits, so auth is switched off — local
 kind cluster only, never on a shared deployment:
 
 ```bash
-helm --kube-context kind-openchoreo-migration upgrade openchoreo-control-plane \
+helm --kube-context kind-care-loop upgrade openchoreo-control-plane \
   oci://ghcr.io/openchoreo/helm-charts/openchoreo-control-plane --version 1.1.1 \
   -n openchoreo-control-plane --reuse-values --set security.enabled=false
-kubectl --context kind-openchoreo-migration port-forward \
+kubectl --context kind-care-loop port-forward \
   -n openchoreo-control-plane svc/openchoreo-api 18080:8080 &
 claude mcp add --transport http openchoreo-cp http://localhost:18080/mcp
 ```

@@ -1,5 +1,5 @@
 COMPOSE := docker compose
-KIND_CLUSTER := openchoreo-migration
+KIND_CLUSTER := care-loop
 KUBE_CONTEXT := kind-$(KIND_CLUSTER)
 KCTL := kubectl --context=$(KUBE_CONTEXT)
 DP_NS = $(shell $(KCTL) get ns -o name | grep '^namespace/dp-' | head -1 | cut -d/ -f2)

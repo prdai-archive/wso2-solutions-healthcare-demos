@@ -30,6 +30,7 @@ declare -A BUILD_CONTEXTS=(
   [care-loop-collector-service]="${REPO_ROOT}/care-loop-collector-service"
   [care-loop-analysis-service]="${REPO_ROOT}/care-loop-analysis-service"
   [ehr-fhir-server]="https://github.com/wso2/fhir-server.git#v0.5.0"
+  [care-loop-fhir-server]="https://github.com/wso2/fhir-server.git#v0.5.0"
   [fhir-mcp-server]="https://github.com/wso2/fhir-mcp-server.git#0.10.0"
 )
 
@@ -40,7 +41,7 @@ for svc in "${!BUILD_CONTEXTS[@]}"; do
 done
 
 # Public images: no build needed, but must still be pre-loaded into containerd.
-for image in postgres:16-alpine hapiproject/hapi:v8.10.0-2; do
+for image in postgres:16-alpine; do
   log "Loading public image ${image}"
   docker pull -q --platform linux/amd64 "${image}" >/dev/null
   load_image "${image}"
@@ -87,19 +88,6 @@ for f in \
   "${REPO_ROOT}/care-loop-collector-service/.choreo/component.yaml" \
   "${REPO_ROOT}/care-loop-analysis-service/.choreo/component.yaml"; do
   ${KCTL} apply -f "${f}"
-done
-
-# The ComponentType's 256Mi default OOM-kills the JVM services; Component.spec.parameters doesn't reach the Deployment in v1.1, so patch the ReleaseBindings (what the renderer actually reads).
-log "Raising memory for JVM-based components"
-patch_resources() {
-  ${KCTL} wait --for=create "releasebinding/$1" -n default --timeout=120s >/dev/null
-  ${KCTL} patch releasebinding "$1" -n default --type=merge \
-    -p "{\"spec\":{\"componentTypeEnvironmentConfigs\":{\"resources\":{\"requests\":$2,\"limits\":$3}}}}"
-}
-patch_resources care-loop-fhir-server-development '{"cpu":"250m","memory":"1024Mi"}' '{"cpu":"1","memory":"1536Mi"}'
-for rb in ehr-fhir-server-development care-loop-ai-service-development \
-  care-loop-collector-service-development care-loop-analysis-service-development; do
-  patch_resources "${rb}" '{"cpu":"100m","memory":"512Mi"}' '{"cpu":"1","memory":"768Mi"}'
 done
 
 log "Done. Check pod status with: kubectl get pods -A --context=${KUBE_CONTEXT}"

@@ -37,6 +37,7 @@ spec:
     http:
       type: HTTP
       port: 9090
+      basePath: /fhir/r4
       visibility: [project]
   dependencies:
     endpoints:
@@ -46,3 +47,27 @@ spec:
         envBindings:
           # Dependency-graph only; DATABASE_URL above carries the real DSN.
           address: EHR_FHIR_SERVER_DB_ADDRESS
+
+---
+# Declares this environment's memory override declaratively: the seeded deployment/service
+# ComponentType exposes resources only in its environmentConfigs schema (256Mi default,
+# which OOM-kills JVM services), and those values are read from the ReleaseBinding.
+# releaseName/state are managed by the controller (autoDeploy).
+apiVersion: openchoreo.dev/v1alpha1
+kind: ReleaseBinding
+metadata:
+  name: ehr-fhir-server-development
+  namespace: default
+spec:
+  owner:
+    projectName: default
+    componentName: ehr-fhir-server
+  environment: development
+  componentTypeEnvironmentConfigs:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        cpu: "1"
+        memory: 768Mi

@@ -86,9 +86,23 @@ for rb in ehr-fhir-server-development care-loop-ai-service-development \
   patch_resources "${rb}" '{"cpu":"100m","memory":"512Mi"}' '{"cpu":"1","memory":"768Mi"}'
 done
 
-log "care-loop-ai-service needs openAiApiKey supplied out-of-band (never commit it):"
-log "  kubectl create secret generic care-loop-ai-service-openai -n <dataplane-namespace> \\"
-log "    --context=${KUBE_CONTEXT} --from-literal=openAiApiKey=<your-key>"
-log "  kubectl set env deployment/<care-loop-ai-service-deploy> --context=${KUBE_CONTEXT} \\"
-log "    -n <dataplane-namespace> --from=secret/care-loop-ai-service-openai"
+# If the local (gitignored) Config.toml with the real openAiApiKey exists - the same file
+# docker-compose mounts, and its service hostnames already match the in-cluster names - mount
+# it via a Secret so no separate key-provisioning step is needed. Never commit that file.
+LOCAL_AI_CONFIG="${REPO_ROOT}/care-loop-ai-service/Config.toml"
+if [ -f "${LOCAL_AI_CONFIG}" ]; then
+  log "Mounting local care-loop-ai-service/Config.toml (real key) via Secret"
+  DP_NS="$(${KCTL} get ns -o name | grep '^namespace/dp-' | head -1 | cut -d/ -f2)"
+  AI_DEPLOY="$(${KCTL} get deploy -n "${DP_NS}" -o name | grep care-loop-ai-service | cut -d/ -f2)"
+  AI_VOL="$(${KCTL} get deploy "${AI_DEPLOY}" -n "${DP_NS}" -o jsonpath='{.spec.template.spec.volumes[0].name}')"
+  ${KCTL} create secret generic care-loop-ai-service-realconfig -n "${DP_NS}" \
+    --from-file=Config.toml="${LOCAL_AI_CONFIG}" --dry-run=client -o yaml | ${KCTL} apply -f -
+  ${KCTL} patch deployment/"${AI_DEPLOY}" -n "${DP_NS}" --type=json \
+    -p="[{\"op\":\"replace\",\"path\":\"/spec/template/spec/volumes/0\",\"value\":{\"name\":\"${AI_VOL}\",\"secret\":{\"secretName\":\"care-loop-ai-service-realconfig\"}}}]"
+else
+  log "No local care-loop-ai-service/Config.toml found; supply openAiApiKey out-of-band (never commit it):"
+  log "  kubectl create secret generic care-loop-ai-service-realconfig -n <dataplane-namespace> \\"
+  log "    --context=${KUBE_CONTEXT} --from-file=Config.toml=<file-with-real-key>"
+  log "  then patch the deployment volume to that secret (see openchoreo/README.md)"
+fi
 log "Done. Check pod status with: kubectl get pods -A --context=${KUBE_CONTEXT}"

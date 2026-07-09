@@ -109,10 +109,10 @@ bite again if the mechanism changes upstream:
   in repeated testing and is what's actually used, matching the exact
   hostname style docker-compose already used successfully.
 
-`openAiApiKey` must be supplied out-of-band, never committed. Update
-`care-loop-ai-service/.choreo/component.yaml`'s mounted `Config.toml` value
-with a live Secret rather than editing the placeholder in the checked-in
-file:
+`openAiApiKey` must be supplied out-of-band, never committed. If the local
+(gitignored) `care-loop-ai-service/Config.toml` exists - the same file
+docker-compose mounts - `deploy-components.sh` automatically mounts it via a
+Secret, so `make up` needs no extra step. Otherwise do it manually:
 
 ```bash
 kubectl create secret generic care-loop-ai-service-realconfig -n <dataplane-namespace> \

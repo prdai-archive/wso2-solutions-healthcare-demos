@@ -37,7 +37,7 @@ spec:
         visibility: project
         envBindings:
           address: EHR_FHIR_SERVER_URL
-      - component: care-loop-fhir-server
+      - component: care-loop-fhir-server-readonly-proxy
         name: http
         visibility: project
         envBindings:

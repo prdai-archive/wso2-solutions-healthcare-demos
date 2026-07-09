@@ -1,0 +1,59 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: care-loop-fhir-server-readonly-proxy
+  namespace: default
+spec:
+  owner:
+    projectName: default
+  componentType:
+    kind: ClusterComponentType
+    name: deployment/service
+  autoDeploy: true
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: care-loop-fhir-server-readonly-proxy
+  namespace: default
+spec:
+  owner:
+    projectName: default
+    componentName: care-loop-fhir-server-readonly-proxy
+  container:
+    image: "nginx:1.27-alpine"
+    # Mirrors care-loop-fhir-server-readonly-proxy/nginx.conf (compose mounts the same file):
+    # GET/HEAD-only guard in front of the care-loop store.
+    files:
+      - key: nginx.conf
+        mountPath: /etc/nginx
+        value: |
+          events {}
+
+          http {
+            server {
+              listen 8080;
+
+              location / {
+                limit_except GET HEAD {
+                  deny all;
+                }
+                proxy_pass http://care-loop-fhir-server:9090;
+                proxy_set_header Host $host;
+              }
+            }
+          }
+  endpoints:
+    http:
+      type: HTTP
+      port: 8080
+      basePath: /fhir/r4
+      visibility: [project]
+  dependencies:
+    endpoints:
+      - component: care-loop-fhir-server
+        name: http
+        visibility: project
+        envBindings:
+          address: CARE_LOOP_FHIR_SERVER_ADDRESS

@@ -42,7 +42,7 @@ for svc in "${!BUILD_CONTEXTS[@]}"; do
 done
 
 # Public images: no build needed, but must still be pre-loaded into containerd.
-for image in postgres:16-alpine; do
+for image in postgres:16-alpine nginx:1.27-alpine; do
   log "Loading public image ${image}"
   docker pull -q --platform linux/amd64 "${image}" >/dev/null
   load_image "${image}"
@@ -83,6 +83,7 @@ for f in \
   "${REPO_ROOT}/whatsapp-simulator/component.yaml" \
   "${REPO_ROOT}/ehr-fhir-server/component.yaml" \
   "${REPO_ROOT}/care-loop-fhir-server/.openchoreo/component.yaml" \
+  "${REPO_ROOT}/care-loop-fhir-server-readonly-proxy/.openchoreo/component.yaml" \
   "${REPO_ROOT}/fhir-mcp-server/.openchoreo/component.yaml" \
   "${REPO_ROOT}/front-desk-dashboard/.openchoreo/component.yaml" \
   "${REPO_ROOT}/care-loop-ai-service/.openchoreo/component.yaml" \

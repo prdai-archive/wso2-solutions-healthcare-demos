@@ -36,13 +36,13 @@ spec:
       - key: FHIR_MCP_PORT
         value: "8000"
       - key: FHIR_SERVER_BASE_URL
-        value: "http://care-loop-fhir-server:9090/fhir/r4"
+        value: "http://care-loop-fhir-server-readonly-proxy:8080/fhir/r4"
       - key: FHIR_SERVER_DISABLE_AUTHORIZATION
         value: "True"
   # The compose nginx read-only proxy has no Component here, so depend on care-loop-fhir-server directly.
   dependencies:
     endpoints:
-      - component: care-loop-fhir-server
+      - component: care-loop-fhir-server-readonly-proxy
         name: http
         visibility: project
         envBindings:

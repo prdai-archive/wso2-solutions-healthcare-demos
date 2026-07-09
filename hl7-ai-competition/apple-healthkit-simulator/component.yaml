@@ -13,11 +13,8 @@ spec:
 
 ---
 
-# TODO: the current OpenChoreo Component/Workload API (openchoreo.dev/docs/reference/api/application/{component,workload}/,
-# v1.1.x) has no imagePullPolicy field anywhere in the schema, so "parameters.imagePullPolicy: Never" as described in the
-# spike cannot be expressed here without inventing syntax. This Workload assumes the local tag below is loaded into the
-# cluster's containerd out-of-band (e.g. kind load docker-image) before apply; if OpenChoreo actually needs an explicit
-# pull-policy override for that to work, it isn't documented and needs to be confirmed against the installed version.
+# The image below must be loaded into the cluster's containerd before apply
+# (openchoreo/deploy-components.sh does this); there is no registry for it.
 apiVersion: openchoreo.dev/v1alpha1
 kind: Workload
 metadata:
@@ -42,8 +39,3 @@ spec:
       type: HTTP
       port: 8000
       visibility: [external]
-  # docker-compose.yml declares no depends_on for apple-healthkit-simulator, so there are no dependency edges to
-  # declare here. Note also that dependencies live on the Workload (spec.dependencies.endpoints), not on the
-  # Component CR itself - the schema has no Component-level dependency/connection field, so an edge from this
-  # component onto another (e.g. its runtime calls to care-loop-collector-service via HEALTHKIT_VITALS_TARGET_URL)
-  # would need to be added here as a WorkloadConnection if/when that call should be modeled as a typed dependency.

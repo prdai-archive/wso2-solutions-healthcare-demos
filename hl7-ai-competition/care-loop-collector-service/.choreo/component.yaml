@@ -1,21 +1,4 @@
 # OpenChoreo component definition for care-loop-collector-service.
-#
-# Shape verified against the current (2026-07) openchoreo.dev docs and the
-# canonical samples in github.com/openchoreo/openchoreo (release-v1.1):
-#   samples/from-image/react-starter-web-app/react-starter.yaml
-#   samples/from-source/services/go-docker-greeter/greeting-service.yaml
-# No standalone Component CRD reference page is published yet (the
-# /docs/category/api-reference/ category is currently empty), so the samples
-# are the authoritative source for this schema.
-#
-# LIMITATION: the image and its imagePullPolicy live on the separate Workload
-# CR's container spec below, not under Component.spec.parameters -- neither
-# sample nor the Component/ComponentType schema exposes an
-# spec.parameters.imagePullPolicy field on the Component CR itself.
-# imagePullPolicy only appears in the codebase as an environment-specific
-# override field inside custom ComponentType schemas (consumed via
-# ReleaseBinding), not as a plain Component-level knob. Set it on the
-# Workload container below instead.
 apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
@@ -29,11 +12,6 @@ spec:
   componentType:
     kind: ClusterComponentType
     name: deployment/service
-
-  # Correction: dependency/connection edges do exist, but on the Workload CR
-  # (spec.dependencies.endpoints below), not the Component CR - see the other
-  # component.yaml files in this migration for confirmation. This component's
-  # three docker-compose depends_on edges are declared on the Workload below.
 
 ---
 
@@ -50,19 +28,12 @@ spec:
     http:
       type: HTTP
       port: 8004
-      # Was "internal": that visibility requires gateway.ingress.internal configured on the
-      # Environment/DataPlane, which this single-cluster install doesn't set up (only
-      # gateway.ingress.external is configured, on ClusterDataPlane/default) - the release
-      # failed to render entirely until this was corrected to "project", matching the other
-      # 9 components' working endpoints.
+      # "internal" visibility requires gateway.ingress.internal on the Environment/DataPlane,
+      # which this single-cluster install doesn't configure - the release fails to render.
       visibility: [project]
   container:
-    # Local tag convention: build+load this image directly into the
-    # cluster's containerd (kind load / ctr images import) as part of the
-    # install/onboarding flow -- there is no registry for this image.
-    # imagePullPolicy is not a Workload container field (kubectl explain
-    # confirms only image/command/args/env/files) -- it lives on the
-    # ClusterComponentType's environmentConfigs, unused here for now.
+    # Must be loaded into the cluster's containerd before apply (deploy-components.sh does
+    # this); there is no registry for this image.
     image: care-loop-collector-service:openchoreo
     # This service reads its endpoint URLs from Config.toml-backed configurable variables
     # (config.bal), not container env vars, so the envBindings below don't wire anything at

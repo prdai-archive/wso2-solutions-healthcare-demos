@@ -1,8 +1,4 @@
 # OpenChoreo Component + Workload for care-loop-analysis-service.
-# Schema verified against https://openchoreo.dev/docs/reference/api/application/component/
-# and https://openchoreo.dev/docs/reference/api/application/workload/ (accessed 2026-07-08).
-# NOTE: image, port, and dependency-endpoint references live on the Workload CR, not the
-# Component CR — the Component CR only carries owner/componentType/autoDeploy/parameters/traits.
 apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
@@ -16,9 +12,6 @@ spec:
     name: deployment/service
   autoDeploy: true
   parameters:
-    # Locally-built image already loaded into the cluster's containerd (kind load / ctr images
-    # import) rather than pulled from a registry — verified against the react-starter and
-    # go-docker-greeter samples in openchoreo/openchoreo (release-v1.1).
     imagePullPolicy: Never
 
 ---
@@ -56,9 +49,6 @@ spec:
       type: HTTP
       port: 8005
       visibility: [project]
-  # Five dependency edges per this service's actual docker-compose.yml depends_on
-  # (care-loop-heart-risk-service, care-loop-fhir-server, ehr-fhir-server, care-loop-ai-service,
-  # care-loop-collector-service). All Workloads in this migration use endpoint name "http".
   # These edges are for OpenChoreo's dependency model; the runtime wiring happens via the
   # Config.toml above.
   dependencies:

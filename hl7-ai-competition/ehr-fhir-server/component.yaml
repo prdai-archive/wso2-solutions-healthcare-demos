@@ -1,9 +1,4 @@
 # OpenChoreo Component + Workload definition for ehr-fhir-server (wso2/fhir-server, see docker-compose.yml).
-# Schema verified against https://openchoreo.dev/docs/reference/api/application/component/
-# and https://openchoreo.dev/docs/reference/api/application/workload/ (release-v1.1 docs, 2026-07-08).
-#
-# Depends on ehr-fhir-server-db (see ehr-fhir-server-db/.choreo/component.yaml), matching
-# docker-compose.yml's depends_on: {ehr-fhir-server-db: {condition: service_healthy}}.
 apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
@@ -31,8 +26,7 @@ spec:
     projectName: default
     componentName: ehr-fhir-server
   container:
-    # Local tag convention: build the wso2/fhir-server image and load it into the cluster's
-    # containerd (kind load / ctr images import) rather than pulling from a registry.
+    # Must be loaded into the cluster's containerd before apply (deploy-components.sh does this).
     image: ehr-fhir-server:openchoreo
     env:
       # Same-namespace k8s DNS resolves the bare component name, so this stays stable across

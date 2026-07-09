@@ -1,20 +1,4 @@
 # OpenChoreo Component + Workload for care-loop-ai-service.
-# Verified against openchoreo/openchoreo release-v1.1 samples (from-image/go-greeter-service,
-# gcp-microservices-demo/components/cart-component.yaml, from-image/url-shortener/components/frontend.yaml)
-# and https://openchoreo.dev/docs/getting-started/try-it-out/on-your-environment/.
-#
-# TODO/limitation: OpenChoreo has no Component-level "parameters.imagePullPolicy" field in the
-# verified schema. imagePullPolicy is exposed as an environmentConfigs parameter on the
-# ClusterComponentType (default "IfNotPresent", e.g. samples/getting-started/component-types/service.yaml),
-# which is set per-Environment, not per-Component/Workload YAML. No sample or doc page shows a
-# "Never" pull policy or a "kind load"/"ctr images import" workflow for locally-built images
-# without a registry, so image-load-without-registry is a platform/Environment-level concern,
-# not something this component.yaml can declare.
-#
-# TODO/limitation: the "project" this component belongs to (spec.owner.projectName) is not
-# specified anywhere in this task or in hl7-ai-competition/docs/, so "care-loop" is used as a
-# placeholder matching repo naming (e.g. HAPI FHIR container is "care-loop-fhir-server") -
-# confirm/rename with whichever OpenChoreo Project is created for this stack.
 apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
@@ -44,20 +28,10 @@ spec:
     http:
       type: HTTP
       port: 8003
-  # care-loop-ai-service only depends on fhir-mcp-server per docker-compose.yml depends_on.
-  # All 10 components in this migration are owned by projectName "default" (there is no
-  # separate "care-loop" Project CR), so this now points at project "default" rather than the
-  # placeholder used before.
-  #
-  # Real root cause of "Failed to initialize the MCP client" with zero packets ever reaching
-  # fhir-mcp-server: once a Config.toml file is mounted (needed for openAiApiKey below),
-  # Ballerina stops honoring the separate env-var configurable override for fhirMcpUrl and falls
-  # back to its coded-in default (config.bal: "http://localhost:8001/mcp") -- unreachable inside
-  # the pod. Fixed by setting fhirMcpUrl directly in the mounted Config.toml instead of relying
-  # on envBindings for it. The short in-namespace service name (not the long
-  # <component>.<namespace>.svc.cluster.local form the dependency envBindings mechanism injects)
-  # is used because it resolved reliably in testing while the long FQDN was intermittently flaky
-  # under this cluster's DNS, matching the exact hostname style docker-compose already uses.
+  # Once a Config.toml is mounted (needed for openAiApiKey), Ballerina stops honoring the
+  # separate env-var override for other configurables, so fhirMcpUrl must be set inside the
+  # mounted Config.toml. Short in-namespace service names are deliberate - the FQDN that
+  # envBindings injects resolved intermittently under this cluster's DNS (see openchoreo/README.md).
   dependencies:
     endpoints:
       - project: default
@@ -70,14 +44,10 @@ spec:
           address: FHIR_MCP_SERVER_URL_UNUSED
   container:
     image: "care-loop-ai-service:openchoreo"
-    # openAiApiKey is a required configurable with no default (config.bal:3). docker-compose
-    # supplies it via a mounted Config.toml, so this mirrors that mechanism directly rather than
-    # relying on env-var overrides. mountPath is the directory, and "key" becomes the filename
-    # mounted inside it (mounting directly at the full file path .../Config.toml produced a
-    # directory there instead of a file, since the ConfigMap volume mount always targets a
-    # directory). openAiApiKey must be replaced with a real key via a live kubectl patch/Secret
-    # before this is useful for anything beyond a connectivity check -- never commit a real key
-    # here.
+    # mountPath must be the directory; "key" becomes the filename (mounting at the full file
+    # path yields a directory, since the ConfigMap volume always targets a directory).
+    # openAiApiKey must be replaced with a real key via a live Secret (see openchoreo/README.md)
+    # - never commit a real key here.
     files:
       - key: Config.toml
         mountPath: /home/ballerina

@@ -9,7 +9,7 @@ spec:
     projectName: default
   componentType:
     kind: ClusterComponentType
-    name: deployment/service
+    name: deployment/stateful-service
   autoDeploy: true
 
 ---
@@ -36,3 +36,20 @@ spec:
       type: TCP
       port: 5432
       visibility: [project]
+
+---
+# Storage/memory settings live here: only the ReleaseBinding's environmentConfigs reach the Deployment.
+apiVersion: openchoreo.dev/v1alpha1
+kind: ReleaseBinding
+metadata:
+  name: ehr-fhir-server-db-development
+  namespace: default
+spec:
+  owner:
+    projectName: default
+    componentName: ehr-fhir-server-db
+  environment: development
+  componentTypeEnvironmentConfigs:
+    storage:
+      size: 1Gi
+      mountPath: /var/lib/postgresql/data

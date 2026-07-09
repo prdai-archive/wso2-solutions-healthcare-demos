@@ -28,7 +28,16 @@ from the official docs). It's idempotent and doesn't create the cluster.
 containerd (no registry), pushes the local Config.tomls into OpenBao (see
 below), and applies every `component.yaml` - including `fhir-sync`, the
 hourly EHR -> care-loop sync worker (`deployment/worker`, no endpoints),
-so syncing runs continuously in-cluster exactly as it does on compose.
+so syncing runs continuously in-cluster exactly as it does on compose. The
+nginx read-only proxy is also a component, and fhir-mcp-server +
+front-desk-dashboard read the care-loop store through it (GET/HEAD only),
+matching compose. The healthkit simulator and both postgres components use
+the custom `deployment/stateful-service` ComponentType
+(`stateful-service-componenttype.json`, installed by `install.sh`), which
+adds a PersistentVolumeClaim sized/mounted via `environmentConfigs.storage`
+- data survives pod restarts, verified by deleting all three pods.
+Note the FHIR servers create their tables at startup, so if a database is
+ever recreated, restart the corresponding FHIR server deployment.
 
 ## Verified status (2026-07-08, store swapped to wso2/fhir-server 2026-07-09)
 

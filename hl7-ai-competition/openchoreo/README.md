@@ -13,9 +13,11 @@ older and OpenChoreo's CRDs fail with a CEL compilation error.
 ## Usage
 
 ```bash
-kind create cluster --name openchoreo-migration --image kindest/node:v1.32.0
-./install.sh kind-openchoreo-migration          # platform: control+data plane, seeded defaults
-./deploy-components.sh openchoreo-migration kind-openchoreo-migration  # build, load, apply
+make up             # kind cluster + install.sh + deploy-components.sh + seed
+make seed           # (re)seed demo data and trigger an immediate EHR -> care-loop sync
+make trigger-vitals # force a vitals-forward cycle instead of waiting for the cron
+make forward        # port-forward every service onto its compose-equivalent host port
+make ps / make down
 ```
 
 `install.sh` installs, in order: Gateway API CRDs v1.4.1, cert-manager
@@ -24,7 +26,9 @@ then the OpenChoreo control- and data-plane charts v1.1.1 (versions/values
 from the official docs). It's idempotent and doesn't create the cluster.
 `deploy-components.sh` builds each image, loads it into the cluster's
 containerd (no registry), pushes the local Config.tomls into OpenBao (see
-below), and applies every `component.yaml`.
+below), and applies every `component.yaml` - including `fhir-sync`, the
+hourly EHR -> care-loop sync worker (`deployment/worker`, no endpoints),
+so syncing runs continuously in-cluster exactly as it does on compose.
 
 ## Verified status (2026-07-08, store swapped to wso2/fhir-server 2026-07-09)
 

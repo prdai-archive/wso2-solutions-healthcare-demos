@@ -29,6 +29,7 @@ declare -A BUILD_CONTEXTS=(
   [care-loop-ai-service]="${REPO_ROOT}/care-loop-ai-service"
   [care-loop-collector-service]="${REPO_ROOT}/care-loop-collector-service"
   [care-loop-analysis-service]="${REPO_ROOT}/care-loop-analysis-service"
+  [fhir-sync]="${REPO_ROOT}/scripts/sync"
   [ehr-fhir-server]="https://github.com/wso2/fhir-server.git#v0.5.0"
   [care-loop-fhir-server]="https://github.com/wso2/fhir-server.git#v0.5.0"
   [fhir-mcp-server]="https://github.com/wso2/fhir-mcp-server.git#0.10.0"
@@ -86,7 +87,8 @@ for f in \
   "${REPO_ROOT}/front-desk-dashboard/.choreo/component.yaml" \
   "${REPO_ROOT}/care-loop-ai-service/.choreo/component.yaml" \
   "${REPO_ROOT}/care-loop-collector-service/.choreo/component.yaml" \
-  "${REPO_ROOT}/care-loop-analysis-service/.choreo/component.yaml"; do
+  "${REPO_ROOT}/care-loop-analysis-service/.choreo/component.yaml" \
+  "${REPO_ROOT}/scripts/sync/.choreo/component.yaml"; do
   ${KCTL} apply -f "${f}"
 done
 

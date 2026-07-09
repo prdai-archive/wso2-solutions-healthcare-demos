@@ -10,16 +10,14 @@ NODE_CONTAINER="${KIND_CLUSTER}-control-plane"
 
 log() { echo "==> $*"; }
 
-# `kind load docker-image` is flaky under sandboxed docker, and snap docker can't write /tmp - so save-and-import, staged under the repo.
+# kind load / piped ctr import are flaky; save to a file under the repo (snap docker can't write /tmp).
 load_image() {
-  local image="$1" tar workdir
+  local workdir
   workdir="$(mktemp -d "${REPO_ROOT}/.image-staging.XXXXXX")"
   trap 'rm -rf "${workdir}"' RETURN
-  tar="${workdir}/img.tar"
-  docker save "${image}" -o "${tar}"
-  docker cp "${tar}" "${NODE_CONTAINER}:/img.tar"
+  docker save "$1" -o "${workdir}/img.tar"
+  docker cp "${workdir}/img.tar" "${NODE_CONTAINER}:/img.tar"
   docker exec "${NODE_CONTAINER}" ctr -n k8s.io images import /img.tar >/dev/null 2>&1 || true
-  rm -rf "${workdir}"
 }
 
 # service -> build context (docker-compose.yml's build.context for each)
@@ -36,44 +34,44 @@ declare -A BUILD_CONTEXTS=(
 )
 
 for svc in "${!BUILD_CONTEXTS[@]}"; do
-  log "Building ${svc}:openchoreo"
+  log "Building and loading ${svc}:openchoreo"
   docker build -q -t "${svc}:openchoreo" "${BUILD_CONTEXTS[$svc]}" >/dev/null
-  log "Loading ${svc}:openchoreo into ${KIND_CLUSTER}"
   load_image "${svc}:openchoreo"
 done
 
 # Public images: no build needed, but must still be pre-loaded into containerd.
 for image in postgres:16-alpine hapiproject/hapi:v8.10.0-2; do
-  log "Loading public image ${image} into ${KIND_CLUSTER}"
+  log "Loading public image ${image}"
   docker pull -q --platform linux/amd64 "${image}" >/dev/null
   load_image "${image}"
 done
 
-# The three Ballerina services declare `value: "__LOCAL_CONFIG_TOML__"`; the local gitignored
-# <svc>/Config.toml (the same file docker-compose mounts) is injected at apply time so the
-# manifests never duplicate - or leak - its contents.
-CONFIG_SERVICES="care-loop-ai-service care-loop-collector-service care-loop-analysis-service"
-apply_manifest() {
-  local f="$1" svc cfg
-  for svc in ${CONFIG_SERVICES}; do
-    if [[ "${f}" == *"/${svc}/"* ]]; then
-      cfg="${REPO_ROOT}/${svc}/Config.toml"
-      if [ ! -f "${cfg}" ]; then
-        log "ERROR: ${svc}/Config.toml not found - it is gitignored and required (docker-compose mounts the same file)"
-        return 1
-      fi
-      CFG_PATH="${cfg}" python3 - "${f}" <<'PY' | ${KCTL} apply -f -
-import os, pathlib, sys
-manifest = pathlib.Path(sys.argv[1]).read_text()
-cfg = pathlib.Path(os.environ["CFG_PATH"]).read_text().rstrip("\n")
-block = "|\n" + "\n".join(" " * 10 + line for line in cfg.splitlines())
-sys.stdout.write(manifest.replace('"__LOCAL_CONFIG_TOML__"', block))
-PY
-      return 0
-    fi
-  done
-  ${KCTL} apply -f "${f}"
-}
+# Push each local gitignored Config.toml (the same files docker-compose mounts) into OpenBao; the Workloads resolve them via SecretReference.
+for svc in care-loop-ai-service care-loop-collector-service care-loop-analysis-service; do
+  cfg="${REPO_ROOT}/${svc}/Config.toml"
+  if [ ! -f "${cfg}" ]; then
+    log "ERROR: ${cfg} not found - it is gitignored and required (docker-compose mounts the same file)"
+    exit 1
+  fi
+  log "Storing ${svc}/Config.toml in OpenBao and creating its SecretReference"
+  ${KCTL} exec -i -n openbao openbao-0 -- sh -c \
+    'cat > /tmp/cfg && bao kv put "secret/'"${svc}"'-config" Config.toml="$(cat /tmp/cfg)" >/dev/null && rm /tmp/cfg' < "${cfg}"
+  ${KCTL} apply -f - <<EOF
+apiVersion: openchoreo.dev/v1alpha1
+kind: SecretReference
+metadata:
+  name: ${svc}-config
+  namespace: default
+spec:
+  data:
+    - secretKey: Config.toml
+      remoteRef:
+        key: ${svc}-config
+        property: Config.toml
+  template:
+    type: Opaque
+EOF
+done
 
 log "Applying Component/Workload manifests"
 for f in \
@@ -88,23 +86,15 @@ for f in \
   "${REPO_ROOT}/care-loop-ai-service/.choreo/component.yaml" \
   "${REPO_ROOT}/care-loop-collector-service/.choreo/component.yaml" \
   "${REPO_ROOT}/care-loop-analysis-service/.choreo/component.yaml"; do
-  apply_manifest "${f}"
+  ${KCTL} apply -f "${f}"
 done
 
 # The ComponentType's 256Mi default OOM-kills the JVM services; Component.spec.parameters doesn't reach the Deployment in v1.1, so patch the ReleaseBindings (what the renderer actually reads).
-log "Raising memory for JVM-based components (ClusterComponentType default 256Mi OOM-kills them)"
+log "Raising memory for JVM-based components"
 patch_resources() {
-  local rb="$1" requests="$2" limits="$3" attempt
-  for attempt in 1 2 3 4 5 6; do
-    if ${KCTL} patch releasebinding "${rb}" -n default --type=merge \
-      -p "{\"spec\":{\"componentTypeEnvironmentConfigs\":{\"resources\":{\"requests\":${requests},\"limits\":${limits}}}}}" 2>/dev/null; then
-      return 0
-    fi
-    log "ReleaseBinding ${rb} not created yet (attempt ${attempt}/6), retrying"
-    sleep 10
-  done
-  log "ERROR: ReleaseBinding ${rb} never appeared"
-  return 1
+  ${KCTL} wait --for=create "releasebinding/$1" -n default --timeout=120s >/dev/null
+  ${KCTL} patch releasebinding "$1" -n default --type=merge \
+    -p "{\"spec\":{\"componentTypeEnvironmentConfigs\":{\"resources\":{\"requests\":$2,\"limits\":$3}}}}"
 }
 patch_resources care-loop-fhir-server-development '{"cpu":"250m","memory":"1024Mi"}' '{"cpu":"1","memory":"1536Mi"}'
 for rb in ehr-fhir-server-development care-loop-ai-service-development \

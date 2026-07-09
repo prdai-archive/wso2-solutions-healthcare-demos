@@ -43,5 +43,8 @@ spec:
     files:
       - key: Config.toml
         mountPath: /home/ballerina
-        # Injected at deploy time from this service's local gitignored Config.toml (deploy-components.sh).
-        value: "__LOCAL_CONFIG_TOML__"
+        # Resolved via the secret store from this service's local gitignored Config.toml (deploy-components.sh).
+        valueFrom:
+          secretKeyRef:
+            name: care-loop-ai-service-config
+            key: Config.toml

@@ -10,15 +10,6 @@ spec:
   componentType:
     kind: ClusterComponentType
     name: deployment/service
-  # Intent only - parameters don't reach the Deployment in v1.1; deploy-components.sh patches the ReleaseBinding instead (256Mi default OOM-kills HAPI).
-  parameters:
-    resources:
-      requests:
-        cpu: 250m
-        memory: 512Mi
-      limits:
-        cpu: "1"
-        memory: 1Gi
 
 ---
 

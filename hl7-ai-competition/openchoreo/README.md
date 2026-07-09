@@ -58,14 +58,21 @@ Real issues found and fixed (they'll bite again if upstream changes):
 
 ## Config.toml / openAiApiKey
 
-The component.yamls of care-loop-ai-service, care-loop-collector-service and
-care-loop-analysis-service carry a `value: "__LOCAL_CONFIG_TOML__"`
-placeholder; `deploy-components.sh` injects each service's local gitignored
-`Config.toml` (the same file docker-compose mounts — hostnames already match
-in-cluster) at apply time, so the values live in exactly one place and the
-real `openAiApiKey` is never committed. Those three files are required, as
-they are for docker-compose. Note the injected content (key included) lands
-in an in-cluster ConfigMap - fine for this local kind demo only.
+The three Ballerina services resolve their Config.toml through OpenChoreo's
+native secret-store path: `deploy-components.sh` pushes each service's local
+gitignored `Config.toml` (the same file docker-compose mounts - hostnames
+already match in-cluster) into OpenBao and creates a `SecretReference`; the
+Workload's `files[].valueFrom.secretKeyRef` then renders it as an
+ExternalSecret-synced Kubernetes Secret mounted into the pod. Config values
+live in exactly one place and the real `openAiApiKey` never touches git.
+Those three local files are required, as they are for docker-compose.
+
+Note: `Component.spec.parameters` maps only to a ComponentType's
+`parameters` schema; the seeded `deployment/service` type defines
+`resources`/`imagePullPolicy`/`replicas` only under `environmentConfigs`,
+which is set per-environment on the ReleaseBinding - which is why
+`deploy-components.sh` patches ReleaseBindings for memory and why
+`parameters` blocks for those fields are silently ignored.
 
 ## OpenChoreo MCP server (optional, local development)
 

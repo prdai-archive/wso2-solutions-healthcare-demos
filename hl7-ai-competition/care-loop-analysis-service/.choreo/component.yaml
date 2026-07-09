@@ -10,8 +10,6 @@ spec:
     kind: ClusterComponentType
     name: deployment/service
   autoDeploy: true
-  parameters:
-    imagePullPolicy: Never
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
@@ -29,8 +27,11 @@ spec:
     files:
       - key: Config.toml
         mountPath: /home/ballerina
-        # Injected at deploy time from this service's local gitignored Config.toml (deploy-components.sh).
-        value: "__LOCAL_CONFIG_TOML__"
+        # Resolved via the secret store from this service's local gitignored Config.toml (deploy-components.sh).
+        valueFrom:
+          secretKeyRef:
+            name: care-loop-analysis-service-config
+            key: Config.toml
   endpoints:
     http:
       type: HTTP

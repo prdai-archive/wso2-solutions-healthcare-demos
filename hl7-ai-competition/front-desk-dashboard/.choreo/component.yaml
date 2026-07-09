@@ -10,9 +10,6 @@ spec:
     kind: ClusterComponentType
     name: deployment/service
   autoDeploy: true
-  parameters:
-    # Intent only - parameters don't reach the Deployment in v1.1; deploy-components.sh pre-loads the image and IfNotPresent skips the pull.
-    imagePullPolicy: Never
 
 ---
 apiVersion: openchoreo.dev/v1alpha1

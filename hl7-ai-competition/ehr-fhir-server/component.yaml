@@ -10,8 +10,6 @@ spec:
   componentType:
     kind: ClusterComponentType
     name: deployment/service
-  parameters:
-    imagePullPolicy: Never
 
 ---
 

@@ -61,10 +61,7 @@ spec:
           address: WHATSAPP_URL
 
 ---
-# Declares this environment's memory override declaratively: the seeded deployment/service
-# ComponentType exposes resources only in its environmentConfigs schema (256Mi default,
-# which OOM-kills JVM services), and those values are read from the ReleaseBinding.
-# releaseName/state are managed by the controller (autoDeploy).
+# Memory override (ComponentType's 256Mi default OOM-kills JVMs); only the ReleaseBinding's environmentConfigs reach the Deployment.
 apiVersion: openchoreo.dev/v1alpha1
 kind: ReleaseBinding
 metadata:

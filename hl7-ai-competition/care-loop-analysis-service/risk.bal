@@ -61,7 +61,11 @@ isolated function runVitalsReadyCycle(string patientId) {
         log:printError("vitals-ready: heart-risk-service call failed", patientId = patientId, 'error = heartRiskResponse);
         return;
     }
-    notifyDashboard(patientId, "ML risk scoring complete", "probability " + heartRiskResponse.probability.toString());
+    notifyDashboard(patientId, "ML risk scoring complete", "probability " + heartRiskResponse.probability.toString(), {
+        model: heartRiskResponse.selected_model,
+        probability: heartRiskResponse.probability.toString(),
+        band: heartRiskResponse.probability >= mlEscalationThreshold ? "elevated" : "normal"
+    });
 
     string[] observationRefs = readings.map(r => "Observation/" + r.id);
 
@@ -77,7 +81,8 @@ isolated function runVitalsReadyCycle(string patientId) {
     log:printWarn("vitals-ready: ML probability crossed escalation threshold, starting emergency questionnaire",
             patientId = patientId, probability = heartRiskResponse.probability);
     notifyDashboard(patientId, "Escalation triggered",
-            "ML probability " + heartRiskResponse.probability.toString() + " crossed threshold " + mlEscalationThreshold.toString());
+            "ML probability " + heartRiskResponse.probability.toString() + " crossed threshold " + mlEscalationThreshold.toString(),
+            {probability: heartRiskResponse.probability.toString(), threshold: mlEscalationThreshold.toString()});
     PatientDisplay display = patientDisplay(patient, patientId, age, sex);
     putPendingCase(patientId, {heartRisk: heartRiskResponse, observationRefs, display});
 
@@ -115,7 +120,11 @@ isolated function runTimeoutWatcher(string patientId, float mlProbability) {
         log:printError("timeout escalation: failed to save Task to ehr-fhir-server", patientId = patientId, 'error = saveResult);
         return;
     }
-    notifyDashboard(patientId, "FHIR Task created for front-desk", extractFhirId(saveResult));
+    notifyDashboard(patientId, "FHIR Task created for front-desk", extractFhirId(saveResult), {
+        taskId: extractFhirId(saveResult) ?: "",
+        status: task.status,
+        priority: task.priority ?: ""
+    });
 }
 
 # Runs in the background: /risk-assessment's multi-tool-call round-trips were blowing past whatsapp-simulator's request timeout when run synchronously.
@@ -146,7 +155,11 @@ isolated function runEmergencyAnswersCycle(EmergencyAnswersRequest request, Pend
         log:printError("emergency-answers: failed to save agentic RiskAssessment", patientId = request.patientId, 'error = agenticSaveResult);
     }
     notifyDashboard(request.patientId, "Agentic risk assessment complete",
-            aiResponse.risk + " risk, probability " + aiResponse.probability.toString());
+            aiResponse.risk + " risk, probability " + aiResponse.probability.toString(), {
+        risk: aiResponse.risk,
+        probability: aiResponse.probability.toString(),
+        riskAssessmentId: agenticRiskAssessmentId ?: ""
+    });
 
     if pendingCase.heartRisk.probability < mlEscalationThreshold || aiResponse.probability < agenticEscalationThreshold {
         return;
@@ -174,5 +187,9 @@ isolated function runEmergencyAnswersCycle(EmergencyAnswersRequest request, Pend
         log:printError("emergency-answers: failed to save Task to ehr-fhir-server", patientId = request.patientId, 'error = taskSaveResult);
         return;
     }
-    notifyDashboard(request.patientId, "FHIR Task created for front-desk", extractFhirId(taskSaveResult));
+    notifyDashboard(request.patientId, "FHIR Task created for front-desk", extractFhirId(taskSaveResult), {
+        taskId: extractFhirId(taskSaveResult) ?: "",
+        status: task.status,
+        priority: task.priority ?: ""
+    });
 }

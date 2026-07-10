@@ -8,9 +8,17 @@ interface CreateEventBody {
   patientId?: unknown;
   label?: unknown;
   detail?: unknown;
+  payload?: unknown;
 }
 
-// Fixed contract other services POST to: {patientId, label, detail?}.
+function isStringRecord(value: unknown): value is Record<string, string> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  return Object.values(value).every((v) => typeof v === "string");
+}
+
+// Fixed contract other services POST to: {patientId, label, detail?, payload?}.
+// payload is an optional flat object of string -> string, whatever real fields
+// the caller already has in scope (e.g. {"probability":"0.64"}) - never invented.
 // Fire-and-forget, no auth (internal network) — insert and return fast.
 export async function POST(request: Request) {
   let body: CreateEventBody;
@@ -20,7 +28,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "invalid JSON body" }, { status: 400 });
   }
 
-  const { patientId, label, detail } = body;
+  const { patientId, label, detail, payload } = body;
 
   if (typeof patientId !== "string" || patientId.trim() === "") {
     return NextResponse.json(
@@ -40,7 +48,13 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
+  if (payload !== undefined && !isStringRecord(payload)) {
+    return NextResponse.json(
+      { error: "payload must be a flat object of strings when present" },
+      { status: 400 },
+    );
+  }
 
-  insertEvent(patientId, label, detail);
+  insertEvent(patientId, label, detail, payload as Record<string, string> | undefined);
   return NextResponse.json({ ok: true }, { status: 202 });
 }

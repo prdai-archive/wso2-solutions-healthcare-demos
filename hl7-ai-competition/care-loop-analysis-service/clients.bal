@@ -13,8 +13,8 @@ final http:Client collectorClient = check new (collectorServiceUrl);
 final http:Client dashboardEventsClient = check new (dashboardEventsUrl, httpVersion = http:HTTP_1_1);
 
 // Fire-and-forget: the ops dashboard is a nice-to-have live feed, never a reason to slow down or fail real pipeline work.
-isolated function notifyDashboard(string patientId, string label, string? detail = ()) {
-    http:Response|http:ClientError result = dashboardEventsClient->post("/api/events", {patientId, label, detail});
+isolated function notifyDashboard(string patientId, string label, string? detail = (), map<string>? payload = ()) {
+    http:Response|http:ClientError result = dashboardEventsClient->post("/api/events", {patientId, label, detail, payload});
     if result is http:ClientError {
         log:printWarn("failed to notify dashboard", patientId = patientId, label = label, 'error = result);
     }

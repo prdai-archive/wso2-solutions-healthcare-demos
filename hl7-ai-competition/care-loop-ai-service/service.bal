@@ -72,13 +72,15 @@ service /questionnaires on sharedListener {
         }
 
         string? itemCountDetail = ();
+        map<string>? itemCountPayload = ();
         if questionnaire is map<json> {
             json items = questionnaire["item"] ?: ();
             if items is json[] {
                 itemCountDetail = string `${items.length()} item(s) drafted`;
+                itemCountPayload = {channel: "whatsapp", itemCount: items.length().toString()};
             }
         }
-        future<()> _ = start reportDashboardEvent(request.patientId, "Questionnaire drafted", itemCountDetail);
+        future<()> _ = start reportDashboardEvent(request.patientId, "Questionnaire drafted", itemCountDetail, itemCountPayload);
 
         return {questionnaire};
     }
@@ -105,8 +107,11 @@ service /risk\-assessment on sharedListener {
             return <http:InternalServerError>{body: {message: "agent JSON did not match expected shape: " + assessment.message()}};
         }
 
+        string reasoningSnippet = assessment.reasoning.length() > 120 ?
+            assessment.reasoning.substring(0, 120) : assessment.reasoning;
         future<()> _ = start reportDashboardEvent(request.patientId, "Agentic risk assessment drafted",
-                string `risk=${assessment.risk}, probability=${assessment.probability}`);
+                string `risk=${assessment.risk}, probability=${assessment.probability}`,
+                {risk: assessment.risk, probability: assessment.probability.toString(), reasoning: reasoningSnippet});
 
         return assessment;
     }
@@ -130,7 +135,9 @@ Patient answers: ${request.answers.toJsonString()}`;
                     request.mlProbability}. Agentic probability: ${agentic.probability} (risk=${agentic.risk}).`
             };
         }
-        future<()> _ = start reportDashboardEvent(request.patientId, "Task description drafted", ());
+        string descriptionSnippet = result.length() > 120 ? result.substring(0, 120) : result;
+        future<()> _ = start reportDashboardEvent(request.patientId, "Task description drafted", (),
+                {description: descriptionSnippet});
         return {description: result};
     }
 }

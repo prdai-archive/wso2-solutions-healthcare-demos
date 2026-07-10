@@ -9,6 +9,7 @@ interface DashboardEvent {
   patientId: string;
   label: string;
   detail?: string;
+  payload?: Record<string, string>;
 }
 
 // Fire-and-forget: the dashboard feed is best-effort and must never block or

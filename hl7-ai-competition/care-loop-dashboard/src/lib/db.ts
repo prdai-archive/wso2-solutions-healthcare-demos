@@ -3,30 +3,25 @@ import { dirname } from "node:path";
 import process from "node:process";
 
 import { Database } from "bun:sqlite";
+import { count, desc, eq, gte, max } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/bun-sqlite";
+
+import { events, requestLog } from "@/lib/schema";
 
 // Two independent tables share this file: request_log (dashboard-initiated
 // "hit and forget" requests, e.g. generate-questionnaire) and events (events
 // other services POST to this dashboard about a patient). Neither is a cache
-// of FHIR data.
+// of FHIR data. Schema lives in src/lib/schema.ts; migrations run once via
+// scripts/migrate.ts (before build and before the server starts) - this
+// module never runs DDL, so the several Next.js worker processes that import
+// it concurrently can't race each other creating/altering tables.
 const dbPath = process.env.REQUEST_LOG_DB_PATH ?? "./data/request-log.sqlite";
-
 mkdirSync(dirname(dbPath), { recursive: true });
-const db = new Database(dbPath, { create: true });
-// Next.js build collects page data across several worker processes that each
-// import this module and open the same file concurrently; without WAL mode
-// and a busy timeout that causes SQLITE_BUSY ("database is locked") failures.
-db.exec("PRAGMA journal_mode = WAL;");
-db.exec("PRAGMA busy_timeout = 5000;");
-db.exec(`
-  CREATE TABLE IF NOT EXISTS request_log (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    patient_id TEXT NOT NULL,
-    endpoint TEXT NOT NULL,
-    triggered_at TEXT NOT NULL,
-    status TEXT NOT NULL,
-    response_summary TEXT
-  )
-`);
+
+const sqlite = new Database(dbPath, { create: true });
+sqlite.exec("PRAGMA journal_mode = WAL;");
+sqlite.exec("PRAGMA busy_timeout = 15000;");
+const db = drizzle(sqlite);
 
 export interface RequestLogEntry {
   id: number;
@@ -38,12 +33,17 @@ export interface RequestLogEntry {
 }
 
 export function insertRequestLog(patientId: string, endpoint: string): number {
-  const result = db
-    .query(
-      "INSERT INTO request_log (patient_id, endpoint, triggered_at, status) VALUES (?, ?, ?, 'sent')",
-    )
-    .run(patientId, endpoint, new Date().toISOString());
-  return Number(result.lastInsertRowid);
+  const [row] = db
+    .insert(requestLog)
+    .values({
+      patientId,
+      endpoint,
+      triggeredAt: new Date().toISOString(),
+      status: "sent",
+    })
+    .returning({ id: requestLog.id })
+    .all();
+  return row!.id;
 }
 
 export function updateRequestLog(
@@ -51,84 +51,95 @@ export function updateRequestLog(
   status: "ok" | "error",
   responseSummary: string,
 ): void {
-  db.query(
-    "UPDATE request_log SET status = ?, response_summary = ? WHERE id = ?",
-  ).run(status, responseSummary, id);
+  db.update(requestLog)
+    .set({ status, responseSummary })
+    .where(eq(requestLog.id, id))
+    .run();
 }
-
-db.exec(`
-  CREATE TABLE IF NOT EXISTS events (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    patient_id TEXT NOT NULL,
-    label TEXT NOT NULL,
-    detail TEXT,
-    received_at TEXT NOT NULL
-  )
-`);
 
 export interface CareLoopEvent {
   id: number;
   patientId: string;
   label: string;
   detail: string | null;
+  payload: Record<string, string> | null;
   receivedAt: string;
+}
+
+function toCareLoopEvent(row: typeof events.$inferSelect): CareLoopEvent {
+  return {
+    id: row.id,
+    patientId: row.patientId,
+    label: row.label,
+    detail: row.detail,
+    payload: row.payload ? (JSON.parse(row.payload) as Record<string, string>) : null,
+    receivedAt: row.receivedAt,
+  };
 }
 
 export function insertEvent(
   patientId: string,
   label: string,
   detail?: string,
+  payload?: Record<string, string>,
 ): number {
-  const result = db
-    .query(
-      "INSERT INTO events (patient_id, label, detail, received_at) VALUES (?, ?, ?, ?)",
-    )
-    .run(patientId, label, detail ?? null, new Date().toISOString());
-  return Number(result.lastInsertRowid);
+  const [row] = db
+    .insert(events)
+    .values({
+      patientId,
+      label,
+      detail: detail ?? null,
+      payload: payload ? JSON.stringify(payload) : null,
+      receivedAt: new Date().toISOString(),
+    })
+    .returning({ id: events.id })
+    .all();
+  return row!.id;
 }
 
-export function listEvents(patientId: string, limit = 200): CareLoopEvent[] {
+export function listEvents(patientId: string, limit = 500): CareLoopEvent[] {
   const rows = db
-    .query(
-      "SELECT id, patient_id, label, detail, received_at FROM events WHERE patient_id = ? ORDER BY received_at DESC LIMIT ?",
-    )
-    .all(patientId, limit) as {
-    id: number;
-    patient_id: string;
-    label: string;
-    detail: string | null;
-    received_at: string;
-  }[];
+    .select()
+    .from(events)
+    .where(eq(events.patientId, patientId))
+    .orderBy(desc(events.receivedAt))
+    .limit(limit)
+    .all();
+  return rows.map(toCareLoopEvent);
+}
 
-  return rows.map((row) => ({
-    id: row.id,
-    patientId: row.patient_id,
-    label: row.label,
-    detail: row.detail,
-    receivedAt: row.received_at,
-  }));
+export function listRecentEvents(limit = 30): CareLoopEvent[] {
+  const rows = db.select().from(events).orderBy(desc(events.receivedAt)).limit(limit).all();
+  return rows.map(toCareLoopEvent);
+}
+
+export interface EventStats {
+  hitsToday: number;
+  lastHitAt: string | null;
+}
+
+export function getEventStats(): EventStats {
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const [countRow] = db
+    .select({ value: count() })
+    .from(events)
+    .where(gte(events.receivedAt, todayStart.toISOString()))
+    .all();
+  const [lastRow] = db.select({ value: max(events.receivedAt) }).from(events).all();
+
+  return { hitsToday: countRow!.value, lastHitAt: lastRow!.value ?? null };
 }
 
 export function listRequestLog(limit = 50): RequestLogEntry[] {
-  const rows = db
-    .query(
-      "SELECT id, patient_id, endpoint, triggered_at, status, response_summary FROM request_log ORDER BY id DESC LIMIT ?",
-    )
-    .all(limit) as {
-    id: number;
-    patient_id: string;
-    endpoint: string;
-    triggered_at: string;
-    status: string;
-    response_summary: string | null;
-  }[];
-
+  const rows = db.select().from(requestLog).orderBy(desc(requestLog.id)).limit(limit).all();
   return rows.map((row) => ({
     id: row.id,
-    patientId: row.patient_id,
+    patientId: row.patientId,
     endpoint: row.endpoint,
-    triggeredAt: row.triggered_at,
+    triggeredAt: row.triggeredAt,
     status: row.status as RequestLogEntry["status"],
-    responseSummary: row.response_summary,
+    responseSummary: row.responseSummary,
   }));
 }

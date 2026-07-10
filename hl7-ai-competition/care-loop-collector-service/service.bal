@@ -24,7 +24,8 @@ service / on new http:Listener(listenPort) {
 
         int|error entryCount = trap (<json[]>checkpanic bundle.entry).length();
         string detail = entryCount is int ? entryCount.toString() + " reading(s) ingested" : "vitals ingested";
-        future<()> _ = start notifyDashboard(patientId, "Vitals ingested", detail);
+        map<string> payload = extractVitalsDashboardPayload(bundle);
+        future<()> _ = start notifyDashboard(patientId, "Vitals ingested", detail, payload);
 
         return http:OK;
     }

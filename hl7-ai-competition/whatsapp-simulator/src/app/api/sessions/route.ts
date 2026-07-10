@@ -48,6 +48,11 @@ export async function POST(request: Request) {
       patientId: session.patientId ?? session.id,
       label: "Sent via WhatsApp",
       detail: questionnaire.title,
+      payload: {
+        questionnaireTitle: questionnaire.title,
+        sessionId: session.id,
+        status: "delivered",
+      },
     });
 
     const path = `/q/${session.id}`;

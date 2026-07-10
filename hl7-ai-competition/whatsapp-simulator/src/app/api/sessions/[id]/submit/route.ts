@@ -59,6 +59,10 @@ export async function POST(
       patientId: session.patientId ?? session.id,
       label: "Patient responded via WhatsApp",
       detail: `${answerCount} answer${answerCount === 1 ? "" : "s"} submitted for "${session.questionnaire.title}"`,
+      payload: {
+        answerCount: String(answerCount),
+        sessionId: session.id,
+      },
     });
 
     return NextResponse.json({

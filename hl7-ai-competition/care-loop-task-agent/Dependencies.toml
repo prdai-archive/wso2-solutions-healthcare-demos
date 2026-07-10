@@ -158,6 +158,9 @@ dependencies = [
 org = "ballerina"
 name = "jballerina.java"
 version = "0.0.0"
+modules = [
+	{org = "ballerina", packageName = "jballerina.java", moduleName = "jballerina.java"}
+]
 
 [[package]]
 org = "ballerina"
@@ -247,9 +250,6 @@ version = "0.0.0"
 dependencies = [
 	{org = "ballerina", name = "jballerina.java"}
 ]
-modules = [
-	{org = "ballerina", packageName = "lang.value", moduleName = "lang.value"}
-]
 
 [[package]]
 org = "ballerina"
@@ -273,7 +273,7 @@ version = "1.2.0"
 [[package]]
 org = "ballerina"
 name = "mcp"
-version = "1.0.3"
+version = "1.1.0"
 dependencies = [
 	{org = "ballerina", name = "http"},
 	{org = "ballerina", name = "jballerina.java"},
@@ -412,6 +412,20 @@ modules = [
 
 [[package]]
 org = "ballerinax"
+name = "jaeger"
+version = "1.1.0"
+dependencies = [
+	{org = "ballerina", name = "io"},
+	{org = "ballerina", name = "jballerina.java"},
+	{org = "ballerina", name = "log"},
+	{org = "ballerina", name = "observe"}
+]
+modules = [
+	{org = "ballerinax", packageName = "jaeger", moduleName = "jaeger"}
+]
+
+[[package]]
+org = "ballerinax"
 name = "openai.chat"
 version = "4.0.1"
 dependencies = [
@@ -421,6 +435,9 @@ dependencies = [
 	{org = "ballerina", name = "os"},
 	{org = "ballerina", name = "url"},
 	{org = "ballerinai", name = "observe"}
+]
+modules = [
+	{org = "ballerinax", packageName = "openai.chat", moduleName = "openai.chat"}
 ]
 
 [[package]]
@@ -436,16 +453,18 @@ dependencies = [
 
 [[package]]
 org = "care_loop"
-name = "care_loop_ai_service"
+name = "care_loop_task_agent"
 version = "0.1.0"
 dependencies = [
 	{org = "ballerina", name = "ai"},
 	{org = "ballerina", name = "http"},
-	{org = "ballerina", name = "lang.value"},
+	{org = "ballerina", name = "jballerina.java"},
 	{org = "ballerina", name = "log"},
 	{org = "ballerinai", name = "observe"},
-	{org = "ballerinax", name = "ai.openai"}
+	{org = "ballerinax", name = "ai.openai"},
+	{org = "ballerinax", name = "jaeger"},
+	{org = "ballerinax", name = "openai.chat"}
 ]
 modules = [
-	{org = "care_loop", packageName = "care_loop_ai_service", moduleName = "care_loop_ai_service"}
+	{org = "care_loop", packageName = "care_loop_task_agent", moduleName = "care_loop_task_agent"}
 ]

@@ -1,6 +1,6 @@
 # care-loop-collector-service
 
-Standalone Ballerina bridge between care-loop-ai-service, whatsapp-simulator,
+Standalone Ballerina bridge between care-loop-questionnaire-agent, whatsapp-simulator,
 care-loop-analysis-service, and care-loop-fhir-server (port 8004).
 
 - `POST /vitals` - apple-healthkit-simulator's vitals forwarder posts a FHIR
@@ -9,7 +9,7 @@ care-loop-analysis-service, and care-loop-fhir-server (port 8004).
   `POST /vitals-ready` with the patient id (best-effort - a failed notify is
   logged but doesn't fail the call, since the vitals save already succeeded).
 - `POST /patients/{patientId}/generate` - fetches that one `Patient` from
-  care-loop-fhir-server, asks care-loop-ai-service to draft a FHIR
+  care-loop-fhir-server, asks care-loop-questionnaire-agent to draft a FHIR
   `Questionnaire`, converts it into whatsapp-simulator's chat questionnaire
   shape, and creates a chat session via whatsapp-simulator's
   `POST /api/sessions`. Accepts an optional `emergencyContext.mlProbability`,

@@ -1,0 +1,21 @@
+openAiApiKey = "your-openai-api-key"
+listenPort = 8000
+
+# WSO2 Agent Manager (AMP) egress AI gateway: set useAmpGateway = true and
+# point openAiServiceUrl at the gateway invoke URL, with openAiApiKey set to
+# the gateway API key. The gateway authenticates with an API-Key header, which
+# AmpModelProvider sends; leave useAmpGateway = false to call OpenAI directly
+# with standard Bearer auth.
+# useAmpGateway = true
+# openAiServiceUrl = "https://api.openai.com/v1"
+
+# FHIR MCP server. Set fhirMcpAuthToken to send bearer auth (e.g. the AMP MCP
+# proxy key); leave it empty to connect without auth.
+fhirMcpUrl = "http://localhost:8001/mcp"
+# fhirMcpAuthToken = "amp-mcp-proxy-key"
+
+# When AMP hosts the agent it injects configuration as environment variables;
+# Ballerina maps BAL_CONFIG_VAR_<NAME> to the matching configurable, e.g.
+#   BAL_CONFIG_VAR_OPENAIAPIKEY, BAL_CONFIG_VAR_OPENAISERVICEURL,
+#   BAL_CONFIG_VAR_USEAMPGATEWAY=true, BAL_CONFIG_VAR_FHIRMCPURL,
+#   BAL_CONFIG_VAR_FHIRMCPAUTHTOKEN, BAL_CONFIG_VAR_LISTENPORT.

@@ -12,7 +12,8 @@ isolated function processPatient(Patient patient, EmergencyContext? emergencyCon
     GenerateResult result = {patientId: patient.id, patientName: patient.name};
 
     AiQuestionnaireRequest aiRequest = {patientId: patient.id};
-    AiQuestionnaireResponse|http:ClientError aiResponse = aiClient->post("/questionnaires", aiRequest);
+    AiQuestionnaireResponse|http:ClientError aiResponse =
+        questionnaireAgentClient->post("/questionnaires", aiRequest, headers = agentHeaders(questionnaireAgentApiKey));
     if aiResponse is http:ClientError {
         result.'error = "questionnaire generation failed: " + aiResponse.message();
         return result;

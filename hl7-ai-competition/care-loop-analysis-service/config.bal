@@ -1,7 +1,10 @@
 configurable string fhirServerUrl = "http://localhost:9091/fhir";
 configurable string ehrFhirServerUrl = "http://localhost:9090/fhir/r4";
 configurable string heartRiskServiceUrl = "http://localhost:8000";
-configurable string aiServiceUrl = "http://localhost:8003";
+configurable string riskAgentUrl = "http://localhost:8003";
+configurable string riskAgentApiKey = "";
+configurable string taskAgentUrl = "http://localhost:8003";
+configurable string taskAgentApiKey = "";
 configurable string collectorServiceUrl = "http://localhost:8004";
 configurable int listenPort = 8005;
 configurable float mlEscalationThreshold = 0.5;

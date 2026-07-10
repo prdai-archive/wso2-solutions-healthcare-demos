@@ -1,7 +1,11 @@
 fhirServerUrl = "http://localhost:9091/fhir"
 ehrFhirServerUrl = "http://localhost:9090/fhir/r4"
 heartRiskServiceUrl = "http://localhost:8000"
-aiServiceUrl = "http://localhost:8003"
+# Agent invoke URLs and API keys come from the AMP console; an empty key means direct/no-auth (local dev).
+riskAgentUrl = "http://localhost:8003"
+riskAgentApiKey = ""
+taskAgentUrl = "http://localhost:8003"
+taskAgentApiKey = ""
 collectorServiceUrl = "http://localhost:8004"
 listenPort = 8005
 mlEscalationThreshold = 0.5

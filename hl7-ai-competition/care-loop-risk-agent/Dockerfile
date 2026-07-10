@@ -5,6 +5,6 @@ RUN bal build --offline=false
 
 FROM eclipse-temurin:21-jre
 WORKDIR /home/ballerina
-COPY --from=builder /home/ballerina/build/target/bin/care_loop_ai_service.jar .
-EXPOSE 8003
-CMD ["java", "-jar", "care_loop_ai_service.jar"]
+COPY --from=builder /home/ballerina/build/target/bin/care_loop_risk_agent.jar .
+EXPOSE 8000
+CMD ["java", "-jar", "care_loop_risk_agent.jar"]

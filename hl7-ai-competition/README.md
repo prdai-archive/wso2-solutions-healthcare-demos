@@ -43,23 +43,24 @@ Earlier stages: [v1](assets/architecture-diagram-v1.png),
   front of care-loop-fhir-server, exposing the FHIR API as MCP tools on port
   8001. Reaches it through care-loop-fhir-server-readonly-proxy (nginx), which
   403s anything but GET/HEAD, so the bridge can only read.
-- [care-loop-ai-service](care-loop-ai-service/) — standalone Ballerina agent
-  (port 8003). `POST /questionnaires` with a `patientId` runs an `ai:Agent`
-  wired to fhir-mcp-server (via `ai:McpToolKit`), which calls the MCP `search`
-  tool itself to pull that patient's recent Observations, then drafts a FHIR
-  `Questionnaire` (questions only, no answers) targeted at the vitals trend.
-  Not wired into the rest of the loop yet — this is a standalone component
-  for now. Uses `ballerina/ai`'s built-in `Wso2ModelProvider` (via
-  `ai:getDefaultModelProvider()`), configured through the `wso2ProviderConfig`
-  table in `Config.toml` (copy `Config.toml.example`); gitignored, never
-  commit it. See `TODO.md` for the WSO2 Agent Manager registration this is
-  deferred on.
+- care-loop AI agents — the former care-loop-ai-service is split into three
+  Ballerina agents deployed as WSO2 Agent Manager platform-hosted agents
+  (`make amp-up` starts the AMP quick-start; each agent is created in the
+  console from this repo with Docker build type and its project path):
+  [care-loop-questionnaire-agent](care-loop-questionnaire-agent/) drafts the
+  FHIR `Questionnaire` from a patient's Observations (via fhir-mcp-server),
+  [care-loop-risk-agent](care-loop-risk-agent/) runs the agentic cardiac risk
+  assessment, and [care-loop-task-agent](care-loop-task-agent/) writes the
+  Task description narrative. LLM calls route through the AMP AI gateway,
+  fhir-mcp-server is consumed through the AMP MCP proxy, and callers invoke
+  the agents through the platform gateway with per-agent API keys; see each
+  agent's README for setup. These no longer run in docker-compose.
 
 - [care-loop-collector-service](care-loop-collector-service/) — standalone
   Ballerina bridge (port 8004). `POST /vitals` saves an incoming Observation
   bundle to care-loop-fhir-server and notifies care-loop-analysis-service on
   `/vitals-ready`. `POST /patients/{patientId}/generate` asks
-  care-loop-ai-service to draft a Questionnaire for that patient, converts it
+  care-loop-questionnaire-agent to draft a Questionnaire for that patient, converts it
   into whatsapp-simulator's chat shape, and opens a chat session there.
   `POST /transcripts` is the callback each session posts its completed
   answers to; it builds a FHIR `QuestionnaireResponse` from them, saves it to
@@ -73,7 +74,7 @@ Earlier stages: [v1](assets/architecture-diagram-v1.png),
   probability, and either escalates straight away or asks
   care-loop-collector-service to generate a follow-up questionnaire, with a
   timeout fail-safe if it's never answered. `POST /emergency-answers` runs
-  the answers plus the ML probability through care-loop-ai-service's
+  the answers plus the ML probability through care-loop-risk-agent's
   `/risk-assessment` agent and escalates if either signal crosses its
   threshold, writing a `RiskAssessment` and, on escalation, a `Task` to
   ehr-fhir-server. Needs a `Config.toml` (copy `Config.toml.example`);
@@ -116,11 +117,11 @@ front-desk-dashboard's `/api/tasks` route only logs failures, via a plain
 ## Pre-commit hooks
 
 ruff (apple-healthkit-simulator), biome plus knip (whatsapp-simulator), and
-`bal format` plus `bal scan` (care-loop-ai-service) run on staged files at
+`bal format` plus `bal scan` (the care-loop agent packages) run on staged files at
 commit time. The config lives at `hl7-ai-competition/.pre-commit-config.yaml`;
 install the hook pointing at it once, from the fork root (needs
 `pre-commit`, e.g. `uv tool install pre-commit`; the whatsapp-simulator hooks
-also need `bun`, care-loop-ai-service needs `bal`):
+also need `bun`, the care-loop agent packages need `bal`):
 
 ```sh
 pre-commit install -c hl7-ai-competition/.pre-commit-config.yaml

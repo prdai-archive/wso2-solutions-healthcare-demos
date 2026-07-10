@@ -12,9 +12,23 @@ import { events, requestLog } from "@/lib/schema";
 const dbPath = process.env.REQUEST_LOG_DB_PATH ?? "./data/request-log.sqlite";
 mkdirSync(dirname(dbPath), { recursive: true });
 
-const sqlite = new Database(dbPath, { create: true });
-sqlite.exec("PRAGMA journal_mode = WAL;");
-sqlite.exec("PRAGMA busy_timeout = 15000;");
+// Next.js build/dev spins up several worker processes that all import this module and open the same file at nearly the same instant; a 15s busy_timeout alone isn't enough right after migrate.ts just created it, so retry the open itself a few times too.
+function openWithRetry(path: string, attempts = 5): Database {
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const handle = new Database(path, { create: true });
+      handle.exec("PRAGMA journal_mode = WAL;");
+      handle.exec("PRAGMA busy_timeout = 15000;");
+      return handle;
+    } catch (error) {
+      if (i === attempts - 1) throw error;
+      Bun.sleepSync(200 * (i + 1));
+    }
+  }
+  throw new Error("unreachable");
+}
+
+const sqlite = openWithRetry(dbPath);
 const db = drizzle(sqlite);
 
 export interface RequestLogEntry {

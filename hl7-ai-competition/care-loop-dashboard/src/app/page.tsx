@@ -111,7 +111,7 @@ export default function DashboardPage() {
     <div className="flex min-h-0 flex-1 flex-col gap-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-1">
-          <h1 className="text-[21px] font-bold tracking-tight">Pipeline monitor</h1>
+          <h1 className="text-[21px] font-bold tracking-tight">Care Loop Ops Dashboard</h1>
           <p className="max-w-2xl text-[13px] leading-relaxed text-muted-foreground">
             Observing <strong className="font-semibold text-foreground/80">fire-and-forget hits</strong> from
             Care Loop services — each stage is an inbound request the dashboard logs (202 Accepted, no

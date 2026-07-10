@@ -6,7 +6,8 @@ WORKDIR /home/ballerina/build
 COPY --chown=100:1000 . .
 RUN bal build --offline
 
-FROM eclipse-temurin:21-jre
+ARG RUNTIME_IMAGE=host.k3d.internal:10082/temurin:21-jre
+FROM ${RUNTIME_IMAGE}
 WORKDIR /home/ballerina
 COPY --from=builder /home/ballerina/build/target/bin/care_loop_risk_agent.jar .
 USER 10001

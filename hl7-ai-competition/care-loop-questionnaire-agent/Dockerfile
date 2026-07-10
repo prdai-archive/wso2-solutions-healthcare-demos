@@ -1,8 +1,10 @@
-FROM ballerina/ballerina:2201.13.4 AS builder
+# Pre-warmed builder from the AMP in-cluster registry; override for environments
+# with working egress to Ballerina Central.
+ARG BUILDER_IMAGE=host.k3d.internal:10082/ballerina-warm:2201.13.4
+FROM ${BUILDER_IMAGE} AS builder
 WORKDIR /home/ballerina/build
 COPY --chown=100:1000 . .
-# Central pulls can flake on constrained networks; retries reuse the pulled cache
-RUN bal build --offline=false || bal build --offline=false || bal build --offline=false
+RUN bal build --offline
 
 FROM eclipse-temurin:21-jre
 WORKDIR /home/ballerina

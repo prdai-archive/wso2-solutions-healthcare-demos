@@ -1,6 +1,6 @@
 FROM ballerina/ballerina:2201.13.4 AS builder
 WORKDIR /home/ballerina/build
-COPY --chown=ballerina:ballerina . .
+COPY --chown=100:1000 . .
 RUN bal build --offline=false
 
 FROM eclipse-temurin:21-jre

@@ -34,10 +34,10 @@ export default function RootLayout({
       lang="en"
       className={`${inter.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
-      <body className="flex h-full flex-col overflow-hidden">
+      <body className="flex min-h-screen flex-col">
         <TooltipProvider delayDuration={200}>
           <SiteHeader />
-          <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 md:p-6">
+          <div className="flex flex-1 flex-col gap-4 p-4 md:p-6">
             {children}
           </div>
         </TooltipProvider>

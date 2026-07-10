@@ -118,9 +118,9 @@ export default function DashboardPage() {
             response awaited). Drag the canvas to pan, click a node to inspect its payload.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="flex items-center gap-2 rounded-full border border-border bg-muted/60 px-3 py-1.5 text-[12px] font-medium text-muted-foreground">
-            <span className="size-1.5 animate-canvas-soft-pulse rounded-full bg-foreground" />
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="flex items-center gap-2 whitespace-nowrap rounded-full border border-border bg-muted/60 px-3 py-1.5 text-[12px] font-medium text-muted-foreground">
+            <span className="size-1.5 shrink-0 animate-canvas-soft-pulse rounded-full bg-foreground" />
             Live · polling every {POLL_INTERVAL_MS / 1000}s
           </span>
           <Button onClick={generateQuestionnaire} disabled={!selected || sending} variant="outline" size="sm">

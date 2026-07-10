@@ -10,8 +10,17 @@ final http:Client analysisClient = check new (analysisServiceUrl);
 
 // http:Client defaults to HTTP_2_0, which probes with an h2c upgrade that Bun's HTTP server resets the connection on instead of answering - pinning HTTP_1_1 avoids it (verified 0/50 failures vs 50/50 before).
 final http:Client whatsappClient = check new (whatsappUrl, httpVersion = http:HTTP_1_1);
+final http:Client dashboardEventsClient = check new (dashboardEventsUrl, httpVersion = http:HTTP_1_1);
 
 const MAX_RETRIES = 3;
+
+// Fire-and-forget: the ops dashboard is a nice-to-have live feed, never a reason to slow down or fail real pipeline work.
+isolated function notifyDashboard(string patientId, string label, string? detail = ()) {
+    http:Response|http:ClientError result = dashboardEventsClient->post("/api/events", {patientId, label, detail});
+    if result is http:ClientError {
+        log:printWarn("failed to notify dashboard", patientId = patientId, label = label, 'error = result);
+    }
+}
 
 // Retry is defense-in-depth for startup-ordering races (DNS/connection-refused), not the HTTP/2 issue above, which the httpVersion pin already fixes deterministically.
 isolated function postWithRetry(http:Client 'client, string path, json body, typedesc<anydata> targetType)

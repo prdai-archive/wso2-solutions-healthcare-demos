@@ -4,9 +4,10 @@ import process from "node:process";
 
 import { Database } from "bun:sqlite";
 
-// Local log of "hit and forget" requests this dashboard fires against upstream
-// services (e.g. generate-questionnaire). It is not a cache of FHIR data —
-// patient/vitals/risk data is always read live from the real backends.
+// Two independent tables share this file: request_log (dashboard-initiated
+// "hit and forget" requests, e.g. generate-questionnaire) and events (events
+// other services POST to this dashboard about a patient). Neither is a cache
+// of FHIR data.
 const dbPath = process.env.REQUEST_LOG_DB_PATH ?? "./data/request-log.sqlite";
 
 mkdirSync(dirname(dbPath), { recursive: true });
@@ -53,6 +54,59 @@ export function updateRequestLog(
   db.query(
     "UPDATE request_log SET status = ?, response_summary = ? WHERE id = ?",
   ).run(status, responseSummary, id);
+}
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    patient_id TEXT NOT NULL,
+    label TEXT NOT NULL,
+    detail TEXT,
+    received_at TEXT NOT NULL
+  )
+`);
+
+export interface CareLoopEvent {
+  id: number;
+  patientId: string;
+  label: string;
+  detail: string | null;
+  receivedAt: string;
+}
+
+export function insertEvent(
+  patientId: string,
+  label: string,
+  detail?: string,
+): number {
+  const result = db
+    .query(
+      "INSERT INTO events (patient_id, label, detail, received_at) VALUES (?, ?, ?, ?)",
+    )
+    .run(patientId, label, detail ?? null, new Date().toISOString());
+  return Number(result.lastInsertRowid);
+}
+
+export function listEvents(patientId: string, limit = 200): CareLoopEvent[] {
+  const rows = db
+    .query(
+      "SELECT id, patient_id, label, detail, received_at FROM events WHERE patient_id = ? ORDER BY received_at DESC LIMIT ?",
+    )
+    .all(patientId, limit) as {
+    id: number;
+    patient_id: string;
+    label: string;
+    detail: string | null;
+    received_at: string;
+  }[];
+
+  return rows.map((row) => ({
+    id: row.id,
+    patientId: row.patient_id,
+    label: row.label,
+    detail: row.detail,
+    receivedAt: row.received_at,
+  }));
 }
 
 export function listRequestLog(limit = 50): RequestLogEntry[] {

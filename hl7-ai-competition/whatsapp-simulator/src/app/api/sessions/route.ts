@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { notifyDashboard } from "@/lib/dashboard-events";
 import { logger } from "@/lib/logger";
 import { questionnaireSchema } from "@/lib/questionnaire";
 import { createSession, listSessions } from "@/lib/sessions";
@@ -42,6 +43,12 @@ export async function POST(request: Request) {
       patientId,
       patientName,
     );
+
+    notifyDashboard({
+      patientId: session.patientId ?? session.id,
+      label: "Sent via WhatsApp",
+      detail: questionnaire.title,
+    });
 
     const path = `/q/${session.id}`;
     return NextResponse.json(

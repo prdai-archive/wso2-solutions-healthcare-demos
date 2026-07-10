@@ -69,6 +69,7 @@ services:
       - "3000:3000"
     environment:
       NODE_ENV: production
+      DASHBOARD_EVENTS_URL: "http://care-loop-dashboard:3003"
     healthcheck:
       test:
         - "CMD"
@@ -369,14 +370,10 @@ services:
       NODE_ENV: production
       CARE_LOOP_FHIR_SERVER_URL: "http://care-loop-fhir-server:9090/fhir/r4"
       CARE_LOOP_AI_SERVICE_URL: "http://care-loop-ai-service:8003"
-      EHR_FHIR_SERVER_URL: "http://ehr-fhir-server:9090/fhir/r4"
-      WHATSAPP_SIMULATOR_URL: "http://whatsapp-simulator:3000"
     volumes:
       - care-loop-dashboard-data:/app/data
     depends_on:
       - care-loop-fhir-server
-      - ehr-fhir-server
-      - whatsapp-simulator
       - care-loop-ai-service
     healthcheck:
       test:

@@ -22,6 +22,10 @@ service / on new http:Listener(listenPort) {
             log:printWarn("failed to notify analysis-service of new vitals", patientId = patientId, 'error = notifyResult);
         }
 
+        int|error entryCount = trap (<json[]>checkpanic bundle.entry).length();
+        string detail = entryCount is int ? entryCount.toString() + " reading(s) ingested" : "vitals ingested";
+        future<()> _ = start notifyDashboard(patientId, "Vitals ingested", detail);
+
         return http:OK;
     }
 

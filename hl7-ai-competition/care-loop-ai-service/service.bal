@@ -70,6 +70,16 @@ service /questionnaires on sharedListener {
         if questionnaire is error {
             return <http:InternalServerError>{body: {message: "agent did not return valid JSON: " + questionnaire.message()}};
         }
+
+        string? itemCountDetail = ();
+        if questionnaire is map<json> {
+            json items = questionnaire["item"] ?: ();
+            if items is json[] {
+                itemCountDetail = string `${items.length()} item(s) drafted`;
+            }
+        }
+        future<()> _ = start reportDashboardEvent(request.patientId, "Questionnaire drafted", itemCountDetail);
+
         return {questionnaire};
     }
 }
@@ -94,6 +104,10 @@ service /risk\-assessment on sharedListener {
         if assessment is error {
             return <http:InternalServerError>{body: {message: "agent JSON did not match expected shape: " + assessment.message()}};
         }
+
+        future<()> _ = start reportDashboardEvent(request.patientId, "Agentic risk assessment drafted",
+                string `risk=${assessment.risk}, probability=${assessment.probability}`);
+
         return assessment;
     }
 }
@@ -116,6 +130,7 @@ Patient answers: ${request.answers.toJsonString()}`;
                     request.mlProbability}. Agentic probability: ${agentic.probability} (risk=${agentic.risk}).`
             };
         }
+        future<()> _ = start reportDashboardEvent(request.patientId, "Task description drafted", ());
         return {description: result};
     }
 }

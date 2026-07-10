@@ -38,7 +38,7 @@ docker-compose and OpenChoreo; all clients use `:9090/fhir/r4`. Capability
 checked before the swap: transaction Bundles, resource creates, and
 code-filtered Observation searches all pass against wso2/fhir-server.
 
-All components (12 with the care-loop store's own postgres) reach `Running`, and the full emergency workflow was
+All 14 components reach `Running`, and the full emergency workflow was
 verified end to end from a clean machine state: seeded patients, one
 `scripts/sync` cycle, then `POST /vitals-cron/run-now` drove vitals ->
 collector -> analysis -> ML heart-risk 0.91 (escalated) -> AI-generated

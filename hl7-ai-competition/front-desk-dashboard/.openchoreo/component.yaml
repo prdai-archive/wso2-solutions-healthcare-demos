@@ -31,7 +31,7 @@ spec:
       visibility: [project]
   dependencies:
     endpoints:
-      # The compose nginx proxy has no Component here, so point at care-loop-fhir-server directly; envBindings match the env vars the app reads.
+      # envBindings match the env var names the app reads.
       - component: ehr-fhir-server
         name: http
         visibility: project

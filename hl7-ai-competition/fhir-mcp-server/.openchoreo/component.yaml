@@ -39,7 +39,6 @@ spec:
         value: "http://care-loop-fhir-server-readonly-proxy:8080/fhir/r4"
       - key: FHIR_SERVER_DISABLE_AUTHORIZATION
         value: "True"
-  # The compose nginx read-only proxy has no Component here, so depend on care-loop-fhir-server directly.
   dependencies:
     endpoints:
       - component: care-loop-fhir-server-readonly-proxy

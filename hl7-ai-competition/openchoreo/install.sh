@@ -5,11 +5,27 @@ set -euo pipefail
 KUBE_CONTEXT="${1:-$(kubectl config current-context)}"
 KCTL="kubectl --context=${KUBE_CONTEXT}"
 HELM="helm --kube-context=${KUBE_CONTEXT}"
+RELEASE_REF="release-v1.1"
+RAW_BASE="https://raw.githubusercontent.com/openchoreo/openchoreo/${RELEASE_REF}"
 
 log() { echo "==> $*"; }
 
-# Upstream values/samples are vendored (pinned to release-v1.1) - raw.githubusercontent.com rate-limits killed installs.
-VENDOR="$(cd "$(dirname "${BASH_SOURCE[0]}")/vendor" && pwd)"
+# raw.githubusercontent.com 429-rate-limits anonymous requests, so fetch once with manual backoff.
+fetch_raw() {
+  local url="$1" dest="$2" attempt
+  for attempt in 1 2 3 4 5; do
+    if curl -sf -o "${dest}" "${url}"; then
+      return 0
+    fi
+    log "Fetch failed (attempt ${attempt}/5) for ${url}, retrying after backoff"
+    sleep $((attempt * 15))
+  done
+  log "ERROR: failed to fetch ${url} after 5 attempts"
+  return 1
+}
+
+WORKDIR="$(mktemp -d)"
+trap 'rm -rf "${WORKDIR}"' EXIT
 
 log "Using kube context: ${KUBE_CONTEXT}"
 
@@ -58,14 +74,17 @@ ${KCTL} create secret generic backstage-secrets \
   --dry-run=client -o yaml | ${KCTL} apply -f -
 
 log "Installing OpenBao v0.25.6 and configuring Kubernetes auth + ClusterSecretStore"
-bash "${VENDOR}/setup.sh" --dev --seed-dev-secrets --kube-context "${KUBE_CONTEXT}"
+fetch_raw "${RAW_BASE}/install/prerequisites/openbao/setup.sh" "${WORKDIR}/openbao-setup.sh"
+chmod +x "${WORKDIR}/openbao-setup.sh"
+"${WORKDIR}/openbao-setup.sh" --dev --seed-dev-secrets --kube-context "${KUBE_CONTEXT}"
 
 log "Installing OpenChoreo control plane v1.1.1"
+fetch_raw "${RAW_BASE}/install/k3d/single-cluster/values-cp.yaml" "${WORKDIR}/values-cp.yaml"
 ${HELM} upgrade --install openchoreo-control-plane oci://ghcr.io/openchoreo/helm-charts/openchoreo-control-plane \
   --version 1.1.1 \
   --namespace openchoreo-control-plane \
   --create-namespace \
-  --values "${VENDOR}/values-cp.yaml"
+  --values "${WORKDIR}/values-cp.yaml"
 
 log "Waiting for control plane deployments to become available"
 ${KCTL} wait -n openchoreo-control-plane --for=condition=available --timeout=300s deployment --all
@@ -80,7 +99,8 @@ ${KCTL} get secret cluster-gateway-ca -n openchoreo-control-plane \
     --dry-run=client -o yaml | ${KCTL} apply -f -
 
 log "Applying default OpenChoreo resources (ClusterComponentTypes, Project, Environment, DeploymentPipeline)"
-${KCTL} apply -f "${VENDOR}/all.yaml"
+fetch_raw "${RAW_BASE}/samples/getting-started/all.yaml" "${WORKDIR}/getting-started-all.yaml"
+${KCTL} apply -f "${WORKDIR}/getting-started-all.yaml"
 ${KCTL} label namespace default openchoreo.dev/control-plane=true --overwrite
 
 log "Setting up data plane namespace and cluster-gateway CA ConfigMap"
@@ -92,11 +112,12 @@ ${KCTL} create configmap cluster-gateway-ca \
   --dry-run=client -o yaml | ${KCTL} apply -f -
 
 log "Installing OpenChoreo data plane v1.1.1"
+fetch_raw "${RAW_BASE}/install/k3d/single-cluster/values-dp.yaml" "${WORKDIR}/values-dp.yaml"
 ${HELM} upgrade --install openchoreo-data-plane oci://ghcr.io/openchoreo/helm-charts/openchoreo-data-plane \
   --version 1.1.1 \
   --namespace openchoreo-data-plane \
   --create-namespace \
-  --values "${VENDOR}/values-dp.yaml"
+  --values "${WORKDIR}/values-dp.yaml"
 
 log "Waiting for cluster-agent-tls certificate before registering the data plane"
 ${KCTL} wait -n openchoreo-data-plane --for=condition=Ready certificate/cluster-agent-dataplane-tls --timeout=180s

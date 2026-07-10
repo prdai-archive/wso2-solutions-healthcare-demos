@@ -48,7 +48,7 @@ export function PatientRoster({
     if (!selectedId && patients.length > 0 && patients[0]) {
       onSelect(patients[0]);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react/exhaustive-deps
   }, [patients]);
 
   return (

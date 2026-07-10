@@ -9,5 +9,6 @@ RUN bal build --offline
 FROM eclipse-temurin:21-jre
 WORKDIR /home/ballerina
 COPY --from=builder /home/ballerina/build/target/bin/care_loop_risk_agent.jar .
+USER 10001
 EXPOSE 8000
 CMD ["java", "-jar", "care_loop_risk_agent.jar"]

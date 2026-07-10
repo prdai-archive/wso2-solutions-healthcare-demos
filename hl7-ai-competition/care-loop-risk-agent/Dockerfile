@@ -1,7 +1,8 @@
 FROM ballerina/ballerina:2201.13.4 AS builder
 WORKDIR /home/ballerina/build
 COPY --chown=100:1000 . .
-RUN bal build --offline=false
+# Central pulls can flake on constrained networks; retries reuse the pulled cache
+RUN bal build --offline=false || bal build --offline=false || bal build --offline=false
 
 FROM eclipse-temurin:21-jre
 WORKDIR /home/ballerina

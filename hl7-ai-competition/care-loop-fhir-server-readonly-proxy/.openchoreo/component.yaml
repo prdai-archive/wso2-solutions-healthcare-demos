@@ -23,27 +23,14 @@ spec:
     componentName: care-loop-fhir-server-readonly-proxy
   container:
     image: "nginx:1.27-alpine"
-    # Mirrors care-loop-fhir-server-readonly-proxy/nginx.conf (compose mounts the same file):
-    # GET/HEAD-only guard in front of the care-loop store.
     files:
       - key: nginx.conf
         mountPath: /etc/nginx
-        value: |
-          events {}
-
-          http {
-            server {
-              listen 8080;
-
-              location / {
-                limit_except GET HEAD {
-                  deny all;
-                }
-                proxy_pass http://care-loop-fhir-server:9090;
-                proxy_set_header Host $host;
-              }
-            }
-          }
+        # Resolved via the secret store from ../nginx.conf (deploy-components.sh) - the same file compose mounts.
+        valueFrom:
+          secretKeyRef:
+            name: care-loop-fhir-server-readonly-proxy-config
+            key: nginx.conf
   endpoints:
     http:
       type: HTTP

@@ -1,88 +1,66 @@
-# OpenChoreo (primary deploy path)
+# OpenChoreo deployment
 
-The primary way to run the Care Loop demo is `make up`; docker-compose stays
-as a fallback. These scripts make the OpenChoreo deployment reproducible on a
-plain kind cluster.
+The primary way to run the Care Loop demo. `make up` creates a local kind
+cluster (`care-loop`), installs the OpenChoreo platform, deploys all 14
+components, and seeds demo data. docker-compose remains as a fallback via
+the `*-compose` targets.
 
 ## Prerequisites
 
-Docker, `helm` 3.12+, `kubectl` v1.32+, and a Kubernetes 1.32+ cluster —
-with kind, pin the node image (`kindest/node:v1.32.0`); the stock image is
-older and OpenChoreo's CRDs fail with a CEL compilation error.
+Docker, `helm` 3.12+, `kubectl` v1.32+, `kind` (node image pinned to
+`kindest/node:v1.32.0` - OpenChoreo's CRDs need Kubernetes 1.32+), `bun`,
+and the local gitignored `Config.toml` of care-loop-ai-service,
+care-loop-collector-service and care-loop-analysis-service (the same files
+docker-compose mounts; the ai-service one carries the real `openAiApiKey`,
+never committed).
 
 ## Usage
 
 ```bash
-make up             # kind cluster + install.sh + deploy-components.sh + seed
+make up             # cluster + platform + all components + seed
 make seed           # (re)seed demo data and trigger an immediate EHR -> care-loop sync
 make trigger-vitals # force a vitals-forward cycle instead of waiting for the cron
 make forward        # port-forward every service onto its compose-equivalent host port
 make ps / make down
 ```
 
-`install.sh` installs, in order: Gateway API CRDs v1.4.1, cert-manager
-v1.19.4, External Secrets Operator v2.0.1, kgateway v2.2.1, OpenBao v0.25.6,
-then the OpenChoreo control- and data-plane charts v1.1.1 (versions/values
-from the official docs). It's idempotent and doesn't create the cluster.
-`deploy-components.sh` builds each image, loads it into the cluster's
-containerd (no registry), pushes the local Config.tomls into OpenBao (see
-below), and applies every `component.yaml` - including `fhir-sync`, the
-hourly EHR -> care-loop sync worker (`deployment/worker`, no endpoints),
-so syncing runs continuously in-cluster exactly as it does on compose.
+## What the scripts do
 
-## Verified status (2026-07-08, store swapped to wso2/fhir-server 2026-07-09)
+`install.sh` installs the platform onto the given kube context: Gateway API
+CRDs v1.4.1, cert-manager v1.19.4, External Secrets Operator v2.0.1,
+kgateway v2.2.1, OpenBao v0.25.6, then the OpenChoreo control- and
+data-plane charts v1.1.1 plus the seeded default resources. Idempotent;
+pinned values come from github.com/openchoreo/openchoreo (release-v1.1).
 
-care-loop-fhir-server now runs github.com/wso2/fhir-server v0.5.0 (with its
-own postgres, `care-loop-fhir-server-db`) instead of HAPI, in both
-docker-compose and OpenChoreo; all clients use `:9090/fhir/r4`. Capability
-checked before the swap: transaction Bundles, resource creates, and
-code-filtered Observation searches all pass against wso2/fhir-server.
+`deploy-components.sh` builds every service image, loads each into the kind
+cluster's containerd (no registry), pushes the local config files into
+OpenBao, and applies every component manifest - including `fhir-sync`
+(hourly EHR -> care-loop sync worker) and the nginx read-only proxy that
+fhir-mcp-server and front-desk-dashboard use for care-loop store reads
+(GET/HEAD only).
 
-All 14 components reach `Running`, and the full emergency workflow was
-verified end to end from a clean machine state: seeded patients, one
-`scripts/sync` cycle, then `POST /vitals-cron/run-now` drove vitals ->
-collector -> analysis -> ML heart-risk 0.91 (escalated) -> AI-generated
-questionnaire -> whatsapp answers -> agentic risk 0.95 -> `stat` `Task` in
-ehr-fhir-server, with both `RiskAssessment`s and the `QuestionnaireResponse`
-in care-loop-fhir-server. A real `openAiApiKey` was supplied via a live
-Secret (never committed).
+## Configuration
 
-Real issues found and fixed (they'll bite again if upstream changes):
+Config files are never duplicated in manifests. Each Workload references a
+`SecretReference` via `files[].valueFrom.secretKeyRef`; the deploy script
+pushes the actual local file (the Config.tomls, the proxy's nginx.conf)
+into OpenBao, and OpenChoreo renders it as an ExternalSecret-synced
+Kubernetes Secret mounted into the pod.
 
-- The `deployment/service` ClusterComponentType defaults containers to
-  256Mi/100m, OOM-killing the JVM services. `Component.spec.parameters`
-  never reaches the Deployment in v1.1 (it maps only to a ComponentType's
-  `parameters` schema; `resources`/`imagePullPolicy` live in the
-  `environmentConfigs` schema, read from the ReleaseBinding) - so each JVM
-  service's component.yaml declares its ReleaseBinding with the memory
-  override, applied like any other manifest.
-- `docker save -o` into `mktemp -d` fails under snap-confined docker
-  (private `/tmp`); image tars are staged under the repo instead.
-- collector/analysis read endpoint URLs from Config.toml configurables and
-  the healthkit simulator reads `HEALTHKIT_*` env vars — none were wired on
-  OpenChoreo, so everything silently used `localhost` defaults. The
-  component.yamls now mount a Config.toml / set the env.
-- Once a Config.toml is mounted, Ballerina stops honoring env-var overrides
-  for other configurables — all values must live in the mounted file.
-- The FQDN that `envBindings` injects resolved intermittently under this
-  cluster's DNS; short in-namespace service names (compose's exact style)
-  are used instead.
+Per-environment overrides (`resources` for the JVM services - the seeded
+ComponentType's 256Mi default is too small for them) are declared as
+ReleaseBinding documents inside each component.yaml;
+`Component.spec.parameters` does not reach the rendered Deployment in
+OpenChoreo v1.1.
 
-## Config.toml / openAiApiKey
-
-The three Ballerina services resolve their Config.toml through OpenChoreo's
-native secret-store path: `deploy-components.sh` pushes each service's local
-gitignored `Config.toml` (the same file docker-compose mounts - hostnames
-already match in-cluster) into OpenBao and creates a `SecretReference`; the
-Workload's `files[].valueFrom.secretKeyRef` then renders it as an
-ExternalSecret-synced Kubernetes Secret mounted into the pod. Config values
-live in exactly one place and the real `openAiApiKey` never touches git.
-Those three local files are required, as they are for docker-compose.
+Storage is ephemeral: if the healthkit simulator or a postgres pod
+restarts, re-run `make seed` (and restart the corresponding FHIR server if
+its database was recreated, since it creates its tables at startup).
 
 ## OpenChoreo MCP server (optional, local development)
 
 The control-plane API serves MCP at `/mcp`. The documented auth needs
-Thunder (OIDC), which this install omits, so auth is switched off — local
+Thunder (OIDC), which this install omits, so auth is switched off - local
 kind cluster only, never on a shared deployment:
 
 ```bash
@@ -94,5 +72,5 @@ kubectl --context kind-care-loop port-forward \
 claude mcp add --transport http openchoreo-cp http://localhost:18080/mcp
 ```
 
-Verified `Connected` from Claude Code. The observability MCP server needs
-the observability plane, which isn't installed.
+The observability MCP server (`openchoreo-obs`) needs the observability
+plane, which is not installed.

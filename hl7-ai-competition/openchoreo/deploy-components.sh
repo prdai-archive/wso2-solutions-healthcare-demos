@@ -49,15 +49,19 @@ for image in postgres:16-alpine nginx:1.27-alpine; do
 done
 
 # Push each local gitignored Config.toml (the same files docker-compose mounts) into OpenBao; the Workloads resolve them via SecretReference.
-for svc in care-loop-ai-service care-loop-collector-service care-loop-analysis-service; do
-  cfg="${REPO_ROOT}/${svc}/Config.toml"
+for entry in \
+  care-loop-ai-service/Config.toml \
+  care-loop-collector-service/Config.toml \
+  care-loop-analysis-service/Config.toml \
+  care-loop-fhir-server-readonly-proxy/nginx.conf; do
+  svc="${entry%%/*}"; file="${entry##*/}"; cfg="${REPO_ROOT}/${entry}"
   if [ ! -f "${cfg}" ]; then
-    log "ERROR: ${cfg} not found - it is gitignored and required (docker-compose mounts the same file)"
+    log "ERROR: ${cfg} not found (the Config.tomls are gitignored and required - docker-compose mounts the same files)"
     exit 1
   fi
-  log "Storing ${svc}/Config.toml in OpenBao and creating its SecretReference"
+  log "Storing ${entry} in OpenBao and creating its SecretReference"
   ${KCTL} exec -i -n openbao openbao-0 -- sh -c \
-    'cat > /tmp/cfg && bao kv put "secret/'"${svc}"'-config" Config.toml="$(cat /tmp/cfg)" >/dev/null && rm /tmp/cfg' < "${cfg}"
+    'cat > /tmp/cfg && bao kv put "secret/'"${svc}"'-config" '"${file}"'="$(cat /tmp/cfg)" >/dev/null && rm /tmp/cfg' < "${cfg}"
   ${KCTL} apply -f - <<EOF
 apiVersion: openchoreo.dev/v1alpha1
 kind: SecretReference
@@ -66,10 +70,10 @@ metadata:
   namespace: default
 spec:
   data:
-    - secretKey: Config.toml
+    - secretKey: ${file}
       remoteRef:
         key: ${svc}-config
-        property: Config.toml
+        property: ${file}
   template:
     type: Opaque
 EOF

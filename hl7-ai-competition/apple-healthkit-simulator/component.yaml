@@ -8,7 +8,7 @@ spec:
     projectName: default
   componentType:
     kind: ClusterComponentType
-    name: deployment/stateful-service
+    name: deployment/service
   autoDeploy: true
 
 ---
@@ -35,20 +35,3 @@ spec:
       type: HTTP
       port: 8000
       visibility: [external]
-
----
-# Storage/memory settings live here: only the ReleaseBinding's environmentConfigs reach the Deployment.
-apiVersion: openchoreo.dev/v1alpha1
-kind: ReleaseBinding
-metadata:
-  name: apple-healthkit-simulator-development
-  namespace: default
-spec:
-  owner:
-    projectName: default
-    componentName: apple-healthkit-simulator
-  environment: development
-  componentTypeEnvironmentConfigs:
-    storage:
-      size: 1Gi
-      mountPath: /app/data

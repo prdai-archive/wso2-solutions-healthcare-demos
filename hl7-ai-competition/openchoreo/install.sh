@@ -81,7 +81,6 @@ ${KCTL} get secret cluster-gateway-ca -n openchoreo-control-plane \
 
 log "Applying default OpenChoreo resources (ClusterComponentTypes, Project, Environment, DeploymentPipeline)"
 ${KCTL} apply -f "${VENDOR}/all.yaml"
-${KCTL} apply -f "$(dirname "${VENDOR}")/stateful-service-componenttype.json"
 ${KCTL} label namespace default openchoreo.dev/control-plane=true --overwrite
 
 log "Setting up data plane namespace and cluster-gateway CA ConfigMap"

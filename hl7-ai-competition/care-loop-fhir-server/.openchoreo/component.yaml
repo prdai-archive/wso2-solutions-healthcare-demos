@@ -8,7 +8,7 @@ spec:
     projectName: default
   componentType:
     kind: ClusterComponentType
-    name: deployment/stateful-service
+    name: deployment/service
   autoDeploy: true
 
 ---
@@ -109,20 +109,3 @@ spec:
       limits:
         cpu: "1"
         memory: 768Mi
-
----
-# Storage/memory settings live here: only the ReleaseBinding's environmentConfigs reach the Deployment.
-apiVersion: openchoreo.dev/v1alpha1
-kind: ReleaseBinding
-metadata:
-  name: care-loop-fhir-server-db-development
-  namespace: default
-spec:
-  owner:
-    projectName: default
-    componentName: care-loop-fhir-server-db
-  environment: development
-  componentTypeEnvironmentConfigs:
-    storage:
-      size: 1Gi
-      mountPath: /var/lib/postgresql/data

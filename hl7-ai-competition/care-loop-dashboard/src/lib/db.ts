@@ -8,13 +8,7 @@ import { drizzle } from "drizzle-orm/bun-sqlite";
 
 import { events, requestLog } from "@/lib/schema";
 
-// Two independent tables share this file: request_log (dashboard-initiated
-// "hit and forget" requests, e.g. generate-questionnaire) and events (events
-// other services POST to this dashboard about a patient). Neither is a cache
-// of FHIR data. Schema lives in src/lib/schema.ts; migrations run once via
-// scripts/migrate.ts (before build and before the server starts) - this
-// module never runs DDL, so the several Next.js worker processes that import
-// it concurrently can't race each other creating/altering tables.
+// Two independent tables share this file (schema in src/lib/schema.ts); this module never runs DDL - migrations run once via scripts/migrate.ts so the several Next.js worker processes that import it concurrently can't race each other.
 const dbPath = process.env.REQUEST_LOG_DB_PATH ?? "./data/request-log.sqlite";
 mkdirSync(dirname(dbPath), { recursive: true });
 

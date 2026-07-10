@@ -12,8 +12,7 @@ interface DashboardEvent {
   payload?: Record<string, string>;
 }
 
-// Fire-and-forget: the dashboard feed is best-effort and must never block or
-// fail a real request in this app.
+// Fire-and-forget: the dashboard feed is best-effort and must never block or fail a real request in this app.
 export function notifyDashboard(event: DashboardEvent): void {
   ky.post(`${DASHBOARD_EVENTS_URL}/api/events`, {
     json: event,

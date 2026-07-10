@@ -6,9 +6,7 @@ import { Database } from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
 
-// Runs once, before `next build` and before the runtime server starts - kept
-// entirely outside the Next.js app so schema migration never races with the
-// several worker processes that import src/lib/db.ts concurrently.
+// Runs once before build/start, kept outside the Next.js app so schema migration never races the several worker processes that import src/lib/db.ts concurrently.
 const dbPath = process.env.REQUEST_LOG_DB_PATH ?? "./data/request-log.sqlite";
 mkdirSync(dirname(dbPath), { recursive: true });
 

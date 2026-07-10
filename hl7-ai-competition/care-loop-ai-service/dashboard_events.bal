@@ -1,9 +1,7 @@
 import ballerina/http;
 import ballerina/log;
 
-// http:Client defaults to HTTP_2_0, which probes with an h2c upgrade that Bun's HTTP server
-// resets the connection on instead of answering - pinning HTTP_1_1 avoids it (same fix as the
-// other services' dashboardEventsClient).
+// http:Client defaults to HTTP_2_0, which probes with an h2c upgrade that Bun's HTTP server resets the connection on instead of answering - pinning HTTP_1_1 avoids it (same fix as the other services' dashboardEventsClient).
 final http:Client dashboardEventsClient = check new (dashboardEventsUrl, httpVersion = http:HTTP_1_1);
 
 type DashboardEvent record {|

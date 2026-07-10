@@ -11,8 +11,7 @@ isolated function extractPatientIdFromVitalsBundle(json bundle) returns string|e
     return reference.substring("Patient/".length());
 }
 
-// Best-effort: pulls whatever real fields the first entry's Observation actually has, skipping any that are absent
-// rather than guessing (e.g. a resource without a single valueQuantity, such as a panel-shaped Observation).
+// Best-effort: pulls whatever real fields the first entry's Observation actually has, skipping any that are absent rather than guessing (e.g. a panel-shaped Observation with no single valueQuantity).
 isolated function extractVitalsDashboardPayload(json bundle) returns map<string> {
     map<string> payload = {"source": "Apple HealthKit"};
     json[]|error entries = trap <json[]>checkpanic bundle.entry;

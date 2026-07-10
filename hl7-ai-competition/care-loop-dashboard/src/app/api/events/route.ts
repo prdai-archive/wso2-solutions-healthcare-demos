@@ -16,10 +16,7 @@ function isStringRecord(value: unknown): value is Record<string, string> {
   return Object.values(value).every((v) => typeof v === "string");
 }
 
-// Fixed contract other services POST to: {patientId, label, detail?, payload?}.
-// payload is an optional flat object of string -> string, whatever real fields
-// the caller already has in scope (e.g. {"probability":"0.64"}) - never invented.
-// Fire-and-forget, no auth (internal network) — insert and return fast.
+// Fixed contract other services POST to: {patientId, label, detail?, payload?} - fire-and-forget, no auth, insert and return fast (see README.md for details).
 export async function POST(request: Request) {
   let body: CreateEventBody;
   try {

@@ -60,9 +60,7 @@ export default function DashboardPage() {
     };
   }, [selected]);
 
-  // Default to the latest run and its furthest-reached stage, but only when
-  // switching patient/run - not on every 4s refresh of the same run, so a
-  // manual node click sticks around while data keeps flowing in.
+  // Default to the latest run/stage only on patient or run switch, not on every 4s refresh, so a manual node click sticks around while data keeps flowing in.
   useEffect(() => {
     if (runs.length === 0) return;
     const patientChanged = prevPatientIdRef.current !== selected?.id;

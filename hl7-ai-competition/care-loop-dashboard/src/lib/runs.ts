@@ -21,12 +21,7 @@ export interface Run {
 
 const stageIndexByLabel = new Map(STAGE_DEFS.map((s, i) => [s.label, i]));
 
-/**
- * Segments a patient's full event history into runs. A run starts at each
- * "Vitals ingested" event (the real trigger collector-service fires at the
- * top of every pipeline pass) and includes every event up to the next one.
- * `events` must be ordered newest-first (as listEvents returns).
- */
+// Segments a patient's event history (newest-first, as listEvents returns) into runs, each starting at a "Vitals ingested" event.
 export function segmentRuns(events: CareLoopEvent[]): Run[] {
   const ascending = [...events].reverse();
   const runs: Run[] = [];
@@ -47,9 +42,7 @@ export function segmentRuns(events: CareLoopEvent[]): Run[] {
   if (runs.length > 0) {
     const latest = runs[runs.length - 1]!;
     latest.isLatest = true;
-    // Only show a spinner when the run is genuinely still in flight - it
-    // escalated but hasn't reached a FHIR Task yet. A run that legitimately
-    // settled below threshold has nothing more coming; don't imply otherwise.
+    // Only show a spinner when the run is genuinely still in flight - a run settled below threshold has nothing more coming.
     if (latest.outcome === "Escalated, no Task yet") {
       latest.stages = markLatestActive(latest.stages);
     }
@@ -63,8 +56,7 @@ function buildRun(runEvents: CareLoopEvent[], isLatest: boolean): Run {
   for (const event of runEvents) {
     const idx = stageIndexByLabel.get(event.label);
     if (idx === undefined) continue;
-    // A stage can legitimately fire more than once in a run (e.g. a retried
-    // agentic call) - keep the earliest occurrence for a stable timeline.
+    // A stage can legitimately fire more than once in a run (e.g. a retried agentic call) - keep the earliest occurrence for a stable timeline.
     if (!byStageIndex.has(idx)) byStageIndex.set(idx, event);
   }
 
@@ -98,8 +90,7 @@ function buildRun(runEvents: CareLoopEvent[], isLatest: boolean): Run {
   };
 }
 
-// Only the single most-recent run's furthest-reached non-terminal stage is
-// shown as "active" (a spinner) - every other run is settled history.
+// Only the single most-recent run's furthest-reached non-terminal stage is shown as "active" (a spinner) - every other run is settled history.
 function markLatestActive(stages: RunStage[]): RunStage[] {
   let lastDoneIndex = -1;
   stages.forEach((s, i) => {

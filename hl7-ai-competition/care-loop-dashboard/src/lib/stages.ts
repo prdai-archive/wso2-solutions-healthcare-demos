@@ -1,7 +1,4 @@
-// The real, distinct event labels our backend services actually fire, in
-// pipeline order. A run rarely hits every stage (e.g. no escalation below
-// threshold) - that's expected, not a bug. Keep this list in sync with the
-// notifyDashboard/reportDashboardEvent call sites in each service.
+// The real, distinct event labels our backend services fire, in pipeline order - keep in sync with the notifyDashboard/reportDashboardEvent call sites in each service.
 export interface StageDef {
   key: string;
   label: string;
@@ -90,7 +87,6 @@ export const STAGE_DEFS: StageDef[] = [
   },
 ];
 
-// A new run starts at each "Vitals ingested" event - that's the real trigger
-// collector-service fires at the top of every pipeline pass.
+// A new run starts at each "Vitals ingested" event - the real trigger collector-service fires at the top of every pipeline pass.
 export const RUN_BOUNDARY_LABEL = "Vitals ingested";
 export const NOT_OBSERVABLE_KEY = "clinician";

@@ -1,0 +1,44 @@
+openapi: 3.0.3
+info:
+  title: care-loop-risk-agent
+  version: 0.1.0
+paths:
+  /risk-assessment:
+    post:
+      summary: Agentic cardiac risk assessment for a patient
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [patientId, mlProbability, answers]
+              properties:
+                patientId:
+                  type: string
+                mlProbability:
+                  type: number
+                answers:
+                  type: array
+                  items:
+                    type: object
+      responses:
+        "200":
+          description: Risk assessment
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  probability:
+                    type: number
+                  risk:
+                    type: string
+                  reasoning:
+                    type: string
+                  referencedResources:
+                    type: array
+                    items:
+                      type: string
+        "500":
+          description: Agent failure

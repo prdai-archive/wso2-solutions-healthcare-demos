@@ -1,0 +1,38 @@
+openapi: 3.0.3
+info:
+  title: care-loop-task-agent
+  version: 0.1.0
+paths:
+  /task-description:
+    post:
+      summary: Write the clinical review Task description narrative
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [patientId, mlProbability, answers, display, agentic]
+              properties:
+                patientId:
+                  type: string
+                mlProbability:
+                  type: number
+                answers:
+                  type: array
+                  items:
+                    type: object
+                display:
+                  type: object
+                agentic:
+                  type: object
+      responses:
+        "200":
+          description: Task description
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  description:
+                    type: string

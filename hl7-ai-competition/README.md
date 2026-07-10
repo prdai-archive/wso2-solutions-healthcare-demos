@@ -26,8 +26,7 @@ Earlier stages: [v1](assets/architecture-diagram-v1.png),
 - [whatsapp-simulator](whatsapp-simulator/) — Next.js chat UI that renders a
   pushed questionnaire and posts the conversation transcript to a callback URL
   (port 3000). Chat sessions are created by care-loop-collector-service and
-  listed on the home page; there's no longer a button to trigger generation
-  from this app.
+  listed on the home page.
 - ehr-fhir-server — WSO2 FHIR R4 server (`wso2/fhir-server`, Go + Postgres)
   standing in for the clinic's EHR/EMR FHIR API. Port 9090 (`/fhir/r4`). Has no
   auth of its own; fine for this local demo, put a gateway/auth proxy in front
@@ -43,10 +42,10 @@ Earlier stages: [v1](assets/architecture-diagram-v1.png),
   front of care-loop-fhir-server, exposing the FHIR API as MCP tools on port
   8001. Reaches it through care-loop-fhir-server-readonly-proxy (nginx), which
   403s anything but GET/HEAD, so the bridge can only read.
-- care-loop AI agents — the former care-loop-ai-service is split into three
-  Ballerina agents deployed as WSO2 Agent Manager platform-hosted agents
-  (`make amp-up` starts the AMP quick-start; each agent is created in the
-  console from this repo with Docker build type and its project path):
+- care-loop AI agents — three Ballerina agents deployed as WSO2 Agent
+  Manager platform-hosted agents (`make amp-up` starts the AMP quick-start;
+  each agent is created in the console from this repo with Docker build type
+  and its project path):
   [care-loop-questionnaire-agent](care-loop-questionnaire-agent/) drafts the
   FHIR `Questionnaire` from a patient's Observations (via fhir-mcp-server),
   [care-loop-risk-agent](care-loop-risk-agent/) runs the agentic cardiac risk
@@ -54,7 +53,7 @@ Earlier stages: [v1](assets/architecture-diagram-v1.png),
   Task description narrative. LLM calls route through the AMP AI gateway,
   fhir-mcp-server is consumed through the AMP MCP proxy, and callers invoke
   the agents through the platform gateway with per-agent API keys; see each
-  agent's README for setup. These no longer run in docker-compose.
+  agent's README for setup.
 
 - [care-loop-collector-service](care-loop-collector-service/) — standalone
   Ballerina bridge (port 8004). `POST /vitals` saves an incoming Observation

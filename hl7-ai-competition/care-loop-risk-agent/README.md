@@ -5,9 +5,8 @@ mlProbability, answers}` runs an `ai:Agent` (GPT-4.1) wired to fhir-mcp-server
 via `ai:McpToolKit`: it looks up whatever FHIR resources it judges relevant
 (vitals, active conditions, medications, allergies), weighs them against the
 ML probability and the patient's questionnaire answers, and returns its own
-probability, risk level, reasoning, and cited resources. Split out of
-care-loop-ai-service so it can be deployed as a WSO2 Agent Manager (AMP)
-platform-hosted agent.
+probability, risk level, reasoning, and cited resources. Deployed as a WSO2
+Agent Manager (AMP) platform-hosted agent.
 
 ## Config
 

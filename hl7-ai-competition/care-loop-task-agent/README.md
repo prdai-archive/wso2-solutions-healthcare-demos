@@ -5,9 +5,8 @@ mlProbability, answers, display, agentic}` runs an `ai:Agent` (GPT-4.1-nano)
 wired to fhir-mcp-server via `ai:McpToolKit`: it optionally looks up the
 resources the risk assessment cited, then writes the narrative description for
 the clinical review Task. If the agent fails, the service falls back to a
-plain summary built from the request so a Task can still be created. Split out
-of care-loop-ai-service so it can be deployed as a WSO2 Agent Manager (AMP)
-platform-hosted agent.
+plain summary built from the request so a Task can still be created. Deployed
+as a WSO2 Agent Manager (AMP) platform-hosted agent.
 
 ## Config
 

@@ -4,8 +4,8 @@ Standalone Ballerina agent (port 8000). `POST /questionnaires {patientId}`
 runs an `ai:Agent` (GPT-4.1-nano) wired to fhir-mcp-server via
 `ai:McpToolKit`: it calls the MCP `search` tool itself to pull that patient's
 Observations, then drafts a FHIR `Questionnaire` (questions only, no answers)
-targeted at the vitals trend. Split out of care-loop-ai-service so it can be
-deployed as a WSO2 Agent Manager (AMP) platform-hosted agent.
+targeted at the vitals trend. Deployed as a WSO2 Agent Manager (AMP)
+platform-hosted agent.
 
 ## Config
 

@@ -1,7 +1,7 @@
 "use client";
 
-import type { CareLoopEvent } from "@/lib/db";
 import type { OpsPatient } from "@/app/api/patients/route";
+import type { CareLoopEvent } from "@/lib/db";
 
 import { Activity, FileQuestion, Loader2 } from "lucide-react";
 

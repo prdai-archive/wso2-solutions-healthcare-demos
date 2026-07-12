@@ -7,31 +7,26 @@ import { FileQuestion, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { AlertsList } from "@/components/alerts/alerts-list";
+import { ArchitectureView } from "@/components/architecture/architecture-view";
 import { PatientRoster } from "@/components/patient-roster";
-import { IncomingHitsTicker } from "@/components/pipeline/incoming-hits-ticker";
-import { MetricsRow } from "@/components/pipeline/metrics-row";
-import { PipelineCanvas } from "@/components/pipeline/pipeline-canvas";
 import { RunPicker } from "@/components/pipeline/run-picker";
-import { StageDetailPanel } from "@/components/pipeline/stage-detail-panel";
 import { RequestLogPanel } from "@/components/request-log-panel";
+import { ObservationsList } from "@/components/resources/observations-list";
+import { PatientHistory } from "@/components/resources/patient-history";
+import { QuestionnaireResponsesList } from "@/components/resources/questionnaire-responses-list";
+import { RiskAssessmentsList } from "@/components/resources/risk-assessments-list";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const POLL_INTERVAL_MS = 4_000;
-
-function furthestReachedIndex(run: Run): number {
-  let last = -1;
-  run.stages.forEach((s, i) => {
-    if (s.status === "done" || s.status === "active") last = i;
-  });
-  return Math.max(0, last);
-}
 
 export default function DashboardPage() {
   const [selected, setSelected] = useState<OpsPatient | undefined>(undefined);
   const [runs, setRuns] = useState<Run[]>([]);
   const [runsLoaded, setRunsLoaded] = useState(false);
   const [selectedRunId, setSelectedRunId] = useState<string | undefined>(undefined);
-  const [selectedIndex, setSelectedIndex] = useState<number | undefined>(undefined);
+  const [selectedBoxKey, setSelectedBoxKey] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const prevPatientIdRef = useRef<string | undefined>(undefined);
 
@@ -60,7 +55,7 @@ export default function DashboardPage() {
     };
   }, [selected]);
 
-  // Default to the latest run/stage only on patient or run switch, not on every 4s refresh, so a manual node click sticks around while data keeps flowing in.
+  // Default to the latest run only on patient or run switch, not on every 4s refresh, so a manual box click sticks around while data keeps flowing in.
   useEffect(() => {
     if (runs.length === 0) return;
     const patientChanged = prevPatientIdRef.current !== selected?.id;
@@ -71,7 +66,7 @@ export default function DashboardPage() {
       // segmentRuns returns newest-first.
       const latest = runs[0]!;
       setSelectedRunId(latest.id);
-      setSelectedIndex(furthestReachedIndex(latest));
+      setSelectedBoxKey(null);
     }
   }, [runs, selected?.id, selectedRunId]);
 
@@ -79,8 +74,7 @@ export default function DashboardPage() {
 
   function selectRun(id: string) {
     setSelectedRunId(id);
-    const run = runs.find((r) => r.id === id);
-    if (run) setSelectedIndex(furthestReachedIndex(run));
+    setSelectedBoxKey(null);
   }
 
   async function generateQuestionnaire() {
@@ -111,11 +105,11 @@ export default function DashboardPage() {
     <div className="flex min-h-0 flex-1 flex-col gap-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-1">
-          <h1 className="text-[21px] font-bold tracking-tight">Care Loop Ops Dashboard</h1>
+          <h1 className="text-[21px] font-bold tracking-tight">Care Loop Patient Dashboard</h1>
           <p className="max-w-2xl text-[13px] leading-relaxed text-muted-foreground">
-            Observing <strong className="font-semibold text-foreground/80">fire-and-forget hits</strong> from
-            Care Loop services — each stage is an inbound request the dashboard logs (202 Accepted, no
-            response awaited). Drag the canvas to pan, click a node to inspect its payload.
+            Select a patient to see their <strong className="font-semibold text-foreground/80">latest Care Loop
+            run</strong> against the architecture, along with their alerts, vitals, questionnaire responses, risk
+            assessments, and clinical history. Click a box in the diagram to inspect its payload.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -138,7 +132,7 @@ export default function DashboardPage() {
         <div className="min-h-0">
           {!selected || !runsLoaded ? (
             <div className="flex h-full min-h-[300px] items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">
-              {selected ? "Loading pipeline history…" : "Select a patient to watch their pipeline."}
+              {selected ? "Loading patient history…" : "Select a patient to view their dashboard."}
             </div>
           ) : !activeRun ? (
             <div className="flex h-full min-h-[300px] items-center justify-center rounded-lg border border-dashed text-center text-sm text-muted-foreground">
@@ -147,23 +141,42 @@ export default function DashboardPage() {
               The pipeline hasn't run for this patient yet.
             </div>
           ) : (
-            <>
-              <MetricsRow run={activeRun} />
-              <RunPicker runs={runs} selectedRunId={activeRun.id} onSelectRunId={selectRun} />
-              <PipelineCanvas
-                run={activeRun}
-                selectedIndex={selectedIndex ?? furthestReachedIndex(activeRun)}
-                onSelectIndex={setSelectedIndex}
-              />
-
-              <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[1.15fr_1fr]">
-                <StageDetailPanel
-                  stage={activeRun.stages[selectedIndex ?? furthestReachedIndex(activeRun)]!}
-                  index={selectedIndex ?? furthestReachedIndex(activeRun)}
+            <div className="flex flex-col gap-5">
+              <div>
+                <RunPicker runs={runs} selectedRunId={activeRun.id} onSelectRunId={selectRun} />
+                <ArchitectureView
+                  run={activeRun}
+                  selectedBoxKey={selectedBoxKey}
+                  onSelectBox={setSelectedBoxKey}
                 />
-                <IncomingHitsTicker />
               </div>
-            </>
+
+              <div className="rounded-2xl border border-border p-4">
+                <h2 className="mb-2 text-[13px] font-semibold">Alerts</h2>
+                <AlertsList patientId={selected.id} />
+              </div>
+
+              <Tabs defaultValue="observations">
+                <TabsList>
+                  <TabsTrigger value="observations">Vitals</TabsTrigger>
+                  <TabsTrigger value="questionnaires">Questionnaires</TabsTrigger>
+                  <TabsTrigger value="risk">Risk assessments</TabsTrigger>
+                  <TabsTrigger value="history">History</TabsTrigger>
+                </TabsList>
+                <TabsContent value="observations">
+                  <ObservationsList patientId={selected.id} />
+                </TabsContent>
+                <TabsContent value="questionnaires">
+                  <QuestionnaireResponsesList patientId={selected.id} />
+                </TabsContent>
+                <TabsContent value="risk">
+                  <RiskAssessmentsList patientId={selected.id} />
+                </TabsContent>
+                <TabsContent value="history">
+                  <PatientHistory patientId={selected.id} />
+                </TabsContent>
+              </Tabs>
+            </div>
           )}
         </div>
       </div>

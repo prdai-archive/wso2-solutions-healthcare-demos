@@ -12,12 +12,12 @@ import { ArchitectureView } from "@/components/architecture/architecture-view";
 import { PatientRoster } from "@/components/patient-roster";
 import { RunPicker } from "@/components/pipeline/run-picker";
 import { RequestLogPanel } from "@/components/request-log-panel";
+import { AgenticPredictionsList } from "@/components/resources/agentic-predictions-list";
+import { MlPredictionsList } from "@/components/resources/ml-predictions-list";
 import { ObservationsList } from "@/components/resources/observations-list";
 import { PatientHistory } from "@/components/resources/patient-history";
 import { QuestionnaireResponsesList } from "@/components/resources/questionnaire-responses-list";
-import { RiskAssessmentsList } from "@/components/resources/risk-assessments-list";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const POLL_INTERVAL_MS = 4_000;
 
@@ -108,8 +108,8 @@ export default function DashboardPage() {
           <h1 className="text-[21px] font-bold tracking-tight">Care Loop Patient Dashboard</h1>
           <p className="max-w-2xl text-[13px] leading-relaxed text-muted-foreground">
             Select a patient to see their <strong className="font-semibold text-foreground/80">latest Care Loop
-            run</strong> against the architecture, along with their alerts, vitals, questionnaire responses, risk
-            assessments, and clinical history. Click a box in the diagram to inspect its payload.
+            run</strong> against the architecture, along with their alerts, vitals, questionnaire responses, ML
+            and agentic risk predictions, and clinical history. Click a box in the diagram to inspect its payload.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -156,26 +156,28 @@ export default function DashboardPage() {
                 <AlertsList patientId={selected.id} />
               </div>
 
-              <Tabs defaultValue="observations">
-                <TabsList>
-                  <TabsTrigger value="observations">Vitals</TabsTrigger>
-                  <TabsTrigger value="questionnaires">Questionnaires</TabsTrigger>
-                  <TabsTrigger value="risk">Risk assessments</TabsTrigger>
-                  <TabsTrigger value="history">History</TabsTrigger>
-                </TabsList>
-                <TabsContent value="observations">
+              <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+                <div className="rounded-2xl border border-border p-4">
+                  <h2 className="mb-2 text-[13px] font-semibold">Vitals</h2>
                   <ObservationsList patientId={selected.id} />
-                </TabsContent>
-                <TabsContent value="questionnaires">
+                </div>
+                <div className="rounded-2xl border border-border p-4">
+                  <h2 className="mb-2 text-[13px] font-semibold">Questionnaires</h2>
                   <QuestionnaireResponsesList patientId={selected.id} />
-                </TabsContent>
-                <TabsContent value="risk">
-                  <RiskAssessmentsList patientId={selected.id} />
-                </TabsContent>
-                <TabsContent value="history">
+                </div>
+                <div className="rounded-2xl border border-border p-4">
+                  <h2 className="mb-2 text-[13px] font-semibold">ML predictions</h2>
+                  <MlPredictionsList patientId={selected.id} />
+                </div>
+                <div className="rounded-2xl border border-border p-4">
+                  <h2 className="mb-2 text-[13px] font-semibold">Agentic predictions</h2>
+                  <AgenticPredictionsList patientId={selected.id} />
+                </div>
+                <div className="rounded-2xl border border-border p-4 lg:col-span-2">
+                  <h2 className="mb-2 text-[13px] font-semibold">History</h2>
                   <PatientHistory patientId={selected.id} />
-                </TabsContent>
-              </Tabs>
+                </div>
+              </div>
             </div>
           )}
         </div>

@@ -6,23 +6,25 @@ import { FhirCard } from "@/components/resources/fhir-card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 
-const RISK_ASSESSMENTS_POLL_INTERVAL_MS = 4_000;
+const AGENTIC_PREDICTIONS_POLL_INTERVAL_MS = 4_000;
 
-export interface RiskPredictionDto {
+const AGENTIC_METHOD_MARKER = "ai-service";
+
+export interface AgenticPredictionDto {
   probability: number | null;
   rationale: string | null;
 }
 
-export interface RiskAssessmentDto {
+export interface AgenticRiskAssessmentDto {
   id: string;
   method: string | null;
   note: string | null;
   occurrenceDateTime: string | null;
-  predictions: RiskPredictionDto[];
+  predictions: AgenticPredictionDto[];
 }
 
-export function RiskAssessmentsList({ patientId }: { patientId: string }) {
-  const [riskAssessments, setRiskAssessments] = useState<RiskAssessmentDto[]>([]);
+export function AgenticPredictionsList({ patientId }: { patientId: string }) {
+  const [riskAssessments, setRiskAssessments] = useState<AgenticRiskAssessmentDto[]>([]);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -33,18 +35,24 @@ export function RiskAssessmentsList({ patientId }: { patientId: string }) {
       try {
         const response = await fetch(`/api/patients/${patientId}/risk-assessments`);
         const data = (await response.json()) as {
-          riskAssessments: RiskAssessmentDto[];
+          riskAssessments: AgenticRiskAssessmentDto[];
         };
-        if (!cancelled) setRiskAssessments(data.riskAssessments);
+        if (!cancelled) {
+          setRiskAssessments(
+            data.riskAssessments.filter((riskAssessment) =>
+              riskAssessment.method?.toLowerCase().includes(AGENTIC_METHOD_MARKER),
+            ),
+          );
+        }
       } catch (error) {
-        console.error("failed to poll risk assessments", error);
+        console.error("failed to poll agentic predictions", error);
       } finally {
         if (!cancelled) setLoaded(true);
       }
     }
 
     poll();
-    const interval = setInterval(poll, RISK_ASSESSMENTS_POLL_INTERVAL_MS);
+    const interval = setInterval(poll, AGENTIC_PREDICTIONS_POLL_INTERVAL_MS);
     return () => {
       cancelled = true;
       clearInterval(interval);
@@ -65,7 +73,7 @@ export function RiskAssessmentsList({ patientId }: { patientId: string }) {
   if (riskAssessments.length === 0) {
     return (
       <p className="p-3 text-sm text-muted-foreground">
-        No risk assessments recorded yet for this patient.
+        No agentic risk assessments recorded yet for this patient.
       </p>
     );
   }

@@ -2,7 +2,7 @@ COMPOSE := docker compose
 
 .DEFAULT_GOAL := help
 
-.PHONY: help build up watch down ps clean seed trigger-vitals amp-up amp-down
+.PHONY: help build up watch down ps clean seed trigger-vitals
 
 help: ## List available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -30,14 +30,6 @@ ps: ## Show stack service status
 
 clean: ## Stop the stack and remove volumes
 	$(COMPOSE) down -v
-
-amp-up: ## Start the WSO2 Agent Manager quick-start cluster (console at http://localhost:3000, admin/admin)
-	docker run --rm -it --name amp-quick-start \
-		-v /var/run/docker.sock:/var/run/docker.sock \
-		--network=host ghcr.io/wso2/amp-quick-start:v0.18.0
-
-amp-down: ## Stop the WSO2 Agent Manager quick-start container
-	-docker rm -f amp-quick-start
 
 trigger-vitals: ## Force an immediate vitals-forward cycle instead of waiting for the automatic one
 	@response=$$(curl -sS -w '\n%{http_code}' -X POST http://localhost:8000/vitals-cron/run-now); \

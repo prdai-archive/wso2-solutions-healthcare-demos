@@ -1,0 +1,15 @@
+# Compose deployment config. Connection settings and secrets come from
+# environment variables (BAL_CONFIG_VAR_*) set in docker-compose.yml and the
+# entrypoint wrapper; only toml-only settings live here, since values in this
+# file would take precedence over the env vars.
+listenPort = 8003
+
+[ballerina.observe]
+tracingEnabled = true
+tracingProvider = "jaeger"
+
+[ballerinax.jaeger]
+agentHostname = "otel-collector"
+agentPort = 4317
+samplerType = "const"
+samplerParam = 1.0

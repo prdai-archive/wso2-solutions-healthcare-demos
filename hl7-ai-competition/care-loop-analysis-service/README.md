@@ -1,8 +1,7 @@
 # care-loop-analysis-service
 
 Standalone Ballerina risk-scoring bridge between care-loop-collector-service,
-care-loop-heart-risk-service, care-loop-risk-agent, care-loop-task-agent,
-care-loop-fhir-server, and
+care-loop-heart-risk-service, care-loop-ai-service, care-loop-fhir-server, and
 ehr-fhir-server (port 8005).
 
 - `POST /vitals-ready {patientId}` - acks immediately, then in the background:
@@ -16,7 +15,7 @@ ehr-fhir-server (port 8005).
 - `POST /emergency-answers {patientId, answers}` - the callback
   care-loop-collector-service hits once the emergency questionnaire is
   answered. Clears the pending case's timeout watcher, asks
-  care-loop-risk-agent's `POST /risk-assessment` for its own probability/risk
+  care-loop-ai-service's `POST /risk-assessment` for its own probability/risk
   from the questionnaire answers, always saves a combined FHIR
   `RiskAssessment` citing both probabilities, and - only if both the ML and
   agentic probabilities independently clear their own thresholds - creates a

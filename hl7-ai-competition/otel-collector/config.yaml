@@ -1,0 +1,18 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+
+exporters:
+  otlphttp/amp:
+    # Base URL of the AMP otel ingest; the exporter appends /v1/traces.
+    endpoint: ${env:AMP_OTEL_ENDPOINT}
+    headers:
+      x-amp-api-key: ${env:AMP_AGENT_API_KEY}
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      exporters: [otlphttp/amp]

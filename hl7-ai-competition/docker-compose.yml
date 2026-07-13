@@ -232,6 +232,87 @@ services:
         - path: ./front-desk-dashboard/src
           action: rebuild
 
+  # WSO2 Agent Manager (AMP v0.18.0) quick-start: a privileged
+  # docker-in-docker container running the AMP k3d cluster, with the cluster
+  # state persisted in the amp-docker volume so restarts resume instead of
+  # reinstalling. Publishes the AMP API (9000), console (13000) and the AI
+  # gateway plus otel ingest (22893).
+  amp:
+    build:
+      context: ./scripts/amp
+    image: care-loop/amp:v0.18.0
+    container_name: amp
+    privileged: true
+    ports:
+      - "9000:9000"
+      - "13000:3000"
+      - "22893:22893"
+    volumes:
+      - amp-docker:/var/lib/docker
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - "[ -f /var/run/amp-ready ] && curl -s -m 5 -o /dev/null http://localhost:9000/"
+      interval: 30s
+      timeout: 10s
+      retries: 30
+      start_period: 45m
+    restart: unless-stopped
+
+  # One-shot registration against amp: OpenAI LLM provider (upstream key from
+  # OPENAI_API_KEY in .env), gateway API key into the amp-shared volume, and
+  # the FHIR MCP proxy. Idempotent on re-runs.
+  amp-init:
+    image: ghcr.io/wso2/amp-quick-start:v0.18.0
+    container_name: amp-init
+    entrypoint: ["sh", "/scripts/register.sh"]
+    environment:
+      OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
+    volumes:
+      - ./scripts/amp/register.sh:/scripts/register.sh:ro
+      - amp-shared:/amp-shared
+    depends_on:
+      amp:
+        condition: service_healthy
+    restart: "no"
+
+  # Bridges Ballerina's OTLP gRPC span export (no header support) to WSO2
+  # Agent Manager's OTLP/HTTP otel ingest, which requires an x-amp-api-key
+  # header. Idle unless tracing is enabled in a service's Config.toml.
+  otel-collector:
+    image: otel/opentelemetry-collector:0.128.0
+    container_name: otel-collector
+    command: ["--config=/etc/otelcol/config.yaml"]
+    environment:
+      AMP_OTEL_ENDPOINT: "${AMP_OTEL_ENDPOINT:-http://amp:22893/otel}"
+      AMP_AGENT_API_KEY: "${AMP_AGENT_API_KEY:-}"
+    volumes:
+      - ./otel-collector/config.yaml:/etc/otelcol/config.yaml:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  care-loop-ai-service:
+    build:
+      context: ./care-loop-ai-service
+    image: care-loop-ai-service:latest
+    container_name: care-loop-ai-service
+    ports:
+      - "8003:8003"
+    environment:
+      BAL_CONFIG_VAR_USEAMPGATEWAY: "true"
+      BAL_CONFIG_VAR_OPENAISERVICEURL: "http://amp:22893/careloop-openai"
+      BAL_CONFIG_VAR_FHIRMCPURL: "http://amp:22893/fhir-mcp/mcp"
+    volumes:
+      - ./care-loop-ai-service/Config.compose.toml:/home/ballerina/Config.toml:ro
+      - amp-shared:/amp-shared:ro
+    depends_on:
+      amp-init:
+        condition: service_completed_successfully
+      fhir-mcp-server:
+        condition: service_started
+    restart: unless-stopped
+
   care-loop-collector-service:
     build:
       context: ./care-loop-collector-service
@@ -242,6 +323,7 @@ services:
     volumes:
       - ./care-loop-collector-service/Config.toml:/home/ballerina/Config.toml:ro
     depends_on:
+      - care-loop-ai-service
       - care-loop-fhir-server
       - whatsapp-simulator
     restart: unless-stopped
@@ -259,6 +341,7 @@ services:
       - care-loop-heart-risk-service
       - care-loop-fhir-server
       - ehr-fhir-server
+      - care-loop-ai-service
       - care-loop-collector-service
     restart: unless-stopped
 
@@ -266,3 +349,5 @@ volumes:
   healthkit-data:
   ehr-fhir-server-db:
   care-loop-fhir-server-db:
+  amp-docker:
+  amp-shared:

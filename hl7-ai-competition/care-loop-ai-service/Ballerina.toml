@@ -1,6 +1,6 @@
 [package]
 org = "care_loop"
-name = "care_loop_risk_agent"
+name = "care_loop_ai_service"
 version = "0.1.0"
 distribution = "2201.13.4"
 

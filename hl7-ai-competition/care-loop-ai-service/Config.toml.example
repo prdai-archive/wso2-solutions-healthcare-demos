@@ -1,0 +1,35 @@
+# Standalone-run config; the compose deployment instead mounts
+# Config.compose.toml and wires AMP settings through BAL_CONFIG_VAR_* env vars.
+fhirMcpUrl = "http://fhir-mcp-server:8000/mcp"
+listenPort = 8003
+openAiApiKey = "your-openai-api-key"
+
+# WSO2 Agent Manager (AMP) egress AI gateway: set useAmpGateway = true and
+# point openAiServiceUrl at the gateway invoke URL, with openAiApiKey set to
+# the gateway API key. The gateway authenticates with an API-Key header, which
+# AmpModelProvider sends; leave useAmpGateway = false to call OpenAI directly
+# with standard Bearer auth.
+# useAmpGateway = true
+# openAiServiceUrl = "https://api.openai.com/v1"
+
+# AMP MCP proxy: to route FHIR MCP traffic through the Agent Manager gateway
+# for governance, point fhirMcpUrl at the proxy and set fhirMcpAuthToken to the
+# gateway token (sent as a Bearer header). An empty token calls the MCP server
+# directly.
+# fhirMcpAuthToken = "your-gateway-mcp-token"
+
+# OpenTelemetry tracing to WSO2 Agent Manager (AMP): the jaeger provider
+# exports OTLP over gRPC (no headers), so spans go to the otel-collector
+# sidecar, which forwards them over OTLP/HTTP to AMP's otel ingest at
+# ${AMP_OTEL_ENDPOINT}/v1/traces (e.g. http://localhost:22893/otel/v1/traces)
+# with the x-amp-api-key header (set AMP_AGENT_API_KEY for the collector).
+# Tracing is off unless this block is uncommented.
+# [ballerina.observe]
+# tracingEnabled = true
+# tracingProvider = "jaeger"
+#
+# [ballerinax.jaeger]
+# agentHostname = "otel-collector"
+# agentPort = 4317
+# samplerType = "const"
+# samplerParam = 1.0

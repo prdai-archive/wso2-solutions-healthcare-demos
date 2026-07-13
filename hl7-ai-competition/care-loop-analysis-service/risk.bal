@@ -120,8 +120,7 @@ isolated function runEmergencyAnswersCycle(EmergencyAnswersRequest request, Pend
         mlProbability: pendingCase.heartRisk.probability,
         answers: request.answers
     };
-    AiRiskAssessmentResponse|http:ClientError aiResponse = riskAgentClient->post(
-            "/risk-assessment", aiRequest, headers = agentHeaders(riskAgentApiKey), targetType = AiRiskAssessmentResponse);
+    AiRiskAssessmentResponse|http:ClientError aiResponse = aiClient->post("/risk-assessment", aiRequest, targetType = AiRiskAssessmentResponse);
     if aiResponse is http:ClientError {
         log:printError("emergency-answers: risk-assessment call failed", patientId = request.patientId, 'error = aiResponse);
         return;
@@ -154,8 +153,7 @@ isolated function runEmergencyAnswersCycle(EmergencyAnswersRequest request, Pend
         agentic: aiResponse
     };
     TaskDescriptionResponse|http:ClientError descriptionResponse =
-        taskAgentClient->post("/task-description", descriptionRequest,
-                headers = agentHeaders(taskAgentApiKey), targetType = TaskDescriptionResponse);
+        aiClient->post("/task-description", descriptionRequest, targetType = TaskDescriptionResponse);
     if descriptionResponse is http:ClientError {
         log:printError("emergency-answers: task-description call failed", patientId = request.patientId, 'error = descriptionResponse);
         return;

@@ -34,14 +34,14 @@ repos:
         files: ^hl7-ai-competition/whatsapp-simulator/
         pass_filenames: false
       - id: bal-format
-        name: bal format (care-loop agents)
-        entry: bash -c 'for d in care-loop-questionnaire-agent care-loop-risk-agent care-loop-task-agent; do (cd "hl7-ai-competition/$d" && bal format) || exit 1; done'
+        name: bal format (care-loop-ai-service)
+        entry: bash -c 'cd hl7-ai-competition/care-loop-ai-service && bal format'
         language: system
-        files: ^hl7-ai-competition/care-loop-(questionnaire|risk|task)-agent/.*\.bal$
+        files: ^hl7-ai-competition/care-loop-ai-service/.*\.bal$
         pass_filenames: false
       - id: bal-scan
-        name: bal scan (care-loop agents)
-        entry: bash -c 'for d in care-loop-questionnaire-agent care-loop-risk-agent care-loop-task-agent; do (cd "hl7-ai-competition/$d" && bal scan) || exit 1; done'
+        name: bal scan (care-loop-ai-service)
+        entry: bash -c 'cd hl7-ai-competition/care-loop-ai-service && bal scan'
         language: system
-        files: ^hl7-ai-competition/care-loop-(questionnaire|risk|task)-agent/.*\.bal$
+        files: ^hl7-ai-competition/care-loop-ai-service/.*\.bal$
         pass_filenames: false

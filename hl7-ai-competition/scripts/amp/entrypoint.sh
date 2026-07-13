@@ -205,6 +205,34 @@ subjects:
 EOF
 }
 
+# install.sh Step 10 sub-install: the observability-traces-opensearch chart ships
+# the OTel collector that receives agent traces and writes them to OpenSearch.
+# The quick-start's partial run skips it, leaving the otel-collector Service with
+# no backing pod, so trace ingest returns "no healthy upstream".
+install_observability_traces() {
+    helm status observability-traces-opensearch -n openchoreo-observability-plane >/dev/null 2>&1 || \
+        helm upgrade --install observability-traces-opensearch \
+            oci://ghcr.io/openchoreo/helm-charts/observability-tracing-opensearch \
+            --create-namespace --namespace openchoreo-observability-plane \
+            --version 0.4.1 \
+            --set openSearch.enabled=false \
+            --set openSearchSetup.openSearchSecretName="opensearch-admin-credentials" \
+            --set opentelemetry-collector.configMap.existingName="amp-opentelemetry-collector-config" \
+            --timeout 10m
+}
+
+# LOCAL-DEMO ONLY: the otel trace-ingest route is gated by a jwt-auth policy that
+# only a platform-deployed agent identity can satisfy. This Care Loop service runs
+# externally (we do not use AMP-managed deployment), so its collector cannot mint
+# that token. Drop the policy to let it post traces. Do not do this on any cluster
+# that is not a throwaway local demo.
+disable_otel_trace_auth() {
+    local rn=api-platform-default-default-otel-restapi
+    kubectl get restapi "$rn" -n openchoreo-data-plane >/dev/null 2>&1 || return 0
+    kubectl patch restapi "$rn" -n openchoreo-data-plane --type=json \
+        -p '[{"op":"replace","path":"/spec/policies","value":[]}]'
+}
+
 install_amp_chart() {
     log "Installing AMP chart (hook jobs stripped)"
     if helm status amp -n wso2-amp >/dev/null 2>&1; then
@@ -225,6 +253,7 @@ install_amp_chart() {
         source ./install-helpers.sh
         retry 3 install_platform_resources_extension
         retry 3 install_observability_extension
+        retry 3 install_observability_traces
         retry 3 install_evaluation_extension
         # The gateway extension's CRs need the gateway-operator CRDs (step 11)
         # and its bootstrap job mints a JWT from the thunder extension (step 12);
@@ -235,6 +264,9 @@ install_amp_chart() {
         wait_for_crd restapis.gateway.api-platform.wso2.com
         retry 5 install_gateway_extension
         retry 5 kubectl apply -f "https://raw.githubusercontent.com/wso2/agent-manager/amp/v${AMP_VERSION}/deployments/values/otel-collector-rest-api.yaml"
+        # The gateway extension creates the active otel route with jwt-auth; drop
+        # it so the externally-run collector can post traces (local demo only).
+        disable_otel_trace_auth || true
     )
 }
 

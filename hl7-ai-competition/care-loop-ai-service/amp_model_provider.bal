@@ -1,6 +1,7 @@
 import ballerina/ai;
 import ballerina/http;
 import ballerina/jballerina.java;
+import ballerina/observe;
 import ballerinax/ai.openai;
 import ballerinax/openai.chat;
 
@@ -63,6 +64,17 @@ public isolated distinct client class AmpModelProvider {
         }
         chat:CreateChatCompletionResponse|error response =
             self.gatewayClient->post("/chat/completions", request.toJson(), {"API-Key": self.apiKey});
+        // The ai:Agent already emits a GenAI span for this call; add the token
+        // usage from the response so Agent Manager renders it (input/output
+        // tokens follow the OpenTelemetry GenAI semantic conventions).
+        if response is chat:CreateChatCompletionResponse {
+            chat:CompletionUsage? usage = response.usage;
+            if usage is chat:CompletionUsage {
+                spanTag("gen_ai.usage.input_tokens", usage.prompt_tokens.toString());
+                spanTag("gen_ai.usage.output_tokens", usage.completion_tokens.toString());
+                spanTag("gen_ai.usage.total_tokens", usage.total_tokens.toString());
+            }
+        }
         if response is error {
             return error ai:LlmConnectionError("Error while connecting to the model", response);
         }
@@ -82,6 +94,15 @@ public isolated distinct client class AmpModelProvider {
     isolated remote function generate(ai:Prompt prompt, typedesc<anydata> td = <>) returns td|ai:Error = @java:Method {
         'class: "io.ballerina.lib.ai.openai.Generator"
     } external;
+}
+
+# Best-effort tag on the current span; observability failures must not break
+# the LLM call.
+isolated function spanTag(string key, string value) {
+    error? result = observe:addTagToSpan(key, value);
+    if result is error {
+        // ignore
+    }
 }
 
 isolated function mapToCompletionRequestMessages(ai:ChatMessage[]|ai:ChatUserMessage messages)

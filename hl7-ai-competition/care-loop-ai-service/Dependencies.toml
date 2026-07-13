@@ -314,6 +314,10 @@ version = "1.7.1"
 dependencies = [
 	{org = "ballerina", name = "jballerina.java"}
 ]
+modules = [
+	{org = "ballerina", packageName = "observe", moduleName = "observe"},
+	{org = "ballerina", packageName = "observe", moduleName = "observe.mockextension"}
+]
 
 [[package]]
 org = "ballerina"
@@ -464,6 +468,7 @@ dependencies = [
 	{org = "ballerina", name = "jballerina.java"},
 	{org = "ballerina", name = "lang.value"},
 	{org = "ballerina", name = "log"},
+	{org = "ballerina", name = "observe"},
 	{org = "ballerinai", name = "observe"},
 	{org = "ballerinax", name = "ai.openai"},
 	{org = "ballerinax", name = "jaeger"},

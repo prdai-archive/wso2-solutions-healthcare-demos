@@ -286,6 +286,12 @@ services:
     environment:
       AMP_OTEL_ENDPOINT: "${AMP_OTEL_ENDPOINT:-http://amp:22893/otel}"
       AMP_AGENT_API_KEY: "${AMP_AGENT_API_KEY:-}"
+      # OpenChoreo identity that scopes traces to the registered external agent
+      # in the AMP console; instance-specific, supplied via .env (gitignored).
+      OC_PROJECT_UID: "${OC_PROJECT_UID:-}"
+      OC_COMPONENT_UID: "${OC_COMPONENT_UID:-}"
+      OC_ENVIRONMENT_UID: "${OC_ENVIRONMENT_UID:-}"
+      OC_NAMESPACE: "${OC_NAMESPACE:-default}"
     volumes:
       - ./otel-collector/config.yaml:/etc/otelcol/config.yaml:ro
     extra_hosts:

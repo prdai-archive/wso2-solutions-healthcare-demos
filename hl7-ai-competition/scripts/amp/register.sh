@@ -52,27 +52,32 @@ provider_uuid() {
         | jq -r '.providers[]? | select(.id == "careloop-openai") | .uuid'
 }
 
-log "LLM provider careloop-openai"
-PROVIDER_UUID=$(provider_uuid)
-if [ -z "$PROVIDER_UUID" ]; then
-    $CURL -f -X POST -H "Authorization: Bearer $TOK" -H "Content-Type: application/json" \
-        "$API/api/v1/orgs/default/llm-providers" \
-        -d '{"name":"Care Loop OpenAI","displayName":"Care Loop OpenAI","templateId":"openai","version":"v1"}' >/dev/null
-    PROVIDER_UUID=$(provider_uuid)
-fi
-[ -n "$PROVIDER_UUID" ] || { echo "provider creation failed" >&2; exit 1; }
-
-# PUT the full provider object every run: a partial body wipes auth/template.
-$CURL -f -X PUT -H "Authorization: Bearer $TOK" -H "Content-Type: application/json" \
-    "$API/api/v1/orgs/default/llm-providers/$PROVIDER_UUID" \
-    -d "$(jq -n --arg key "$OPENAI_API_KEY" '{
-        name: "Care Loop OpenAI", template: "openai", context: "/careloop-openai",
-        version: "v1",
+# Full provider object: the handle is the `id` field and the template is
+# referenced by handle in `template`. Both create and update take this shape;
+# a partial body wipes auth/template.
+provider_body() {
+    jq -n --arg key "$OPENAI_API_KEY" '{
+        id: "careloop-openai", name: "Care Loop OpenAI", template: "openai",
+        context: "/careloop-openai", version: "v1",
         accessControl: {mode: "allow_all"},
         security: {enabled: true, apiKey: {enabled: true, key: "API-Key", in: "header"}},
         upstream: {main: {url: "https://api.openai.com/v1",
             auth: {type: "api-key", header: "Authorization", value: ("Bearer " + $key)}}}
-    }')" >/dev/null
+    }'
+}
+
+log "LLM provider careloop-openai"
+PROVIDER_UUID=$(provider_uuid)
+if [ -z "$PROVIDER_UUID" ]; then
+    $CURL -f -X POST -H "Authorization: Bearer $TOK" -H "Content-Type: application/json" \
+        "$API/api/v1/orgs/default/llm-providers" -d "$(provider_body)" >/dev/null
+    PROVIDER_UUID=$(provider_uuid)
+fi
+[ -n "$PROVIDER_UUID" ] || { echo "provider creation failed" >&2; exit 1; }
+
+# PUT the full object every run so a rotated key or changed config is reapplied.
+$CURL -f -X PUT -H "Authorization: Bearer $TOK" -H "Content-Type: application/json" \
+    "$API/api/v1/orgs/default/llm-providers/$PROVIDER_UUID" -d "$(provider_body)" >/dev/null
 
 # Deploy body must be exactly these fields; the decoder rejects extras.
 $CURL -f -X POST -H "Authorization: Bearer $TOK" -H "Content-Type: application/json" \

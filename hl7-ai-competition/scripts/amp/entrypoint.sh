@@ -24,6 +24,29 @@ AMP_VERSION=0.18.0
 
 log() { printf '\n== %s\n' "$*"; }
 
+retry() {
+    local n=$1 i; shift
+    for i in $(seq 1 "$n"); do
+        "$@" && return 0
+        echo "attempt $i/$n failed: $1" >&2
+        sleep 15
+    done
+    return 1
+}
+
+wait_for_crd() {
+    local crd=$1 i
+    for i in $(seq 1 60); do
+        if kubectl get "crd/$crd" >/dev/null 2>&1; then
+            kubectl wait --for condition=established "crd/$crd" --timeout=120s
+            return 0
+        fi
+        sleep 5
+    done
+    echo "CRD $crd never appeared" >&2
+    return 1
+}
+
 # Delegate cgroup v2 controllers to child cgroups (the docker:dind evacuation
 # dance); without this, nested k3s dies with "failed to find memory cgroup".
 setup_cgroups() {
@@ -96,6 +119,20 @@ apply_dns_dnat() {
     echo "DNS DNAT -> $cip"
 }
 
+apply_gateway_dnat() {
+    # The gateway-runtime service is ClusterIP with no hostPort/NodePort, so the
+    # k3d serverlb's forward to node:22893 dead-ends. DNAT it straight to the
+    # gateway-runtime pod, which serves the AI gateway, MCP proxy, and OTel ingest.
+    local pip
+    pip=$(kubectl get pod -n openchoreo-data-plane -l app.kubernetes.io/component=gateway-runtime \
+        -o jsonpath='{.items[0].status.podIP}' 2>/dev/null) || return 0
+    [ -n "$pip" ] || return 0
+    docker exec "$NODE" sh -c "
+        iptables -t nat -S PREROUTING | grep -- '--dport 22893' | grep 'j DNAT' | sed 's/^-A/-D/' | while read -r r; do iptables -t nat \$r; done 2>/dev/null
+        iptables -t nat -I PREROUTING 1 -p tcp --dport 22893 -j DNAT --to-destination $pip:22893"
+    echo "Gateway DNAT -> $pip:22893"
+}
+
 precreate_amp_secrets() {
     log "Pre-creating AMP hook secrets"
     # The chart's hook jobs apk-install tools at run time and need pod egress;
@@ -128,6 +165,46 @@ precreate_amp_secrets() {
     fi
 }
 
+# install.sh Step 11: the gateway-operator ships the gateway.api-platform.wso2.com
+# CRDs that the gateway extension's CRs need. The quick-start install dies at its
+# AMP-chart step before reaching this, so install it here. Versions track
+# install.sh (GATEWAY_OPERATOR_VERSION / GATEWAY_CHART_VERSION).
+install_gateway_operator() {
+    helm status gateway-operator -n openchoreo-data-plane >/dev/null 2>&1 || \
+        helm install gateway-operator \
+            oci://ghcr.io/wso2/api-platform/helm-charts/gateway-operator \
+            -n openchoreo-data-plane --timeout 600s --version 0.7.0 \
+            --set logging.level=debug \
+            --set gatewayApi.installStandardCRDs=false \
+            --set gateway.helm.chartVersion=1.1.0 || return 1
+    kubectl apply -f - <<'EOF'
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: wso2-api-platform-gateway-module
+rules:
+  - apiGroups: ["gateway.api-platform.wso2.com"]
+    resources: ["restapis", "apigateways"]
+    verbs: ["*"]
+  - apiGroups: ["gateway.kgateway.dev"]
+    resources: ["backends"]
+    verbs: ["*"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: wso2-api-platform-gateway-module
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: wso2-api-platform-gateway-module
+subjects:
+  - kind: ServiceAccount
+    name: cluster-agent-dataplane
+    namespace: openchoreo-data-plane
+EOF
+}
+
 install_amp_chart() {
     log "Installing AMP chart (hook jobs stripped)"
     if helm status amp -n wso2-amp >/dev/null 2>&1; then
@@ -146,11 +223,18 @@ install_amp_chart() {
         cd "$QS_HOME"
         # shellcheck disable=SC1091
         source ./install-helpers.sh
-        install_platform_resources_extension || true
-        install_observability_extension || true
-        install_evaluation_extension || true
-        install_gateway_extension || true
-        kubectl apply -f "https://raw.githubusercontent.com/wso2/agent-manager/amp/v${AMP_VERSION}/deployments/values/otel-collector-rest-api.yaml" || true
+        retry 3 install_platform_resources_extension
+        retry 3 install_observability_extension
+        retry 3 install_evaluation_extension
+        # The gateway extension's CRs need the gateway-operator CRDs (step 11)
+        # and its bootstrap job mints a JWT from the thunder extension (step 12);
+        # the quick-start install never reaches either before it fails.
+        retry 3 install_amp_thunder_extension
+        retry 3 install_gateway_operator
+        wait_for_crd apigateways.gateway.api-platform.wso2.com
+        wait_for_crd restapis.gateway.api-platform.wso2.com
+        retry 5 install_gateway_extension
+        retry 5 kubectl apply -f "https://raw.githubusercontent.com/wso2/agent-manager/amp/v${AMP_VERSION}/deployments/values/otel-collector-rest-api.yaml"
     )
 }
 
@@ -159,14 +243,20 @@ fix_console_port() {
     kubectl patch cm amp-console -n wso2-amp --type merge -p \
         '{"data":{"SIGN_IN_REDIRECT_URL":"http://localhost:13000/login","SIGN_OUT_REDIRECT_URL":"http://localhost:13000/login"}}'
     kubectl rollout restart deploy/amp-console -n wso2-amp
-    local sec tok app_id
+    local sec tok app_id i
     sec=$(kubectl get secret amp-api -n wso2-amp -o jsonpath='{.data.thunder-client-secret}' | base64 -d)
-    tok=$(curl -s -m 20 -H "Host: thunder.amp.localhost" -u "amp-system-client:$sec" \
-        -d "grant_type=client_credentials&scope=system" http://localhost:8080/oauth2/token \
-        | jq -r .access_token)
+    tok=""
+    for i in $(seq 1 30); do
+        tok=$(curl -s -m 20 -H "Host: thunder.amp.localhost" -u "amp-system-client:$sec" \
+            -d "grant_type=client_credentials&scope=system" http://localhost:8080/oauth2/token \
+            | jq -r '.access_token // empty' 2>/dev/null) && [ -n "$tok" ] && break
+        echo "waiting for thunder token endpoint ($i/30)"; sleep 10
+    done
+    [ -n "$tok" ] || { echo "could not obtain thunder token" >&2; return 1; }
     app_id=$(curl -s -m 20 -H "Host: thunder.amp.localhost" -H "Authorization: Bearer $tok" \
         http://localhost:8080/applications \
         | jq -r '.applications[] | select(.name=="AMP Console") | .id')
+    [ -n "$app_id" ] || { echo "AMP Console app not found in thunder" >&2; return 1; }
     curl -s -m 20 -H "Host: thunder.amp.localhost" -H "Authorization: Bearer $tok" \
         "http://localhost:8080/applications/$app_id" \
         | jq '(.inboundAuthConfig[] | select(.type=="oauth2") | .config.redirectUris) |=
@@ -176,7 +266,20 @@ fix_console_port() {
         -H "Content-Type: application/json" "http://localhost:8080/applications/$app_id" \
         -d @/tmp/console-app.json -o /dev/null
     rm -f /tmp/console-app.json
-    kubectl get cm amp-thunder-extension-config-map -n amp-thunder -o json \
+    # Thunder namespace/configmap names vary across ports; find them.
+    local tns tcm
+    tns=$(kubectl get deploy -A --no-headers 2>/dev/null | awk 'tolower($0) ~ /thunder/ {print $1; exit}')
+    if [ -z "$tns" ]; then
+        echo "no thunder deployment found; skipping CORS patch" >&2
+        return 0
+    fi
+    tcm=$(kubectl get cm -n "$tns" -o name | grep -i 'thunder.*extension' | head -1)
+    [ -n "$tcm" ] || tcm=$(kubectl get cm -n "$tns" -o name | grep -i thunder | head -1)
+    if [ -z "$tcm" ]; then
+        echo "no thunder configmap found in $tns; skipping CORS patch" >&2
+        return 0
+    fi
+    kubectl get "$tcm" -n "$tns" -o json \
         | jq '.data |= with_entries(
                 if (.value | contains("allowed_origins") and (contains("http://localhost:13000") | not))
                 then .value |= sub("allowed_origins:\n    - \"http://localhost:3000\"";
@@ -186,7 +289,7 @@ fix_console_port() {
         > /tmp/thunder-cm.json
     kubectl apply -f /tmp/thunder-cm.json
     rm -f /tmp/thunder-cm.json
-    kubectl rollout restart deploy -n amp-thunder
+    kubectl rollout restart deploy -n "$tns"
 }
 
 start_controller_forward() {
@@ -212,11 +315,20 @@ main() {
     fix_cluster_dns
     precreate_amp_secrets
     install_amp_chart
-    fix_console_port
+    # Console OAuth alignment is a host-port-13000 login convenience; a failure
+    # here must not restart-loop the container or block the ready file.
+    fix_console_port || log "console OAuth alignment failed (non-fatal); dashboard login redirect may need a manual fix"
     start_controller_forward
+    apply_gateway_dnat
     touch "$READY_FILE"
     log "AMP ready. Console: http://localhost:13000 (admin/admin)."
-    while docker info >/dev/null 2>&1; do sleep 30; done
+    # Both DNATs target pod IPs that change on pod restart; reconcile them so DNS
+    # resolution and gateway routing self-heal without a container restart.
+    while docker info >/dev/null 2>&1; do
+        apply_dns_dnat >/dev/null 2>&1 || true
+        apply_gateway_dnat >/dev/null 2>&1 || true
+        sleep 30
+    done
     echo "dockerd exited" >&2
     exit 1
 }

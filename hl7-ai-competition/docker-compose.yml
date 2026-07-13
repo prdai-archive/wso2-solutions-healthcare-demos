@@ -302,7 +302,9 @@ services:
     environment:
       BAL_CONFIG_VAR_USEAMPGATEWAY: "true"
       BAL_CONFIG_VAR_OPENAISERVICEURL: "http://amp:22893/careloop-openai"
-      BAL_CONFIG_VAR_FHIRMCPURL: "http://amp:22893/fhir-mcp/mcp"
+      # MCP goes direct to the FHIR MCP server: the gateway pod (in k3d) cannot
+      # reach this compose-network service, so the MCP proxy is bypassed here.
+      BAL_CONFIG_VAR_FHIRMCPURL: "http://fhir-mcp-server:8000/mcp"
     volumes:
       - ./care-loop-ai-service/Config.compose.toml:/home/ballerina/Config.toml:ro
       - amp-shared:/amp-shared:ro

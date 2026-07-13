@@ -2,60 +2,24 @@
 
 import type { RiskAssessmentSummary } from "@/app/api/patients/[id]/risk-assessments/route";
 
-import { useEffect, useState } from "react";
-
 import { FhirCard } from "@/components/resources/fhir-card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 
-const AGENTIC_PREDICTIONS_POLL_INTERVAL_MS = 4_000;
-
-const AGENTIC_METHOD_MARKER = "ai-service";
-
 export type AgenticRiskAssessmentDto = RiskAssessmentSummary;
 
+// Data is fetched once at the page level (shared with MlPredictionsList and
+// AlertsList's ML/Agent columns) rather than each consumer polling the same
+// /risk-assessments route independently.
 export function AgenticPredictionsList({
-  patientId,
+  riskAssessments,
+  loaded,
   focusedRefs,
 }: {
-  patientId: string;
+  riskAssessments: AgenticRiskAssessmentDto[];
+  loaded: boolean;
   focusedRefs?: Set<string> | null;
 }) {
-  const [riskAssessments, setRiskAssessments] = useState<AgenticRiskAssessmentDto[]>([]);
-  const [loaded, setLoaded] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoaded(false);
-
-    async function poll() {
-      try {
-        const response = await fetch(`/api/patients/${patientId}/risk-assessments`);
-        const data = (await response.json()) as {
-          riskAssessments: AgenticRiskAssessmentDto[];
-        };
-        if (!cancelled) {
-          setRiskAssessments(
-            data.riskAssessments.filter((riskAssessment) =>
-              riskAssessment.method?.toLowerCase().includes(AGENTIC_METHOD_MARKER),
-            ),
-          );
-        }
-      } catch (error) {
-        console.error("failed to poll agentic predictions", error);
-      } finally {
-        if (!cancelled) setLoaded(true);
-      }
-    }
-
-    poll();
-    const interval = setInterval(poll, AGENTIC_PREDICTIONS_POLL_INTERVAL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, [patientId]);
-
   if (!loaded) {
     return (
       <div className="space-y-2">

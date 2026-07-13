@@ -45,8 +45,8 @@ function boxOf(key: string): ArchitectureBoxDef {
   return ARCHITECTURE_BOXES.find((b) => b.key === key)!;
 }
 
-function statusOf(box: ArchitectureBoxDef, run: Run): BoxStatus {
-  if (box.stageKeys.length === 0) return "pending";
+function statusOf(box: ArchitectureBoxDef, run: Run | undefined): BoxStatus {
+  if (!run || box.stageKeys.length === 0) return "pending";
   const statuses: StageStatus[] = box.stageKeys.map(
     (key) => run.stages.find((s) => s.key === key)?.status ?? "pending",
   );
@@ -83,9 +83,9 @@ function PipelineBox({
   className,
 }: {
   boxKey: string;
-  run: Run;
+  run?: Run;
   selected: boolean;
-  onSelect: (key: string) => void;
+  onSelect?: (key: string) => void;
   className?: string;
 }) {
   const box = boxOf(boxKey);
@@ -97,7 +97,7 @@ function PipelineBox({
   return (
     <button
       type="button"
-      onClick={() => onSelect(boxKey)}
+      onClick={onSelect ? () => onSelect(boxKey) : undefined}
       className={cn(
         "flex w-[190px] flex-col rounded-2xl border bg-background p-3.5 text-left transition-[border-color,box-shadow]",
         isDone && "border-border/80",
@@ -131,9 +131,11 @@ function PipelineBox({
       {box.sublabel ? (
         <div className="mt-1 truncate text-[10.5px] text-muted-foreground/70">{box.sublabel}</div>
       ) : null}
-      <div className="mt-2 text-[11px] font-semibold text-muted-foreground/70">
-        {isDone ? "Received" : isActive ? "Processing" : "Pending"}
-      </div>
+      {run ? (
+        <div className="mt-2 text-[11px] font-semibold text-muted-foreground/70">
+          {isDone ? "Received" : isActive ? "Processing" : "Pending"}
+        </div>
+      ) : null}
     </button>
   );
 }
@@ -163,9 +165,11 @@ export function ArchitectureView({
   selectedBoxKey,
   onSelectBox,
 }: {
-  run: Run;
-  selectedBoxKey: string | null;
-  onSelectBox: (key: string) => void;
+  // Omitting run renders the structural, patient-agnostic diagram (home
+  // screen) - no per-stage received/pending status, no click-to-inspect.
+  run?: Run;
+  selectedBoxKey?: string | null;
+  onSelectBox?: (key: string) => void;
 }) {
   const decisionEngineKeys = ["ml-model", "deterministic-rules", "clinical-analysis-agent"];
   const decisionEngineStatus: BoxStatus = decisionEngineKeys
@@ -327,7 +331,7 @@ export function ArchitectureView({
         </div>
       </div>
 
-      {selectedBoxKey ? <ArchitectureDetailPanel box={boxOf(selectedBoxKey)} run={run} /> : null}
+      {selectedBoxKey && run ? <ArchitectureDetailPanel box={boxOf(selectedBoxKey)} run={run} /> : null}
     </div>
   );
 }

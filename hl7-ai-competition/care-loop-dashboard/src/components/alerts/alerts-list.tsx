@@ -1,5 +1,6 @@
 "use client";
 
+import type { RiskAssessmentSummary } from "@/app/api/patients/[id]/risk-assessments/route";
 import type { TaskSummary } from "@/app/api/patients/[id]/tasks/route";
 
 import { CheckCircle2, Crosshair } from "lucide-react";
@@ -26,16 +27,33 @@ function statusBadgeVariant(status: string): "secondary" | "outline" {
   return CLOSED_STATUSES.has(status.toLowerCase()) ? "secondary" : "outline";
 }
 
+// A Task's basedOn carries normalized "RiskAssessment/{id}" reference
+// suffixes - match those ids against whichever prediction array (ML or
+// agentic) actually contains that RiskAssessment, so the column shows a real
+// probability or a dash, never a guess.
+function matchProbability(task: TaskSummary, predictions: RiskAssessmentSummary[]): number | null {
+  const match = predictions.find((prediction) => task.basedOn.includes(`RiskAssessment/${prediction.id}`));
+  return match?.predictions[0]?.probability ?? null;
+}
+
+function formatProbability(value: number | null): string {
+  return value === null ? "—" : `${Math.round(value * 100)}%`;
+}
+
 export function AlertsList({
   patientId,
   focusedTaskId,
   onFocus,
   onLoaded,
+  mlPredictions,
+  agenticPredictions,
 }: {
   patientId: string;
   focusedTaskId: string | null;
   onFocus: (task: TaskSummary | null) => void;
   onLoaded?: (loadedAt: number) => void;
+  mlPredictions: RiskAssessmentSummary[];
+  agenticPredictions: RiskAssessmentSummary[];
 }) {
   const [tasks, setTasks] = useState<TaskSummary[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -129,6 +147,24 @@ export function AlertsList({
                   <p className="mt-1.5 text-[12.5px] leading-snug">
                     {task.description ?? "No description recorded"}
                   </p>
+                  <div className="flex items-center gap-4">
+                    <div>
+                      <div className="text-[9.5px] font-semibold tracking-wide text-muted-foreground/70 uppercase">
+                        ML
+                      </div>
+                      <div className="font-mono text-[13px] font-semibold">
+                        {formatProbability(matchProbability(task, mlPredictions))}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[9.5px] font-semibold tracking-wide text-muted-foreground/70 uppercase">
+                        Agent
+                      </div>
+                      <div className="font-mono text-[13px] font-semibold">
+                        {formatProbability(matchProbability(task, agenticPredictions))}
+                      </div>
+                    </div>
+                  </div>
                   <div className="mt-2 flex items-center gap-1.5">
                     <button
                       type="button"

@@ -1,18 +1,19 @@
 "use client";
 
+import type { HomeSummary } from "@/app/api/home-summary/route";
+import type { RiskAssessmentSummary } from "@/app/api/patients/[id]/risk-assessments/route";
 import type { TaskSummary } from "@/app/api/patients/[id]/tasks/route";
 import type { OpsPatient } from "@/app/api/patients/route";
 import type { Run } from "@/lib/runs";
 
 import { ArrowLeft, FileQuestion, Loader2 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { AlertsList } from "@/components/alerts/alerts-list";
 import { AppHeader } from "@/components/app-header";
-import { ArchitectureView } from "@/components/architecture/architecture-view";
-import { PatientRoster } from "@/components/patient-roster";
-import { RunPicker } from "@/components/pipeline/run-picker";
+import { RunTimeline } from "@/components/architecture/run-timeline";
+import { HomeView } from "@/components/home/home-view";
 import { RequestLogPanel } from "@/components/request-log-panel";
 import { AgenticPredictionsList } from "@/components/resources/agentic-predictions-list";
 import { MlPredictionsList } from "@/components/resources/ml-predictions-list";
@@ -23,6 +24,19 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const POLL_INTERVAL_MS = 4_000;
+const PATIENTS_POLL_INTERVAL_MS = 15_000;
+
+const ML_METHOD_MARKER = "heart-risk-service";
+const AGENTIC_METHOD_MARKER = "ai-service";
+
+const EMPTY_HOME_SUMMARY: HomeSummary = {
+  totalPatients: 0,
+  openTasks: 0,
+  escalationsToday: 0,
+  avgMlRisk: null,
+  latestEvent: null,
+  patients: [],
+};
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -31,15 +45,71 @@ function initials(name: string): string {
 
 export default function DashboardPage() {
   const [selected, setSelected] = useState<OpsPatient | undefined>(undefined);
+
+  const [patients, setPatients] = useState<OpsPatient[]>([]);
+  const [patientsLoaded, setPatientsLoaded] = useState(false);
+  const [homeSummary, setHomeSummary] = useState<HomeSummary>(EMPTY_HOME_SUMMARY);
+  const [homeSummaryLoaded, setHomeSummaryLoaded] = useState(false);
+
   const [runs, setRuns] = useState<Run[]>([]);
   const [runsLoaded, setRunsLoaded] = useState(false);
-  const [selectedRunId, setSelectedRunId] = useState<string | undefined>(undefined);
-  const [selectedBoxKey, setSelectedBoxKey] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [focusedTask, setFocusedTask] = useState<TaskSummary | null>(null);
   const [lastPollAt, setLastPollAt] = useState<number | null>(null);
-  const prevPatientIdRef = useRef<string | undefined>(undefined);
+  const [riskAssessments, setRiskAssessments] = useState<RiskAssessmentSummary[]>([]);
+  const [riskAssessmentsLoaded, setRiskAssessmentsLoaded] = useState(false);
 
+  // Home screen: patient list + aggregate/per-patient rollups.
+  useEffect(() => {
+    if (selected) return;
+    let cancelled = false;
+
+    async function poll() {
+      try {
+        const response = await fetch("/api/patients");
+        const data = (await response.json()) as { patients: OpsPatient[] };
+        if (!cancelled) setPatients(data.patients);
+      } catch (error) {
+        console.error("failed to poll patients", error);
+      } finally {
+        if (!cancelled) setPatientsLoaded(true);
+      }
+    }
+
+    poll();
+    const interval = setInterval(poll, PATIENTS_POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [selected]);
+
+  useEffect(() => {
+    if (selected) return;
+    let cancelled = false;
+
+    async function poll() {
+      try {
+        const response = await fetch("/api/home-summary");
+        const data = (await response.json()) as HomeSummary;
+        if (!cancelled) setHomeSummary(data);
+      } catch (error) {
+        console.error("failed to poll home summary", error);
+      } finally {
+        if (!cancelled) setHomeSummaryLoaded(true);
+      }
+    }
+
+    poll();
+    const interval = setInterval(poll, POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [selected]);
+
+  // Patient screen: runs (for the timeline) + risk assessments (shared by ML
+  // tab, agentic tab, and the alerts ML/Agent columns) both poll per patient.
   useEffect(() => {
     if (!selected) return;
     let cancelled = false;
@@ -66,32 +136,39 @@ export default function DashboardPage() {
     };
   }, [selected]);
 
-  // Default to the latest run only on patient or run switch, not on every 4s refresh, so a manual box click sticks around while data keeps flowing in.
   useEffect(() => {
-    if (runs.length === 0) return;
-    const patientChanged = prevPatientIdRef.current !== selected?.id;
-    prevPatientIdRef.current = selected?.id;
+    if (!selected) return;
+    let cancelled = false;
+    setRiskAssessmentsLoaded(false);
 
-    const stillExists = runs.some((r) => r.id === selectedRunId);
-    if (patientChanged || !stillExists) {
-      // segmentRuns returns newest-first.
-      const latest = runs[0]!;
-      setSelectedRunId(latest.id);
-      setSelectedBoxKey(null);
+    async function poll() {
+      try {
+        const response = await fetch(`/api/patients/${selected!.id}/risk-assessments`);
+        const data = (await response.json()) as { riskAssessments: RiskAssessmentSummary[] };
+        if (!cancelled) setRiskAssessments(data.riskAssessments);
+      } catch (error) {
+        console.error("failed to poll risk assessments", error);
+      } finally {
+        if (!cancelled) setRiskAssessmentsLoaded(true);
+      }
     }
-  }, [runs, selected?.id, selectedRunId]);
 
-  const activeRun = runs.find((r) => r.id === selectedRunId) ?? runs[0];
+    poll();
+    const interval = setInterval(poll, POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [selected]);
 
-  function selectRun(id: string) {
-    setSelectedRunId(id);
-    setSelectedBoxKey(null);
-  }
+  const latestRun = runs[0];
 
   function selectPatient(patient: OpsPatient) {
     setSelected(patient);
     setRuns([]);
     setRunsLoaded(false);
+    setRiskAssessments([]);
+    setRiskAssessmentsLoaded(false);
     setFocusedTask(null);
   }
 
@@ -125,13 +202,21 @@ export default function DashboardPage() {
   }
 
   const focusedRefs = focusedTask ? new Set(focusedTask.basedOn) : null;
+  const mlPredictions = riskAssessments.filter((r) => r.method?.toLowerCase().includes(ML_METHOD_MARKER));
+  const agenticPredictions = riskAssessments.filter((r) => r.method?.toLowerCase().includes(AGENTIC_METHOD_MARKER));
 
   return (
     <div className="flex min-h-screen flex-1 flex-col">
       <AppHeader lastPollAt={lastPollAt} />
 
       {!selected ? (
-        <PatientRoster onSelect={selectPatient} />
+        <HomeView
+          patients={patients}
+          patientsLoaded={patientsLoaded}
+          summary={homeSummary}
+          summaryLoaded={homeSummaryLoaded}
+          onSelect={selectPatient}
+        />
       ) : (
         <div className="flex flex-1 flex-col gap-5 p-4 md:p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -172,7 +257,7 @@ export default function DashboardPage() {
             <div className="flex h-full min-h-[300px] items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">
               Loading patient history…
             </div>
-          ) : !activeRun ? (
+          ) : !latestRun ? (
             <div className="flex h-full min-h-[300px] items-center justify-center rounded-lg border border-dashed text-center text-sm text-muted-foreground">
               No events received yet for {selected.name}.
               <br />
@@ -182,8 +267,7 @@ export default function DashboardPage() {
             <>
               <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
                 <div className="min-w-0">
-                  <RunPicker runs={runs} selectedRunId={activeRun.id} onSelectRunId={selectRun} />
-                  <ArchitectureView run={activeRun} selectedBoxKey={selectedBoxKey} onSelectBox={setSelectedBoxKey} />
+                  <RunTimeline run={latestRun} />
                 </div>
                 <div className="rounded-2xl border border-border p-3.5 lg:h-full">
                   <AlertsList
@@ -191,6 +275,8 @@ export default function DashboardPage() {
                     focusedTaskId={focusedTask?.id ?? null}
                     onFocus={setFocusedTask}
                     onLoaded={setLastPollAt}
+                    mlPredictions={mlPredictions}
+                    agenticPredictions={agenticPredictions}
                   />
                 </div>
               </div>
@@ -224,10 +310,18 @@ export default function DashboardPage() {
                   <QuestionnaireResponsesList patientId={selected.id} focusedRefs={focusedRefs} />
                 </TabsContent>
                 <TabsContent value="ml">
-                  <MlPredictionsList patientId={selected.id} focusedRefs={focusedRefs} />
+                  <MlPredictionsList
+                    riskAssessments={mlPredictions}
+                    loaded={riskAssessmentsLoaded}
+                    focusedRefs={focusedRefs}
+                  />
                 </TabsContent>
                 <TabsContent value="agentic">
-                  <AgenticPredictionsList patientId={selected.id} focusedRefs={focusedRefs} />
+                  <AgenticPredictionsList
+                    riskAssessments={agenticPredictions}
+                    loaded={riskAssessmentsLoaded}
+                    focusedRefs={focusedRefs}
+                  />
                 </TabsContent>
               </Tabs>
 

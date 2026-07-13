@@ -114,7 +114,7 @@ isolated function runTimeoutWatcher(string patientId, float mlProbability) {
         log:printError("timeout escalation: failed to save RiskAssessment", patientId = patientId, 'error = raSaveResult);
     }
 
-    international401:Task task = buildTimeoutEscalationTask(patientId, mlProbability, pendingCase.display, riskAssessmentId);
+    international401:Task task = buildTimeoutEscalationTask(patientId, mlProbability, pendingCase.display, riskAssessmentId, pendingCase.observationRefs);
     fhir:FHIRResponse|fhir:FHIRError saveResult = ehrFhirConnector->create(task.toJson());
     if saveResult is fhir:FHIRError {
         log:printError("timeout escalation: failed to save Task to ehr-fhir-server", patientId = patientId, 'error = saveResult);
@@ -181,7 +181,8 @@ isolated function runEmergencyAnswersCycle(EmergencyAnswersRequest request, Pend
 
     international401:Task task = buildEscalationTask(
             request.patientId, pendingCase.heartRisk.probability, aiResponse, pendingCase.display,
-            descriptionResponse.description, mlRiskAssessmentId, agenticRiskAssessmentId);
+            descriptionResponse.description, mlRiskAssessmentId, agenticRiskAssessmentId,
+            pendingCase.observationRefs, request.questionnaireResponseId);
     fhir:FHIRResponse|fhir:FHIRError taskSaveResult = ehrFhirConnector->create(task.toJson());
     if taskSaveResult is fhir:FHIRError {
         log:printError("emergency-answers: failed to save Task to ehr-fhir-server", patientId = request.patientId, 'error = taskSaveResult);

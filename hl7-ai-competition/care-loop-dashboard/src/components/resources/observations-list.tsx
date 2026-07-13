@@ -1,5 +1,7 @@
 "use client";
 
+import type { ObservationSummary } from "@/app/api/patients/[id]/observations/route";
+
 import { useEffect, useState } from "react";
 
 import { FhirCard } from "@/components/resources/fhir-card";
@@ -8,15 +10,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 const OBSERVATIONS_POLL_INTERVAL_MS = 4_000;
 
-export interface ObservationDto {
-  id: string;
-  code: string;
-  value: string | null;
-  unit: string | null;
-  effectiveDateTime: string | null;
-}
+export type ObservationDto = ObservationSummary;
 
-export function ObservationsList({ patientId }: { patientId: string }) {
+export function ObservationsList({
+  patientId,
+  focusedRefs,
+}: {
+  patientId: string;
+  focusedRefs?: Set<string> | null;
+}) {
   const [observations, setObservations] = useState<ObservationDto[]>([]);
   const [loaded, setLoaded] = useState(false);
 
@@ -75,7 +77,9 @@ export function ObservationsList({ patientId }: { patientId: string }) {
                 ? new Date(observation.effectiveDateTime).toLocaleString()
                 : undefined
             }
-            raw={observation}
+            resourcePath={`Observation/${observation.id}`}
+            raw={observation.raw}
+            highlighted={focusedRefs?.has(`Observation/${observation.id}`)}
           >
             <p className="text-sm">
               {observation.value !== null

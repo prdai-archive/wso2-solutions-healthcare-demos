@@ -1,13 +1,15 @@
 "use client";
 
+import type { TaskSummary } from "@/app/api/patients/[id]/tasks/route";
 import type { OpsPatient } from "@/app/api/patients/route";
 import type { Run } from "@/lib/runs";
 
-import { FileQuestion, Loader2 } from "lucide-react";
+import { ArrowLeft, FileQuestion, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { AlertsList } from "@/components/alerts/alerts-list";
+import { AppHeader } from "@/components/app-header";
 import { ArchitectureView } from "@/components/architecture/architecture-view";
 import { PatientRoster } from "@/components/patient-roster";
 import { RunPicker } from "@/components/pipeline/run-picker";
@@ -18,8 +20,14 @@ import { ObservationsList } from "@/components/resources/observations-list";
 import { PatientHistory } from "@/components/resources/patient-history";
 import { QuestionnaireResponsesList } from "@/components/resources/questionnaire-responses-list";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const POLL_INTERVAL_MS = 4_000;
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  return ((parts[0]?.[0] ?? "") + (parts.at(-1)?.[0] ?? "")).toUpperCase();
+}
 
 export default function DashboardPage() {
   const [selected, setSelected] = useState<OpsPatient | undefined>(undefined);
@@ -28,6 +36,8 @@ export default function DashboardPage() {
   const [selectedRunId, setSelectedRunId] = useState<string | undefined>(undefined);
   const [selectedBoxKey, setSelectedBoxKey] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [focusedTask, setFocusedTask] = useState<TaskSummary | null>(null);
+  const [lastPollAt, setLastPollAt] = useState<number | null>(null);
   const prevPatientIdRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
@@ -41,6 +51,7 @@ export default function DashboardPage() {
         if (!cancelled) {
           setRuns(data.runs);
           setRunsLoaded(true);
+          setLastPollAt(Date.now());
         }
       } catch (error) {
         console.error("failed to poll patient runs", error);
@@ -77,6 +88,18 @@ export default function DashboardPage() {
     setSelectedBoxKey(null);
   }
 
+  function selectPatient(patient: OpsPatient) {
+    setSelected(patient);
+    setRuns([]);
+    setRunsLoaded(false);
+    setFocusedTask(null);
+  }
+
+  function backToPatients() {
+    setSelected(undefined);
+    setFocusedTask(null);
+  }
+
   async function generateQuestionnaire() {
     if (!selected) return;
     setSending(true);
@@ -101,38 +124,53 @@ export default function DashboardPage() {
     }
   }
 
+  const focusedRefs = focusedTask ? new Set(focusedTask.basedOn) : null;
+
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div className="space-y-1">
-          <h1 className="text-[21px] font-bold tracking-tight">Care Loop Patient Dashboard</h1>
-          <p className="max-w-2xl text-[13px] leading-relaxed text-muted-foreground">
-            Select a patient to see their <strong className="font-semibold text-foreground/80">latest Care Loop
-            run</strong> against the architecture, along with their alerts, vitals, questionnaire responses, ML
-            and agentic risk predictions, and clinical history. Click a box in the diagram to inspect its payload.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="flex items-center gap-2 whitespace-nowrap rounded-full border border-border bg-muted/60 px-3 py-1.5 text-[12px] font-medium text-muted-foreground">
-            <span className="size-1.5 shrink-0 animate-canvas-soft-pulse rounded-full bg-foreground" />
-            Live · polling every {POLL_INTERVAL_MS / 1000}s
-          </span>
-          <Button onClick={generateQuestionnaire} disabled={!selected || sending} variant="outline" size="sm">
-            {sending ? <Loader2 className="size-4 animate-spin" /> : <FileQuestion className="size-4" />}
-            Trigger questionnaire (demo)
-          </Button>
-        </div>
-      </div>
+    <div className="flex min-h-screen flex-1 flex-col">
+      <AppHeader lastPollAt={lastPollAt} />
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 lg:grid-cols-[252px_minmax(0,1fr)]">
-        <div className="min-h-[240px] lg:min-h-0">
-          <PatientRoster selectedId={selected?.id} onSelect={setSelected} />
-        </div>
+      {!selected ? (
+        <PatientRoster onSelect={selectPatient} />
+      ) : (
+        <div className="flex flex-1 flex-col gap-5 p-4 md:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={backToPatients}
+                className="flex size-8 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground"
+              >
+                <ArrowLeft className="size-4" />
+              </button>
+              <span className="flex size-9 items-center justify-center rounded-full bg-foreground text-[12px] font-bold text-background">
+                {initials(selected.name)}
+              </span>
+              <div>
+                <div className="text-[15px] font-bold leading-tight">{selected.name}</div>
+                <div className="text-[11.5px] text-muted-foreground">
+                  {selected.gender ? selected.gender.charAt(0).toUpperCase() + selected.gender.slice(1) : "Unknown sex"}
+                  {selected.birthDate ? ` · DOB ${selected.birthDate}` : ""}
+                  {" · "}
+                  <span className="font-mono">Patient/{selected.id}</span>
+                </div>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="flex items-center gap-2 whitespace-nowrap rounded-full border border-border bg-muted/60 px-3 py-1.5 text-[12px] font-medium text-muted-foreground">
+                <span className="size-1.5 shrink-0 animate-canvas-soft-pulse rounded-full bg-foreground" />
+                Live · polling every {POLL_INTERVAL_MS / 1000}s
+              </span>
+              <Button onClick={generateQuestionnaire} disabled={sending} variant="outline" size="sm">
+                {sending ? <Loader2 className="size-4 animate-spin" /> : <FileQuestion className="size-4" />}
+                Trigger questionnaire (demo)
+              </Button>
+            </div>
+          </div>
 
-        <div className="min-h-0">
-          {!selected || !runsLoaded ? (
+          {!runsLoaded ? (
             <div className="flex h-full min-h-[300px] items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">
-              {selected ? "Loading patient history…" : "Select a patient to view their dashboard."}
+              Loading patient history…
             </div>
           ) : !activeRun ? (
             <div className="flex h-full min-h-[300px] items-center justify-center rounded-lg border border-dashed text-center text-sm text-muted-foreground">
@@ -141,49 +179,70 @@ export default function DashboardPage() {
               The pipeline hasn't run for this patient yet.
             </div>
           ) : (
-            <div className="flex flex-col gap-5">
+            <>
+              <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+                <div className="min-w-0">
+                  <RunPicker runs={runs} selectedRunId={activeRun.id} onSelectRunId={selectRun} />
+                  <ArchitectureView run={activeRun} selectedBoxKey={selectedBoxKey} onSelectBox={setSelectedBoxKey} />
+                </div>
+                <div className="rounded-2xl border border-border p-3.5 lg:h-full">
+                  <AlertsList
+                    patientId={selected.id}
+                    focusedTaskId={focusedTask?.id ?? null}
+                    onFocus={setFocusedTask}
+                    onLoaded={setLastPollAt}
+                  />
+                </div>
+              </div>
+
+              {focusedTask ? (
+                <div className="flex items-center justify-between rounded-xl border border-border bg-foreground/[0.03] px-3.5 py-2 text-[12.5px]">
+                  <span>
+                    Showing evidence for <span className="font-mono">Task/{focusedTask.id}</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setFocusedTask(null)}
+                    className="rounded-md border border-border px-2 py-0.5 text-[11.5px] font-medium hover:border-foreground/40"
+                  >
+                    Clear filter
+                  </button>
+                </div>
+              ) : null}
+
+              <Tabs defaultValue="vitals">
+                <TabsList>
+                  <TabsTrigger value="vitals">Vitals</TabsTrigger>
+                  <TabsTrigger value="questionnaires">Questionnaires</TabsTrigger>
+                  <TabsTrigger value="ml">ML predictions</TabsTrigger>
+                  <TabsTrigger value="agentic">Agentic predictions</TabsTrigger>
+                </TabsList>
+                <TabsContent value="vitals">
+                  <ObservationsList patientId={selected.id} focusedRefs={focusedRefs} />
+                </TabsContent>
+                <TabsContent value="questionnaires">
+                  <QuestionnaireResponsesList patientId={selected.id} focusedRefs={focusedRefs} />
+                </TabsContent>
+                <TabsContent value="ml">
+                  <MlPredictionsList patientId={selected.id} focusedRefs={focusedRefs} />
+                </TabsContent>
+                <TabsContent value="agentic">
+                  <AgenticPredictionsList patientId={selected.id} focusedRefs={focusedRefs} />
+                </TabsContent>
+              </Tabs>
+
               <div>
-                <RunPicker runs={runs} selectedRunId={activeRun.id} onSelectRunId={selectRun} />
-                <ArchitectureView
-                  run={activeRun}
-                  selectedBoxKey={selectedBoxKey}
-                  onSelectBox={setSelectedBoxKey}
-                />
+                <h2 className="mb-2 text-[13px] font-semibold">Patient record</h2>
+                <PatientHistory patientId={selected.id} />
               </div>
-
-              <div className="rounded-2xl border border-border p-4">
-                <h2 className="mb-2 text-[13px] font-semibold">Alerts</h2>
-                <AlertsList patientId={selected.id} />
-              </div>
-
-              <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-                <div className="rounded-2xl border border-border p-4">
-                  <h2 className="mb-2 text-[13px] font-semibold">Vitals</h2>
-                  <ObservationsList patientId={selected.id} />
-                </div>
-                <div className="rounded-2xl border border-border p-4">
-                  <h2 className="mb-2 text-[13px] font-semibold">Questionnaires</h2>
-                  <QuestionnaireResponsesList patientId={selected.id} />
-                </div>
-                <div className="rounded-2xl border border-border p-4">
-                  <h2 className="mb-2 text-[13px] font-semibold">ML predictions</h2>
-                  <MlPredictionsList patientId={selected.id} />
-                </div>
-                <div className="rounded-2xl border border-border p-4">
-                  <h2 className="mb-2 text-[13px] font-semibold">Agentic predictions</h2>
-                  <AgenticPredictionsList patientId={selected.id} />
-                </div>
-                <div className="rounded-2xl border border-border p-4 lg:col-span-2">
-                  <h2 className="mb-2 text-[13px] font-semibold">History</h2>
-                  <PatientHistory patientId={selected.id} />
-                </div>
-              </div>
-            </div>
+            </>
           )}
         </div>
-      </div>
+      )}
 
-      <RequestLogPanel />
+      <div className="p-4 pt-0 md:p-6 md:pt-0">
+        <RequestLogPanel />
+      </div>
     </div>
   );
 }

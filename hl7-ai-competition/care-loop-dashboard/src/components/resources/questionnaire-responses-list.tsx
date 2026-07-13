@@ -1,5 +1,7 @@
 "use client";
 
+import type { QuestionnaireResponseSummary } from "@/app/api/patients/[id]/questionnaire-responses/route";
+
 import { useEffect, useState } from "react";
 
 import { FhirCard } from "@/components/resources/fhir-card";
@@ -8,19 +10,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 const QUESTIONNAIRE_RESPONSES_POLL_INTERVAL_MS = 4_000;
 
-export interface QuestionnaireAnswerDto {
-  question: string;
-  answer: string;
-}
+export type QuestionnaireResponseDto = QuestionnaireResponseSummary;
 
-export interface QuestionnaireResponseDto {
-  id: string;
-  questionnaireTitle: string | null;
-  authored: string | null;
-  answers: QuestionnaireAnswerDto[];
-}
-
-export function QuestionnaireResponsesList({ patientId }: { patientId: string }) {
+export function QuestionnaireResponsesList({
+  patientId,
+  focusedRefs,
+}: {
+  patientId: string;
+  focusedRefs?: Set<string> | null;
+}) {
   const [responses, setResponses] = useState<QuestionnaireResponseDto[]>([]);
   const [loaded, setLoaded] = useState(false);
 
@@ -83,7 +81,9 @@ export function QuestionnaireResponsesList({ patientId }: { patientId: string })
                 ? new Date(response.authored).toLocaleString()
                 : undefined
             }
-            raw={response}
+            resourcePath={`QuestionnaireResponse/${response.id}`}
+            raw={response.raw}
+            highlighted={focusedRefs?.has(`QuestionnaireResponse/${response.id}`)}
           >
             {response.answers.length === 0 ? (
               <p className="text-sm text-muted-foreground">No answers recorded.</p>

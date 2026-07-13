@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 
+import { FhirDrawerProvider } from "@/components/resources/fhir-drawer";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
@@ -35,9 +36,9 @@ export default function RootLayout({
     >
       <body className="flex min-h-screen flex-col">
         <TooltipProvider delayDuration={200}>
-          <div className="flex flex-1 flex-col gap-4 p-4 md:p-6">
-            {children}
-          </div>
+          <FhirDrawerProvider>
+            <div className="flex flex-1 flex-col">{children}</div>
+          </FhirDrawerProvider>
         </TooltipProvider>
         <Toaster position="bottom-right" />
       </body>

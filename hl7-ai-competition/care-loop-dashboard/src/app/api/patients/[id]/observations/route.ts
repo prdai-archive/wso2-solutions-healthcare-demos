@@ -13,6 +13,7 @@ export interface ObservationSummary {
   value: string | null;
   unit: string | null;
   effectiveDateTime: string | null;
+  raw: Observation;
 }
 
 function toObservationSummary(observation: Observation): ObservationSummary {
@@ -26,6 +27,7 @@ function toObservationSummary(observation: Observation): ObservationSummary {
     value: quantity?.value !== undefined ? String(quantity.value) : null,
     unit: quantity?.unit ?? null,
     effectiveDateTime: observation.effectiveDateTime ?? null,
+    raw: observation,
   };
 }
 

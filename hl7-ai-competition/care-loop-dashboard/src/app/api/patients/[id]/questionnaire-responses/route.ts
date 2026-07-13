@@ -21,6 +21,7 @@ export interface QuestionnaireResponseSummary {
   questionnaireTitle: string | null;
   authored: string | null;
   answers: QuestionnaireResponseAnswer[];
+  raw: QuestionnaireResponse;
 }
 
 function findTitle(items: QuestionnaireResponseItem[]): string | null {
@@ -72,6 +73,7 @@ function toQuestionnaireResponseSummary(
     questionnaireTitle: findTitle(items),
     authored: response.authored ?? response.meta?.lastUpdated ?? null,
     answers: collectAnswers(items),
+    raw: response,
   };
 }
 

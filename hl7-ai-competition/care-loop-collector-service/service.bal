@@ -66,10 +66,13 @@ service / on new http:Listener(listenPort) {
             return <http:BadGateway>{body: {message: "failed to save QuestionnaireResponse: " + saveResult.message()}};
         }
 
+        string? fhirId = extractFhirId(saveResult);
+
         if session.emergency {
             EmergencyAnswersNotification notification = {
                 patientId: session.patientId,
-                answers: buildEmergencyAnswers(callback)
+                answers: buildEmergencyAnswers(callback),
+                questionnaireResponseId: fhirId
             };
             http:Response|http:ClientError notifyResult = analysisClient->post("/emergency-answers", notification);
             if notifyResult is http:ClientError {
@@ -78,7 +81,6 @@ service / on new http:Listener(listenPort) {
             }
         }
 
-        string? fhirId = extractFhirId(saveResult);
         return <http:Created>{body: {saved: true, fhirId}};
     }
 }

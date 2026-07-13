@@ -1,5 +1,7 @@
 "use client";
 
+import type { RiskAssessmentSummary } from "@/app/api/patients/[id]/risk-assessments/route";
+
 import { useEffect, useState } from "react";
 
 import { FhirCard } from "@/components/resources/fhir-card";
@@ -10,20 +12,15 @@ const AGENTIC_PREDICTIONS_POLL_INTERVAL_MS = 4_000;
 
 const AGENTIC_METHOD_MARKER = "ai-service";
 
-export interface AgenticPredictionDto {
-  probability: number | null;
-  rationale: string | null;
-}
+export type AgenticRiskAssessmentDto = RiskAssessmentSummary;
 
-export interface AgenticRiskAssessmentDto {
-  id: string;
-  method: string | null;
-  note: string | null;
-  occurrenceDateTime: string | null;
-  predictions: AgenticPredictionDto[];
-}
-
-export function AgenticPredictionsList({ patientId }: { patientId: string }) {
+export function AgenticPredictionsList({
+  patientId,
+  focusedRefs,
+}: {
+  patientId: string;
+  focusedRefs?: Set<string> | null;
+}) {
   const [riskAssessments, setRiskAssessments] = useState<AgenticRiskAssessmentDto[]>([]);
   const [loaded, setLoaded] = useState(false);
 
@@ -90,7 +87,9 @@ export function AgenticPredictionsList({ patientId }: { patientId: string }) {
                 ? new Date(riskAssessment.occurrenceDateTime).toLocaleString()
                 : undefined
             }
-            raw={riskAssessment}
+            resourcePath={`RiskAssessment/${riskAssessment.id}`}
+            raw={riskAssessment.raw}
+            highlighted={focusedRefs?.has(`RiskAssessment/${riskAssessment.id}`)}
           >
             <div className="space-y-2.5">
               <p className="whitespace-pre-wrap text-sm leading-relaxed">

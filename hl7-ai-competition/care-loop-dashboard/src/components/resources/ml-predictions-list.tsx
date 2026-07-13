@@ -1,5 +1,7 @@
 "use client";
 
+import type { RiskAssessmentSummary } from "@/app/api/patients/[id]/risk-assessments/route";
+
 import { useEffect, useState } from "react";
 
 import { FhirCard } from "@/components/resources/fhir-card";
@@ -10,20 +12,15 @@ const ML_PREDICTIONS_POLL_INTERVAL_MS = 4_000;
 
 const ML_METHOD_MARKER = "heart-risk-service";
 
-export interface MlPredictionDto {
-  probability: number | null;
-  rationale: string | null;
-}
+export type MlRiskAssessmentDto = RiskAssessmentSummary;
 
-export interface MlRiskAssessmentDto {
-  id: string;
-  method: string | null;
-  note: string | null;
-  occurrenceDateTime: string | null;
-  predictions: MlPredictionDto[];
-}
-
-export function MlPredictionsList({ patientId }: { patientId: string }) {
+export function MlPredictionsList({
+  patientId,
+  focusedRefs,
+}: {
+  patientId: string;
+  focusedRefs?: Set<string> | null;
+}) {
   const [riskAssessments, setRiskAssessments] = useState<MlRiskAssessmentDto[]>([]);
   const [loaded, setLoaded] = useState(false);
 
@@ -90,7 +87,9 @@ export function MlPredictionsList({ patientId }: { patientId: string }) {
                 ? new Date(riskAssessment.occurrenceDateTime).toLocaleString()
                 : undefined
             }
-            raw={riskAssessment}
+            resourcePath={`RiskAssessment/${riskAssessment.id}`}
+            raw={riskAssessment.raw}
+            highlighted={focusedRefs?.has(`RiskAssessment/${riskAssessment.id}`)}
           >
             <div className="space-y-2.5">
               {riskAssessment.predictions.length > 0 ? (

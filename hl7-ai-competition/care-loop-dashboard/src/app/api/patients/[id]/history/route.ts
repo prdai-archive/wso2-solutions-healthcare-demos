@@ -16,18 +16,21 @@ export interface ConditionSummary {
   id: string;
   code: string;
   onsetDateTime: string | null;
+  raw: Condition;
 }
 
 export interface MedicationSummary {
   id: string;
   medication: string;
   status: string | null;
+  raw: MedicationRequest;
 }
 
 export interface AllergySummary {
   id: string;
   substance: string;
   reaction: string | null;
+  raw: AllergyIntolerance;
 }
 
 function toConditionSummary(condition: Condition): ConditionSummary {
@@ -38,6 +41,7 @@ function toConditionSummary(condition: Condition): ConditionSummary {
     id: condition.id ?? "",
     code,
     onsetDateTime: condition.onsetDateTime ?? null,
+    raw: condition,
   };
 }
 
@@ -52,6 +56,7 @@ function toMedicationSummary(request: MedicationRequest): MedicationSummary {
     id: request.id ?? "",
     medication,
     status: request.status ?? null,
+    raw: request,
   };
 }
 
@@ -65,6 +70,7 @@ function toAllergySummary(allergy: AllergyIntolerance): AllergySummary {
     id: allergy.id ?? "",
     substance,
     reaction,
+    raw: allergy,
   };
 }
 

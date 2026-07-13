@@ -18,6 +18,7 @@ export interface RiskAssessmentSummary {
   note: string | null;
   occurrenceDateTime: string | null;
   predictions: RiskAssessmentPredictionSummary[];
+  raw: RiskAssessment;
 }
 
 function toRiskAssessmentSummary(
@@ -42,6 +43,7 @@ function toRiskAssessmentSummary(
     note,
     occurrenceDateTime: assessment.occurrenceDateTime ?? assessment.meta?.lastUpdated ?? null,
     predictions,
+    raw: assessment,
   };
 }
 

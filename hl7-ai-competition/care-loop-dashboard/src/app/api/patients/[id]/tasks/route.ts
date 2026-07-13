@@ -13,6 +13,16 @@ export interface TaskSummary {
   authoredOn: string | null;
   status: string;
   priority: string | null;
+  basedOn: string[];
+  raw: Task;
+}
+
+// Reference strings can be relative ("Observation/123") or absolute (server URL + "/RiskAssessment/123") —
+// evidence-linking only cares about the resourceType/id suffix, so normalize to that.
+function referenceSuffix(reference: string | undefined): string | null {
+  if (!reference) return null;
+  const match = reference.match(/([A-Z]+\/[^/]+)$/i);
+  return match ? match[1]! : null;
 }
 
 function toTaskSummary(task: Task): TaskSummary {
@@ -24,12 +34,18 @@ function toTaskSummary(task: Task): TaskSummary {
           .join(" ")
       : null;
 
+  const basedOn = (task.basedOn ?? [])
+    .map((ref) => referenceSuffix(ref.reference))
+    .filter((ref): ref is string => ref !== null);
+
   return {
     id: task.id ?? "",
     description: task.description ?? noteText ?? null,
     authoredOn: task.authoredOn ?? task.meta?.lastUpdated ?? null,
     status: task.status,
     priority: task.priority ?? null,
+    basedOn,
+    raw: task,
   };
 }
 

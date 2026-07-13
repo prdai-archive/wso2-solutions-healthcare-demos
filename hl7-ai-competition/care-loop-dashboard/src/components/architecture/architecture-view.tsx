@@ -11,11 +11,15 @@ import {
   Database,
   FileText,
   Loader2,
+  Maximize2,
   MessageSquare,
+  Minus,
+  Plus,
   Smartphone,
   Stethoscope,
   User,
 } from "lucide-react";
+import { useCallback, useRef, useState } from "react";
 
 import { ArchitectureDetailPanel } from "@/components/architecture/architecture-detail-panel";
 import { ARCHITECTURE_BOXES } from "@/lib/architecture";
@@ -138,9 +142,20 @@ function FlowArrow({ label }: { label?: string }) {
   return (
     <div className="flex shrink-0 flex-col items-center justify-center gap-1 px-1.5">
       {label ? <span className="text-[10px] text-muted-foreground/60">{label}</span> : null}
-      <ArrowRight className="size-4 text-muted-foreground/40" />
+      <span className="relative h-4 w-6 overflow-hidden">
+        <ArrowRight className="size-4 text-muted-foreground/40" />
+        <span className="absolute top-1/2 left-0 size-1 -translate-y-1/2 rounded-full bg-foreground/50 animate-canvas-flow-dot-h" />
+      </span>
     </div>
   );
+}
+
+const ZOOM_MIN = 0.6;
+const ZOOM_MAX = 1.6;
+const ZOOM_STEP = 0.15;
+
+function clampZoom(z: number): number {
+  return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
 }
 
 export function ArchitectureView({
@@ -161,68 +176,153 @@ export function ArchitectureView({
       ? "done"
       : "pending";
 
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const dragStateRef = useRef<{ startX: number; startY: number; panX: number; panY: number } | null>(null);
+  const [dragging, setDragging] = useState(false);
+
+  const resetView = useCallback(() => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  }, []);
+
+  function onPointerDown(e: React.PointerEvent) {
+    dragStateRef.current = { startX: e.clientX, startY: e.clientY, panX: pan.x, panY: pan.y };
+    setDragging(true);
+    (e.target as Element).setPointerCapture?.(e.pointerId);
+  }
+
+  function onPointerMove(e: React.PointerEvent) {
+    if (!dragStateRef.current) return;
+    const dx = e.clientX - dragStateRef.current.startX;
+    const dy = e.clientY - dragStateRef.current.startY;
+    setPan({ x: dragStateRef.current.panX + dx, y: dragStateRef.current.panY + dy });
+  }
+
+  function onPointerUp() {
+    dragStateRef.current = null;
+    setDragging(false);
+  }
+
+  function onWheel(e: React.WheelEvent) {
+    if (!e.ctrlKey) return;
+    e.preventDefault();
+    setZoom((z) => clampZoom(z - e.deltaY * 0.0015));
+  }
+
   return (
     <div className="flex flex-col gap-5">
-      <div className="overflow-x-auto rounded-2xl border border-border bg-muted/40 p-6 shadow-inner">
-        <div className="flex min-w-max items-center gap-0">
-          <ActorBox boxKey="patient" />
-          <FlowArrow />
+      <div className="relative overflow-hidden rounded-2xl border border-border canvas-dotted-grid bg-muted/20 shadow-inner">
+        <span className="absolute top-3 left-3 z-10 rounded-full border border-border bg-background/90 px-2.5 py-1 text-[10.5px] font-semibold text-muted-foreground">
+          System architecture
+        </span>
 
-          <div className="flex flex-col gap-3">
-            <PipelineBox boxKey="apple-health" run={run} selected={selectedBoxKey === "apple-health"} onSelect={onSelectBox} />
-            <PipelineBox boxKey="whatsapp-agent" run={run} selected={selectedBoxKey === "whatsapp-agent"} onSelect={onSelectBox} />
-          </div>
-          <FlowArrow label="Predict / Evaluate" />
-
-          <div
-            className={cn(
-              "flex flex-col gap-3 rounded-2xl border-2 border-dashed p-4",
-              decisionEngineStatus === "done" && "border-foreground/40 bg-foreground/[0.03]",
-              decisionEngineStatus === "active" && "border-foreground/60 bg-foreground/[0.03]",
-              decisionEngineStatus === "pending" && "border-border/70",
-            )}
+        <div className="absolute top-3 right-3 z-10 flex items-center gap-0.5 rounded-full border border-border bg-background/90 p-0.5">
+          <button
+            type="button"
+            onClick={() => setZoom((z) => clampZoom(z - ZOOM_STEP))}
+            className="flex size-6 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
           >
-            <span className="text-[10.5px] font-bold tracking-wide text-muted-foreground uppercase">
-              Decision Engine
-            </span>
+            <Minus className="size-3.5" />
+          </button>
+          <span className="w-9 text-center text-[10.5px] font-medium text-muted-foreground">
+            {Math.round(zoom * 100)}%
+          </span>
+          <button
+            type="button"
+            onClick={() => setZoom((z) => clampZoom(z + ZOOM_STEP))}
+            className="flex size-6 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            <Plus className="size-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={resetView}
+            className="ml-0.5 flex size-6 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+            title="Fit"
+          >
+            <Maximize2 className="size-3.5" />
+          </button>
+        </div>
+
+        <span className="absolute bottom-3 left-3 z-10 text-[10.5px] text-muted-foreground/50">
+          Drag to pan · Ctrl+scroll to zoom
+        </span>
+
+        <div
+          className={cn("overflow-hidden p-6", dragging ? "cursor-grabbing" : "cursor-grab")}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerLeave={onPointerUp}
+          onWheel={onWheel}
+        >
+          <div
+            className="flex min-w-max items-center gap-0 transition-transform"
+            style={{
+              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+              transformOrigin: "top left",
+            }}
+          >
+            <ActorBox boxKey="patient" />
+            <FlowArrow />
+
             <div className="flex flex-col gap-3">
-              <PipelineBox boxKey="ml-model" run={run} selected={selectedBoxKey === "ml-model"} onSelect={onSelectBox} className="w-[176px]" />
-              <PipelineBox
-                boxKey="clinical-analysis-agent"
-                run={run}
-                selected={selectedBoxKey === "clinical-analysis-agent"}
-                onSelect={onSelectBox}
-                className="w-[176px]"
-              />
-              <PipelineBox
-                boxKey="deterministic-rules"
-                run={run}
-                selected={selectedBoxKey === "deterministic-rules"}
-                onSelect={onSelectBox}
-                className="w-[176px]"
-              />
+              <PipelineBox boxKey="apple-health" run={run} selected={selectedBoxKey === "apple-health"} onSelect={onSelectBox} />
+              <PipelineBox boxKey="whatsapp-agent" run={run} selected={selectedBoxKey === "whatsapp-agent"} onSelect={onSelectBox} />
             </div>
-          </div>
-          <FlowArrow label="Upon Alert" />
+            <FlowArrow label="Predict / Evaluate" />
 
-          <PipelineBox boxKey="fhir-converter" run={run} selected={selectedBoxKey === "fhir-converter"} onSelect={onSelectBox} />
-          <FlowArrow />
+            <div
+              className={cn(
+                "flex flex-col gap-3 rounded-2xl border-2 border-dashed p-4",
+                decisionEngineStatus === "done" && "border-foreground/40 bg-foreground/[0.03]",
+                decisionEngineStatus === "active" && "border-foreground/60 bg-foreground/[0.03]",
+                decisionEngineStatus === "pending" && "border-border/70",
+              )}
+            >
+              <span className="text-[10.5px] font-bold tracking-wide text-muted-foreground uppercase">
+                Decision Engine
+              </span>
+              <div className="flex flex-col gap-3">
+                <PipelineBox boxKey="ml-model" run={run} selected={selectedBoxKey === "ml-model"} onSelect={onSelectBox} className="w-[176px]" />
+                <PipelineBox
+                  boxKey="clinical-analysis-agent"
+                  run={run}
+                  selected={selectedBoxKey === "clinical-analysis-agent"}
+                  onSelect={onSelectBox}
+                  className="w-[176px]"
+                />
+                <PipelineBox
+                  boxKey="deterministic-rules"
+                  run={run}
+                  selected={selectedBoxKey === "deterministic-rules"}
+                  onSelect={onSelectBox}
+                  className="w-[176px]"
+                />
+              </div>
+            </div>
+            <FlowArrow label="Upon Alert" />
 
-          <PipelineBox
-            boxKey="notification-ehr-integration"
-            run={run}
-            selected={selectedBoxKey === "notification-ehr-integration"}
-            onSelect={onSelectBox}
-            className="w-[210px]"
-          />
-          <FlowArrow />
+            <PipelineBox boxKey="fhir-converter" run={run} selected={selectedBoxKey === "fhir-converter"} onSelect={onSelectBox} />
+            <FlowArrow />
 
-          <PipelineBox boxKey="front-desk" run={run} selected={selectedBoxKey === "front-desk"} onSelect={onSelectBox} />
-          <FlowArrow label="Notify" />
+            <PipelineBox
+              boxKey="notification-ehr-integration"
+              run={run}
+              selected={selectedBoxKey === "notification-ehr-integration"}
+              onSelect={onSelectBox}
+              className="w-[210px]"
+            />
+            <FlowArrow />
 
-          <div className="flex flex-col gap-3">
-            <ActorBox boxKey="doctor" />
-            <ActorBox boxKey="ehr" />
+            <PipelineBox boxKey="front-desk" run={run} selected={selectedBoxKey === "front-desk"} onSelect={onSelectBox} />
+            <FlowArrow label="Notify" />
+
+            <div className="flex flex-col gap-3">
+              <ActorBox boxKey="doctor" />
+              <ActorBox boxKey="ehr" />
+            </div>
           </div>
         </div>
       </div>

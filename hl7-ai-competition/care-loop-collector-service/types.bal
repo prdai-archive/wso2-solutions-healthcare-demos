@@ -136,7 +136,10 @@ public type EmergencyAnswer record {|
 
 # + patientId - the FHIR Patient id these answers are for
 # + answers - the flattened question/answer pairs from the emergency questionnaire transcript
+# + questionnaireResponseId - the FHIR id of the QuestionnaireResponse just saved, so analysis-service
+#   can reference it from the Task it builds if this escalates
 public type EmergencyAnswersNotification record {|
     string patientId;
     EmergencyAnswer[] answers;
+    string? questionnaireResponseId;
 |};

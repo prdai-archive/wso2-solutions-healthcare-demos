@@ -201,3 +201,38 @@
 .animate-canvas-fade-up {
   animation: canvas-fade-up 0.25s ease-out;
 }
+
+@keyframes canvas-drawer-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+.animate-canvas-drawer-in {
+  animation: canvas-drawer-in 0.22s ease-out;
+}
+
+@keyframes canvas-card-lift {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-canvas-card-lift {
+  animation: canvas-card-lift 0.2s ease-out;
+}
+
+.animate-canvas-flow-dot-h {
+  animation: canvas-flow-dot-h 1.8s linear infinite;
+}
+
+.canvas-dotted-grid {
+  background-image: radial-gradient(circle, var(--border) 1px, transparent 1px);
+  background-size: 18px 18px;
+}

@@ -155,6 +155,7 @@ service:
       processors: [resource/openchoreo]
       exporters: [otlphttp/amp]
 EOF
+chmod 644 /amp-shared/otelcol-config.yaml
 log "Wrote otel-collector config to /amp-shared/otelcol-config.yaml"
 
 log "Registration complete"

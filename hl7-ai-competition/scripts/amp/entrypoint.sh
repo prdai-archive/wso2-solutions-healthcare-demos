@@ -328,10 +328,12 @@ main() {
     apply_gateway_dnat
     touch "$READY_FILE"
     log "AMP ready. Console: http://localhost:13000 (admin/admin)."
-    # Reconcile both DNATs; their target pod IPs change on pod restart.
+    # Reconcile the DNATs (pod IPs change on restart) and the otel-route auth
+    # (a controller re-adds the jwt-auth policy the external collector can't satisfy).
     while docker info >/dev/null 2>&1; do
         apply_dns_dnat >/dev/null 2>&1 || true
         apply_gateway_dnat >/dev/null 2>&1 || true
+        disable_otel_trace_auth >/dev/null 2>&1 || true
         sleep 30
     done
     echo "dockerd exited" >&2

@@ -223,9 +223,13 @@ disable_otel_trace_auth() {
 
 install_amp_chart() {
     log "Installing AMP chart (hook jobs stripped)"
-    if helm status amp -n wso2-amp >/dev/null 2>&1; then
+    # install.sh's own AMP step leaves a "failed" release (its hook jobs need
+    # egress), so only skip on a genuinely deployed release; otherwise clear the
+    # failed one and install with the hook jobs stripped and secrets pre-created.
+    if helm status amp -n wso2-amp 2>/dev/null | grep -q '^STATUS: deployed$'; then
         echo "amp release present"
     else
+        helm uninstall amp -n wso2-amp >/dev/null 2>&1 || true
         rm -rf /tmp/chart && mkdir -p /tmp/chart
         helm pull oci://ghcr.io/wso2/wso2-agent-manager --version "$AMP_VERSION" --untar -d /tmp/chart
         rm -f /tmp/chart/wso2-agent-manager/templates/jobs/jwt-keys-generation-job.yaml \

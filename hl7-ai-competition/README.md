@@ -49,10 +49,11 @@ Earlier stages: [v1](assets/architecture-diagram-v1.png),
   tool itself to pull that patient's recent Observations, then drafts a FHIR
   `Questionnaire` (questions only, no answers) targeted at the vitals trend.
   Not wired into the rest of the loop yet — this is a standalone component
-  for now. In compose it runs against the WSO2 Agent Manager AI gateway and
-  MCP proxy with tracing on, via the tracked `Config.compose.toml` plus
-  `BAL_CONFIG_VAR_*` env vars (see the WSO2 Agent Manager section below); for
-  a standalone run, copy `Config.toml.example` to a gitignored `Config.toml`.
+  for now. In compose it runs its LLM calls through the WSO2 Agent Manager AI
+  gateway with tracing on (reaching fhir-mcp-server directly for MCP), via the
+  tracked `Config.compose.toml` plus `BAL_CONFIG_VAR_*` env vars (see the WSO2
+  Agent Manager section below); for a standalone run, copy `Config.toml.example`
+  to a gitignored `Config.toml`.
 
 - [care-loop-collector-service](care-loop-collector-service/) — standalone
   Ballerina bridge (port 8004). `POST /vitals` saves an incoming Observation
@@ -119,10 +120,10 @@ service, a docker-in-docker quick-start cluster whose state persists across
 restarts. The console is at http://localhost:13000 (admin/admin). Set
 `OPENAI_API_KEY` in a gitignored `hl7-ai-competition/.env`; the `amp-init`
 one-shot service then registers the `careloop-openai` LLM provider on the AI
-gateway, mints a gateway API key into a shared volume, and registers the FHIR
-MCP proxy. care-loop-ai-service starts after registration completes and routes
-its LLM calls through `http://amp:22893/careloop-openai` (gateway key sent as
-an `API-Key` header) and its MCP traffic through `http://amp:22893/fhir-mcp/mcp`.
+gateway, publishes it to the catalog, and mints a gateway API key into a shared
+volume. care-loop-ai-service starts after registration completes and routes its
+LLM calls through `http://amp:22893/careloop-openai` (gateway key sent as an
+`API-Key` header); its MCP traffic goes directly to fhir-mcp-server.
 Tracing is on in its compose config (`Config.compose.toml`): spans go over
 OTLP gRPC to the `otel-collector` service, which forwards them to the AMP otel
 ingest (`${AMP_OTEL_ENDPOINT}/v1/traces`, default `http://amp:22893/otel`) with

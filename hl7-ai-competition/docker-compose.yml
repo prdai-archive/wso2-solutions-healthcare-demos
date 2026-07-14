@@ -232,11 +232,9 @@ services:
         - path: ./front-desk-dashboard/src
           action: rebuild
 
-  # WSO2 Agent Manager (AMP v0.18.0) quick-start: a privileged
-  # docker-in-docker container running the AMP k3d cluster, with the cluster
-  # state persisted in the amp-docker volume so restarts resume instead of
-  # reinstalling. Publishes the AMP API (9000), console (13000) and the AI
-  # gateway plus otel ingest (22893).
+  # WSO2 Agent Manager (AMP v0.18.0): docker-in-docker k3d cluster; state
+  # persists in amp-docker so restarts resume. Ports: API 9000, console 13000,
+  # gateway + otel ingest 22893.
   amp:
     build:
       context: ./scripts/amp
@@ -259,9 +257,8 @@ services:
       start_period: 45m
     restart: unless-stopped
 
-  # One-shot registration against amp: OpenAI LLM provider (upstream key from
-  # OPENAI_API_KEY in .env), gateway API key into the amp-shared volume, and
-  # the FHIR MCP proxy. Idempotent on re-runs.
+  # One-shot, idempotent registration: OpenAI LLM provider (published to the
+  # catalog) and a gateway API key into amp-shared.
   amp-init:
     image: ghcr.io/wso2/amp-quick-start:v0.18.0
     container_name: amp-init
@@ -276,9 +273,7 @@ services:
         condition: service_healthy
     restart: "no"
 
-  # Bridges Ballerina's OTLP gRPC span export (no header support) to WSO2
-  # Agent Manager's OTLP/HTTP otel ingest, which requires an x-amp-api-key
-  # header. Idle unless tracing is enabled in a service's Config.toml.
+  # Bridges Ballerina OTLP/gRPC span export to AMP's OTLP/HTTP otel ingest.
   otel-collector:
     image: otel/opentelemetry-collector:0.128.0
     container_name: otel-collector
@@ -286,8 +281,7 @@ services:
     environment:
       AMP_OTEL_ENDPOINT: "${AMP_OTEL_ENDPOINT:-http://amp:22893/otel}"
       AMP_AGENT_API_KEY: "${AMP_AGENT_API_KEY:-}"
-      # OpenChoreo identity that scopes traces to the registered external agent
-      # in the AMP console; instance-specific, supplied via .env (gitignored).
+      # OpenChoreo identity (instance-specific) scoping traces to the agent.
       OC_PROJECT_UID: "${OC_PROJECT_UID:-}"
       OC_COMPONENT_UID: "${OC_COMPONENT_UID:-}"
       OC_ENVIRONMENT_UID: "${OC_ENVIRONMENT_UID:-}"
@@ -308,8 +302,7 @@ services:
     environment:
       BAL_CONFIG_VAR_USEAMPGATEWAY: "true"
       BAL_CONFIG_VAR_OPENAISERVICEURL: "http://amp:22893/careloop-openai"
-      # MCP goes direct to the FHIR MCP server: the gateway pod (in k3d) cannot
-      # reach this compose-network service, so the MCP proxy is bypassed here.
+      # MCP direct to the FHIR server (the k3d gateway can't reach this compose service).
       BAL_CONFIG_VAR_FHIRMCPURL: "http://fhir-mcp-server:8000/mcp"
     volumes:
       - ./care-loop-ai-service/Config.compose.toml:/home/ballerina/Config.toml:ro

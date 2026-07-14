@@ -12,12 +12,6 @@ openAiApiKey = "your-openai-api-key"
 # useAmpGateway = true
 # openAiServiceUrl = "https://api.openai.com/v1"
 
-# AMP MCP proxy: to route FHIR MCP traffic through the Agent Manager gateway
-# for governance, point fhirMcpUrl at the proxy and set fhirMcpAuthToken to the
-# gateway token (sent as a Bearer header). An empty token calls the MCP server
-# directly.
-# fhirMcpAuthToken = "your-gateway-mcp-token"
-
 # OpenTelemetry tracing to WSO2 Agent Manager (AMP): the jaeger provider
 # exports OTLP over gRPC (no headers), so spans go to the otel-collector
 # sidecar, which forwards them over OTLP/HTTP to AMP's otel ingest at

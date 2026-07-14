@@ -122,7 +122,7 @@ apply_dns_dnat() {
 apply_gateway_dnat() {
     # The gateway-runtime service is ClusterIP with no hostPort/NodePort, so the
     # k3d serverlb's forward to node:22893 dead-ends. DNAT it straight to the
-    # gateway-runtime pod, which serves the AI gateway, MCP proxy, and OTel ingest.
+    # gateway-runtime pod, which serves the AI gateway and OTel ingest.
     local pip
     pip=$(kubectl get pod -n openchoreo-data-plane -l app.kubernetes.io/component=gateway-runtime \
         -o jsonpath='{.items[0].status.podIP}' 2>/dev/null) || return 0
@@ -324,20 +324,6 @@ fix_console_port() {
     kubectl rollout restart deploy -n "$tns"
 }
 
-start_controller_forward() {
-    # The gateway-controller REST API (:9090 in-cluster) is not exposed by
-    # k3d; amp-init registers the MCP proxy on it directly at amp:19090.
-    log "Starting gateway-controller port-forward on 0.0.0.0:19090"
-    (
-        while true; do
-            kubectl port-forward -n openchoreo-data-plane \
-                svc/api-platform-default-default-gateway-controller \
-                --address 0.0.0.0 19090:9090 >/dev/null 2>&1 || true
-            sleep 5
-        done
-    ) &
-}
-
 main() {
     rm -f "$READY_FILE"
     export HOME=/root
@@ -350,7 +336,6 @@ main() {
     # Console OAuth alignment is a host-port-13000 login convenience; a failure
     # here must not restart-loop the container or block the ready file.
     fix_console_port || log "console OAuth alignment failed (non-fatal); dashboard login redirect may need a manual fix"
-    start_controller_forward
     apply_gateway_dnat
     touch "$READY_FILE"
     log "AMP ready. Console: http://localhost:13000 (admin/admin)."

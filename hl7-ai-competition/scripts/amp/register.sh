@@ -1,9 +1,8 @@
 #!/bin/sh
 # Register the Care Loop resources in the compose-hosted Agent Manager:
 # the OpenAI LLM provider (deployed to the default AI gateway, upstream auth
-# from OPENAI_API_KEY), a gateway API key written to /amp-shared/gateway.key
-# for care-loop-ai-service, and the FHIR MCP proxy (registered directly on
-# the gateway controller; the AMP API refuses private-IP upstreams).
+# from OPENAI_API_KEY, published to the catalog) and a gateway API key written
+# to /amp-shared/gateway.key for care-loop-ai-service.
 # Idempotent: safe to re-run against an already-registered AMP.
 
 set -eu
@@ -11,8 +10,6 @@ set -eu
 API=${AMP_API_URL:-http://amp:9000}
 THUNDER=${AMP_THUNDER_URL:-http://amp:8080}
 GATEWAY=${AMP_GATEWAY_URL:-http://amp:22893}
-CONTROLLER=${AMP_GATEWAY_CONTROLLER_URL:-http://amp:19090}
-MCP_UPSTREAM=${AMP_MCP_UPSTREAM_URL:-http://fhir-mcp-server:8000/mcp}
 KEY_FILE=/amp-shared/gateway.key
 CURL="curl -s -m 30 --connect-timeout 5"
 SCOPES="amp:org:view amp:llm-provider:read amp:llm-provider:create amp:llm-provider:update amp:llm-provider:deploy amp:llm-provider:api-key-manage amp:gateway:read"
@@ -86,6 +83,13 @@ $CURL -f -X POST -H "Authorization: Bearer $TOK" -H "Content-Type: application/j
         '{name: $name, base: "current", gatewayId: $gw}')" >/dev/null
 log "Provider deployed"
 
+# Publish to the catalog (sets artifacts.in_catalog); without this the provider
+# is deployed but the console's LLM Providers/catalog view stays empty.
+$CURL -f -X PUT -H "Authorization: Bearer $TOK" -H "Content-Type: application/json" \
+    "$API/api/v1/orgs/default/llm-providers/$PROVIDER_UUID/catalog" \
+    -d '{"inCatalog":true}' >/dev/null
+log "Provider published to catalog"
+
 key_valid() {
     [ -s "$KEY_FILE" ] || return 1
     code=$($CURL -o /dev/null -w '%{http_code}' -H "API-Key: $(cat "$KEY_FILE")" \
@@ -108,31 +112,6 @@ else
     umask 077
     printf '%s' "$GW_KEY" > "$KEY_FILE"
     log "Gateway key written to $KEY_FILE"
-fi
-
-log "FHIR MCP proxy"
-if $CURL -f -u admin:admin "$CONTROLLER/mcp-proxies" | grep -q careloop-fhir-mcp; then
-    echo "careloop-fhir-mcp already registered"
-else
-    cat > /tmp/mcp.yaml <<EOF
-apiVersion: gateway.api-platform.wso2.com/v1alpha1
-kind: Mcp
-metadata:
-  name: careloop-fhir-mcp
-spec:
-  displayName: Care Loop FHIR MCP
-  version: v1.0
-  context: /fhir-mcp
-  specVersion: "2025-06-18"
-  upstream:
-    url: $MCP_UPSTREAM
-  tools: []
-  resources: []
-  prompts: []
-EOF
-    $CURL -f -u admin:admin -X POST -H "Content-Type: application/yaml" \
-        "$CONTROLLER/mcp-proxies" --data-binary @/tmp/mcp.yaml >/dev/null
-    echo "careloop-fhir-mcp registered"
 fi
 
 log "Registration complete"

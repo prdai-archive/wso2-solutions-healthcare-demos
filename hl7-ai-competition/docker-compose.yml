@@ -9,7 +9,7 @@ services:
     environment:
       HEALTHKIT_DATABASE_URL: "sqlite:///./data/healthkit.db"
       HEALTHKIT_VITALS_TARGET_URL: "http://care-loop-collector-service:8004/vitals"
-      # Demo-speed cadence (real default is hourly); forward window equals this interval so checks tile with no gaps/overlaps.
+      # Demo-speed cadence (real default hourly); forward window = interval so checks tile without gaps.
       HEALTHKIT_VITALS_FORWARD_INTERVAL_HOURS: "0.1"
     volumes:
       - healthkit-data:/app/data
@@ -232,9 +232,7 @@ services:
         - path: ./front-desk-dashboard/src
           action: rebuild
 
-  # WSO2 Agent Manager (AMP v0.18.0): docker-in-docker k3d cluster; state
-  # persists in amp-docker so restarts resume. Ports: API 9000, console 13000,
-  # gateway + otel ingest 22893.
+  # WSO2 Agent Manager (AMP v0.18.0): docker-in-docker k3d cluster, state in amp-docker. Ports: API 9000, console 13000, gateway + otel ingest 22893.
   amp:
     build:
       context: ./scripts/amp
@@ -257,9 +255,7 @@ services:
       start_period: 45m
     restart: unless-stopped
 
-  # One-shot, idempotent registration: OpenAI LLM provider (published to the
-  # catalog) and a gateway API key into amp-shared. register.sh only needs
-  # curl + jq, so it runs on a tiny alpine instead of the full AMP image.
+  # One-shot idempotent registration (provider, catalog, agent, gateway key into amp-shared); needs only curl + jq, so it runs on alpine not the AMP image.
   amp-init:
     image: alpine:3.20
     container_name: amp-init
@@ -274,8 +270,7 @@ services:
         condition: service_healthy
     restart: "no"
 
-  # Bridges Ballerina OTLP/gRPC span export to AMP's OTLP/HTTP otel ingest. Uses
-  # the config amp-init generates in amp-shared (with the resolved agent identity).
+  # Bridges Ballerina OTLP/gRPC spans to AMP's OTLP/HTTP otel ingest, using the identity-scoped config amp-init generates in amp-shared.
   otel-collector:
     image: otel/opentelemetry-collector:0.128.0
     container_name: otel-collector
@@ -287,9 +282,7 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
 
-  # Expose Thunder (login) and the observability API to the host so the browser
-  # console at :13000 can reach them. Also add "127.0.0.1 thunder.amp.localhost"
-  # to /etc/hosts for the OAuth redirect.
+  # Expose Thunder (login) and the observability API to the host for the browser console at :13000 (also add "127.0.0.1 thunder.amp.localhost" to /etc/hosts for the OAuth redirect).
   amp-thunder-fwd:
     image: alpine/socat
     container_name: amp-thunder-fwd

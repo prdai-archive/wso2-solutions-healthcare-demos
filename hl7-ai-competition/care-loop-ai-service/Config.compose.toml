@@ -1,7 +1,4 @@
-# Compose deployment config. Connection settings and secrets come from
-# environment variables (BAL_CONFIG_VAR_*) set in docker-compose.yml and the
-# entrypoint wrapper; only toml-only settings live here, since values in this
-# file would take precedence over the env vars.
+# Compose config: connection/secrets come from BAL_CONFIG_VAR_* env; only toml-only settings (tracing) live here.
 listenPort = 8003
 
 [ballerina.observe]

@@ -1,19 +1,15 @@
-# Standalone-run config; the compose deployment mounts Config.compose.toml and
-# wires AMP settings through BAL_CONFIG_VAR_* env vars.
+# Standalone-run config (compose uses Config.compose.toml + BAL_CONFIG_VAR_* env).
 fhirMcpUrl = "http://fhir-mcp-server:8000/mcp"
 listenPort = 8003
 
-# The service always calls the AMP egress gateway: openAiServiceUrl is the
-# gateway invoke URL and openAiApiKey is the gateway API key (sent as API-Key).
+# openAiServiceUrl = AMP gateway invoke URL; openAiApiKey = gateway API key.
 openAiServiceUrl = "http://localhost:22893/careloop-openai"
 openAiApiKey = "your-amp-gateway-key"
 
-# Optional model overrides.
 # nanoModel = "gpt-4.1-nano"
 # fullModel = "gpt-4.1"
 
-# OpenTelemetry tracing to AMP: spans export OTLP/gRPC to the otel-collector
-# sidecar, which forwards them to AMP's otel ingest. Off unless uncommented.
+# Tracing to AMP (off unless uncommented).
 # [ballerina.observe]
 # tracingEnabled = true
 # tracingProvider = "jaeger"

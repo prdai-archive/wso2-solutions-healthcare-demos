@@ -117,17 +117,20 @@ front-desk-dashboard's `/api/tasks` route only logs failures, via a plain
 
 `docker compose up` brings up WSO2 Agent Manager (AMP v0.18.0) as the `amp`
 service, a docker-in-docker quick-start cluster whose state persists across
-restarts. The console is at http://localhost:13000 (admin/admin). Set
-`OPENAI_API_KEY` in a gitignored `hl7-ai-competition/.env`; the `amp-init`
-one-shot service then registers the `careloop-openai` LLM provider on the AI
-gateway, publishes it to the catalog, and mints a gateway API key into a shared
-volume. care-loop-ai-service starts after registration completes and routes its
-LLM calls through `http://amp:22893/careloop-openai` (gateway key sent as an
-`API-Key` header); its MCP traffic goes directly to fhir-mcp-server.
-Tracing is on in its compose config (`Config.compose.toml`): spans go over
-OTLP gRPC to the `otel-collector` service, which forwards them to the AMP otel
-ingest (`${AMP_OTEL_ENDPOINT}/v1/traces`, default `http://amp:22893/otel`) with
-the `x-amp-api-key` header taken from the `AMP_AGENT_API_KEY` env var.
+restarts. Set `OPENAI_API_KEY` in a gitignored `hl7-ai-competition/.env`; the
+`amp-init` one-shot service then registers the `careloop-openai` LLM provider on
+the AI gateway and publishes it to the catalog, mints a gateway API key into a
+shared volume, registers the `careloop-ai-service` external agent, and generates
+the otel-collector config with the agent's OpenChoreo identity so traces scope to
+the agent in the console. care-loop-ai-service routes its LLM calls through
+`http://amp:22893/careloop-openai` (gateway key sent as an `API-Key` header) and
+reads FHIR directly from fhir-mcp-server; its spans go OTLP/gRPC to
+`otel-collector`, which forwards them to AMP's otel ingest.
+
+To use the console at http://localhost:13000 (admin/admin), add
+`127.0.0.1 thunder.amp.localhost` to `/etc/hosts` (the login redirect needs it).
+The Thunder (8080) and observability (9098) ports it calls are exposed by the
+`amp-thunder-fwd` / `amp-obs-fwd` services.
 
 ## Pre-commit hooks
 

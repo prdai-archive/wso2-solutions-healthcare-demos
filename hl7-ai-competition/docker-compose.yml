@@ -287,6 +287,31 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
 
+  # Expose Thunder (login) and the observability API to the host so the browser
+  # console at :13000 can reach them. Also add "127.0.0.1 thunder.amp.localhost"
+  # to /etc/hosts for the OAuth redirect.
+  amp-thunder-fwd:
+    image: alpine/socat
+    container_name: amp-thunder-fwd
+    command: ["TCP-LISTEN:8080,fork,reuseaddr", "TCP:amp:8080"]
+    ports:
+      - "8080:8080"
+    depends_on:
+      amp:
+        condition: service_healthy
+    restart: unless-stopped
+
+  amp-obs-fwd:
+    image: alpine/socat
+    container_name: amp-obs-fwd
+    command: ["TCP-LISTEN:9098,fork,reuseaddr", "TCP:amp:9098"]
+    ports:
+      - "9098:9098"
+    depends_on:
+      amp:
+        condition: service_healthy
+    restart: unless-stopped
+
   care-loop-ai-service:
     build:
       context: ./care-loop-ai-service

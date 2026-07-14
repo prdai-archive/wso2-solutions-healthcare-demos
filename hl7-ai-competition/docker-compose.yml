@@ -258,11 +258,12 @@ services:
     restart: unless-stopped
 
   # One-shot, idempotent registration: OpenAI LLM provider (published to the
-  # catalog) and a gateway API key into amp-shared.
+  # catalog) and a gateway API key into amp-shared. register.sh only needs
+  # curl + jq, so it runs on a tiny alpine instead of the full AMP image.
   amp-init:
-    image: ghcr.io/wso2/amp-quick-start:v0.18.0
+    image: alpine:3.20
     container_name: amp-init
-    entrypoint: ["sh", "/scripts/register.sh"]
+    entrypoint: ["sh", "-c", "apk add -q --no-cache curl jq && exec sh /scripts/register.sh"]
     environment:
       OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
     volumes:

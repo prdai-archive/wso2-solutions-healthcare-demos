@@ -1,5 +1,7 @@
 import type {
   Bundle,
+  Questionnaire,
+  QuestionnaireItem,
   QuestionnaireResponse,
   QuestionnaireResponseItem,
 } from "fhir/r4";
@@ -18,7 +20,9 @@ export interface QuestionnaireResponseAnswer {
 
 export interface QuestionnaireResponseSummary {
   id: string;
+  questionnaireRef: string | null;
   questionnaireTitle: string | null;
+  questionnaireRaw: Questionnaire | null;
   authored: string | null;
   answers: QuestionnaireResponseAnswer[];
   raw: QuestionnaireResponse;
@@ -27,6 +31,25 @@ export interface QuestionnaireResponseSummary {
 function findTitle(items: QuestionnaireResponseItem[]): string | null {
   const titleItem = items.find((item) => item.linkId === "title");
   return titleItem?.text ?? null;
+}
+
+// QuestionnaireResponse.questionnaire is a canonical like "Questionnaire/{id}".
+function questionnaireIdFromCanonical(
+  canonical: string | undefined,
+): string | null {
+  if (!canonical) return null;
+  const match = /Questionnaire\/([^/|]+)/.exec(canonical);
+  return match?.[1] ?? null;
+}
+
+function collectQuestionTexts(
+  items: QuestionnaireItem[],
+  texts: Map<string, string>,
+): void {
+  for (const item of items) {
+    if (item.text) texts.set(item.linkId, item.text);
+    if (item.item) collectQuestionTexts(item.item, texts);
+  }
 }
 
 function stringifyAnswer(
@@ -40,23 +63,33 @@ function stringifyAnswer(
   return undefined;
 }
 
-// care-loop-collector-service only ever persists linkId (a UUID) on each item, never question text - fall back to a short slice of the linkId rather than dropping a real answer just because its label is missing.
-function questionLabel(item: QuestionnaireResponseItem): string {
-  return item.text ?? `Question ${item.linkId.slice(0, 8)}`;
+// care-loop-collector-service populates item.text from the bot's question message; when it's missing, join
+// on linkId against the referenced Questionnaire's item text, then fall back to a short slice of linkId
+// (still a real FHIR field) for any legacy record saved before either was wired through.
+function questionLabel(
+  item: QuestionnaireResponseItem,
+  questionTexts: Map<string, string>,
+): string {
+  return (
+    item.text ??
+    questionTexts.get(item.linkId) ??
+    `Question ${item.linkId.slice(0, 8)}`
+  );
 }
 
 function collectAnswers(
   items: QuestionnaireResponseItem[],
+  questionTexts: Map<string, string>,
 ): QuestionnaireResponseAnswer[] {
   const answers: QuestionnaireResponseAnswer[] = [];
 
   for (const item of items) {
     const answer = stringifyAnswer(item);
     if (answer !== undefined) {
-      answers.push({ question: questionLabel(item), answer });
+      answers.push({ question: questionLabel(item, questionTexts), answer });
     }
     if (item.item) {
-      answers.push(...collectAnswers(item.item));
+      answers.push(...collectAnswers(item.item, questionTexts));
     }
   }
 
@@ -65,16 +98,54 @@ function collectAnswers(
 
 function toQuestionnaireResponseSummary(
   response: QuestionnaireResponse,
+  questionnaire: Questionnaire | null,
 ): QuestionnaireResponseSummary {
   const items = response.item ?? [];
+  const questionnaireId = questionnaireIdFromCanonical(response.questionnaire);
+  const questionTexts = new Map<string, string>();
+  if (questionnaire?.item) collectQuestionTexts(questionnaire.item, questionTexts);
 
   return {
     id: response.id ?? "",
-    questionnaireTitle: findTitle(items),
+    questionnaireRef: questionnaireId ? `Questionnaire/${questionnaireId}` : null,
+    questionnaireTitle: questionnaire?.title ?? findTitle(items),
+    questionnaireRaw: questionnaire,
     authored: response.authored ?? response.meta?.lastUpdated ?? null,
-    answers: collectAnswers(items),
+    answers: collectAnswers(items, questionTexts),
     raw: response,
   };
+}
+
+async function fetchQuestionnaires(
+  client: Client,
+  responses: QuestionnaireResponse[],
+): Promise<Map<string, Questionnaire>> {
+  const ids = [
+    ...new Set(
+      responses
+        .map((response) => questionnaireIdFromCanonical(response.questionnaire))
+        .filter((id): id is string => id !== null),
+    ),
+  ];
+
+  const questionnaires = new Map<string, Questionnaire>();
+  await Promise.all(
+    ids.map(async (id) => {
+      try {
+        const resource = (await client.read({
+          resourceType: "Questionnaire",
+          id,
+        })) as unknown as Questionnaire;
+        questionnaires.set(id, resource);
+      } catch (error) {
+        console.error(
+          `failed to fetch Questionnaire/${id} from care-loop-fhir-server`,
+          error,
+        );
+      }
+    }),
+  );
+  return questionnaires;
 }
 
 export async function GET(
@@ -96,13 +167,22 @@ export async function GET(
       },
     })) as unknown as Bundle<QuestionnaireResponse>;
 
-    const responses = (bundle.entry ?? [])
+    const resources = (bundle.entry ?? [])
       .map((entry) => entry.resource)
       .filter(
         (resource): resource is QuestionnaireResponse =>
           resource !== undefined,
-      )
-      .map(toQuestionnaireResponseSummary);
+      );
+
+    const questionnaires = await fetchQuestionnaires(client, resources);
+    const responses = resources.map((resource) =>
+      toQuestionnaireResponseSummary(
+        resource,
+        questionnaires.get(
+          questionnaireIdFromCanonical(resource.questionnaire) ?? "",
+        ) ?? null,
+      ),
+    );
 
     return NextResponse.json({ responses });
   } catch (error) {

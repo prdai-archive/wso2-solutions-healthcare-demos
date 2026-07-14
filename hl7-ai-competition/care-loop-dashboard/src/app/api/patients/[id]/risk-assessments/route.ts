@@ -18,6 +18,7 @@ export interface RiskAssessmentSummary {
   note: string | null;
   occurrenceDateTime: string | null;
   predictions: RiskAssessmentPredictionSummary[];
+  basis: string[];
   raw: RiskAssessment;
 }
 
@@ -37,12 +38,17 @@ function toRiskAssessmentSummary(
     rationale: prediction.rationale ?? null,
   }));
 
+  const basis = (assessment.basis ?? [])
+    .map((reference) => reference.reference)
+    .filter((reference): reference is string => Boolean(reference));
+
   return {
     id: assessment.id ?? "",
     method: assessment.method?.text ?? null,
     note,
     occurrenceDateTime: assessment.occurrenceDateTime ?? assessment.meta?.lastUpdated ?? null,
     predictions,
+    basis,
     raw: assessment,
   };
 }

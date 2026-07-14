@@ -89,4 +89,3 @@ export const STAGE_DEFS: StageDef[] = [
 
 // A new run starts at each "Vitals ingested" event - the real trigger collector-service fires at the top of every pipeline pass.
 export const RUN_BOUNDARY_LABEL = "Vitals ingested";
-export const NOT_OBSERVABLE_KEY = "clinician";

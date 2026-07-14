@@ -8,7 +8,8 @@ isolated function buildMlRiskAssessment(string patientId, string[] observationRe
         subject: {reference: "Patient/" + patientId},
         basis,
         method: {text: "care-loop-heart-risk-service (" + heartRisk.selected_model + ")"},
-        prediction: [{probabilityDecimal: <decimal>heartRisk.probability}]
+        // Encode analysis-service's own escalation policy (mlEscalationThreshold), not heartRisk.threshold - that is the model's classification cutoff and can diverge from what actually escalates (see risk.bal).
+        prediction: [{probabilityDecimal: <decimal>heartRisk.probability, rationale: "threshold=" + mlEscalationThreshold.toString() + " outcome=" + (heartRisk.probability >= mlEscalationThreshold ? "escalated" : "not-escalated")}]
     };
 }
 

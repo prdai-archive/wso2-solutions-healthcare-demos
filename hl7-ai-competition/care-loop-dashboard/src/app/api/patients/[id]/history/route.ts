@@ -2,7 +2,9 @@ import type {
   AllergyIntolerance,
   Bundle,
   Condition,
+  Encounter,
   MedicationRequest,
+  Observation,
 } from "fhir/r4";
 
 import process from "node:process";
@@ -31,6 +33,21 @@ export interface AllergySummary {
   substance: string;
   reaction: string | null;
   raw: AllergyIntolerance;
+}
+
+export interface EncounterSummary {
+  id: string;
+  name: string;
+  sub: string | null;
+  raw: Encounter;
+}
+
+export interface BaselineObservationSummary {
+  id: string;
+  name: string;
+  value: string | null;
+  effectiveDateTime: string | null;
+  raw: Observation;
 }
 
 function toConditionSummary(condition: Condition): ConditionSummary {
@@ -74,6 +91,52 @@ function toAllergySummary(allergy: AllergyIntolerance): AllergySummary {
   };
 }
 
+// Seeded EHR encounters carry the visit description in reasonCode.text (they have no type).
+function toEncounterSummary(encounter: Encounter): EncounterSummary {
+  const name =
+    encounter.type?.[0]?.text ?? encounter.reasonCode?.[0]?.text ?? "—";
+  const sub =
+    [encounter.class?.display ?? encounter.class?.code, encounter.status]
+      .filter(Boolean)
+      .join(" · ") || null;
+
+  return { id: encounter.id ?? "", name, sub, raw: encounter };
+}
+
+function formatObservationValue(observation: Observation): string | null {
+  const quantity = observation.valueQuantity;
+  if (quantity?.value !== undefined) {
+    return [String(quantity.value), quantity.unit].filter(Boolean).join(" ");
+  }
+
+  const components = observation.component ?? [];
+  const systolic = components.find((component) =>
+    component.code.coding?.some((coding) => coding.code === "8480-6"),
+  )?.valueQuantity;
+  const diastolic = components.find((component) =>
+    component.code.coding?.some((coding) => coding.code === "8462-4"),
+  )?.valueQuantity;
+  if (systolic?.value !== undefined && diastolic?.value !== undefined) {
+    return [`${systolic.value}/${diastolic.value}`, systolic.unit]
+      .filter(Boolean)
+      .join(" ");
+  }
+
+  return null;
+}
+
+function toBaselineObservationSummary(
+  observation: Observation,
+): BaselineObservationSummary {
+  return {
+    id: observation.id ?? "",
+    name: observation.code.coding?.[0]?.display ?? observation.code.text ?? "—",
+    value: formatObservationValue(observation),
+    effectiveDateTime: observation.effectiveDateTime ?? null,
+    raw: observation,
+  };
+}
+
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -85,21 +148,39 @@ export async function GET(
   try {
     const client = new Client({ baseUrl });
 
-    const [conditionBundle, medicationBundle, allergyBundle] =
-      await Promise.all([
-        client.resourceSearch({
-          resourceType: "Condition",
-          searchParams: { patient: `Patient/${id}`, _count: 50 },
-        }) as unknown as Promise<Bundle<Condition>>,
-        client.resourceSearch({
-          resourceType: "MedicationRequest",
-          searchParams: { patient: `Patient/${id}`, _count: 50 },
-        }) as unknown as Promise<Bundle<MedicationRequest>>,
-        client.resourceSearch({
-          resourceType: "AllergyIntolerance",
-          searchParams: { patient: `Patient/${id}`, _count: 50 },
-        }) as unknown as Promise<Bundle<AllergyIntolerance>>,
-      ]);
+    const [
+      conditionBundle,
+      medicationBundle,
+      allergyBundle,
+      encounterBundle,
+      baselineBundle,
+    ] = await Promise.all([
+      client.resourceSearch({
+        resourceType: "Condition",
+        searchParams: { patient: `Patient/${id}`, _count: 50 },
+      }) as unknown as Promise<Bundle<Condition>>,
+      client.resourceSearch({
+        resourceType: "MedicationRequest",
+        searchParams: { patient: `Patient/${id}`, _count: 50 },
+      }) as unknown as Promise<Bundle<MedicationRequest>>,
+      client.resourceSearch({
+        resourceType: "AllergyIntolerance",
+        searchParams: { patient: `Patient/${id}`, _count: 50 },
+      }) as unknown as Promise<Bundle<AllergyIntolerance>>,
+      client.resourceSearch({
+        resourceType: "Encounter",
+        searchParams: { patient: `Patient/${id}`, _count: 50 },
+      }) as unknown as Promise<Bundle<Encounter>>,
+      // The EHR server holds only intake baselines (category vital-signs); live loop vitals live on care-loop-fhir-server.
+      client.resourceSearch({
+        resourceType: "Observation",
+        searchParams: {
+          patient: `Patient/${id}`,
+          category: "vital-signs",
+          _count: 50,
+        },
+      }) as unknown as Promise<Bundle<Observation>>,
+    ]);
 
     const conditions = (conditionBundle.entry ?? [])
       .map((entry) => entry.resource)
@@ -120,9 +201,31 @@ export async function GET(
       )
       .map(toAllergySummary);
 
-    return NextResponse.json({ conditions, medications, allergies });
+    const encounters = (encounterBundle.entry ?? [])
+      .map((entry) => entry.resource)
+      .filter((resource): resource is Encounter => resource !== undefined)
+      .map(toEncounterSummary);
+
+    const baselineObservations = (baselineBundle.entry ?? [])
+      .map((entry) => entry.resource)
+      .filter((resource): resource is Observation => resource !== undefined)
+      .map(toBaselineObservationSummary);
+
+    return NextResponse.json({
+      conditions,
+      medications,
+      allergies,
+      encounters,
+      baselineObservations,
+    });
   } catch (error) {
     console.error("failed to fetch patient history from ehr-fhir-server", error);
-    return NextResponse.json({ conditions: [], medications: [], allergies: [] });
+    return NextResponse.json({
+      conditions: [],
+      medications: [],
+      allergies: [],
+      encounters: [],
+      baselineObservations: [],
+    });
   }
 }

@@ -1,25 +1,23 @@
 "use client";
 
+import type { LucideIcon } from "lucide-react";
+
 import type { ArchitectureBoxDef } from "@/lib/architecture";
 import type { Run, StageStatus } from "@/lib/runs";
 
 import {
-  ArrowRight,
+  Bell,
   BrainCircuit,
   ClipboardCheck,
   Cpu,
   Database,
   FileText,
-  Loader2,
-  Maximize2,
   MessageSquare,
-  Minus,
-  Plus,
   Smartphone,
   Stethoscope,
   User,
 } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ArchitectureDetailPanel } from "@/components/architecture/architecture-detail-panel";
 import { ARCHITECTURE_BOXES } from "@/lib/architecture";
@@ -27,14 +25,14 @@ import { cn } from "@/lib/utils";
 
 type BoxStatus = "done" | "active" | "pending";
 
-const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+const ICONS: Record<string, LucideIcon> = {
   "apple-health": Smartphone,
   "whatsapp-agent": MessageSquare,
   "ml-model": Cpu,
   "deterministic-rules": ClipboardCheck,
   "clinical-analysis-agent": BrainCircuit,
   "fhir-converter": FileText,
-  "notification-ehr-integration": ClipboardCheck,
+  "notification-ehr-integration": Bell,
   "front-desk": Stethoscope,
   patient: User,
   ehr: Database,
@@ -57,107 +55,160 @@ function statusOf(box: ArchitectureBoxDef, run: Run | undefined): BoxStatus {
   return "pending";
 }
 
-function ActorBox({ boxKey, className }: { boxKey: string; className?: string }) {
-  const box = boxOf(boxKey);
-  const Icon = ICONS[boxKey] ?? User;
-  return (
-    <div
-      className={cn(
-        "flex w-[128px] flex-col items-center gap-1.5 rounded-2xl border border-dashed border-border/70 bg-muted/30 p-3 text-center",
-        className,
-      )}
-    >
-      <div className="flex size-8 items-center justify-center rounded-[9px] border border-border text-muted-foreground/70">
-        <Icon className="size-4" />
-      </div>
-      <div className="text-[12.5px] font-semibold text-muted-foreground">{box.label}</div>
-    </div>
-  );
+// Fixed world canvas per the mock (2320x1160, 96px tiles), populated with the
+// real Care Loop boxes from src/lib/architecture.ts.
+const NW = 96;
+const NH = 96;
+const WORLD_W = 2320;
+const WORLD_H = 1160;
+
+const NODE_POS: Record<string, { x: number; y: number }> = {
+  patient: { x: 140, y: 480 },
+  "apple-health": { x: 520, y: 300 },
+  "whatsapp-agent": { x: 520, y: 660 },
+  "ml-model": { x: 920, y: 200 },
+  "deterministic-rules": { x: 920, y: 480 },
+  "clinical-analysis-agent": { x: 920, y: 760 },
+  "fhir-converter": { x: 1320, y: 480 },
+  "notification-ehr-integration": { x: 1680, y: 480 },
+  "front-desk": { x: 2040, y: 480 },
+  doctor: { x: 2040, y: 180 },
+  ehr: { x: 2040, y: 780 },
+};
+
+const cx = (k: string) => NODE_POS[k].x + NW / 2;
+const cy = (k: string) => NODE_POS[k].y + NH / 2;
+const R = (k: string) => `${NODE_POS[k].x + NW} ${cy(k)}`;
+const L = (k: string) => `${NODE_POS[k].x} ${cy(k)}`;
+const B = (k: string) => `${cx(k)} ${NODE_POS[k].y + NH}`;
+const T = (k: string) => `${cx(k)} ${NODE_POS[k].y}`;
+
+interface EdgeDef {
+  d: string;
+  dur: string;
+  label?: string;
+  lx?: number;
+  ly?: number;
+  strong?: boolean;
 }
 
-function PipelineBox({
+const EDGES: EdgeDef[] = [
+  {
+    d: `M${R("patient")} C 380 ${cy("patient")}, 380 ${cy("apple-health")}, ${L("apple-health")}`,
+    dur: "3.4s",
+  },
+  {
+    d: `M${R("patient")} C 380 ${cy("patient")}, 380 ${cy("whatsapp-agent")}, ${L("whatsapp-agent")}`,
+    dur: "3.4s",
+  },
+  {
+    d: `M${R("apple-health")} C 780 ${cy("apple-health")}, 780 ${cy("ml-model")}, ${L("ml-model")}`,
+    label: "Predict / Evaluate",
+    lx: 770,
+    ly: 296,
+    dur: "2.8s",
+  },
+  {
+    d: `M${R("whatsapp-agent")} C 780 ${cy("whatsapp-agent")}, 780 ${cy("clinical-analysis-agent")}, ${L("clinical-analysis-agent")}`,
+    dur: "3.2s",
+  },
+  { d: `M${B("ml-model")} L ${T("deterministic-rules")}`, dur: "2s" },
+  { d: `M${B("deterministic-rules")} L ${T("clinical-analysis-agent")}`, dur: "2s" },
+  {
+    d: `M${R("clinical-analysis-agent")} C 1180 ${cy("clinical-analysis-agent")}, 1180 ${cy("fhir-converter")}, ${L("fhir-converter")}`,
+    label: "Upon Alert",
+    lx: 1170,
+    ly: 664,
+    dur: "3s",
+    strong: true,
+  },
+  { d: `M${R("fhir-converter")} L ${L("notification-ehr-integration")}`, dur: "2.6s" },
+  { d: `M${R("notification-ehr-integration")} L ${L("front-desk")}`, dur: "2.6s" },
+  {
+    d: `M${T("front-desk")} L ${B("doctor")}`,
+    label: "Notify",
+    lx: cx("front-desk"),
+    ly: 378,
+    dur: "2.4s",
+  },
+  { d: `M${B("front-desk")} L ${T("ehr")}`, dur: "2.4s" },
+];
+
+const ZONES = [
+  { label: "PATIENT HOME", x: 140, y: 250 },
+  { label: "DECISION ENGINE", x: 920, y: 150 },
+  { label: "CARE LOOP", x: 1320, y: 250 },
+  { label: "CLINIC", x: 2040, y: 130 },
+];
+
+const ZOOM_MIN = 0.4;
+const ZOOM_MAX = 1.6;
+
+function Node({
   boxKey,
   run,
   selected,
   onSelect,
-  className,
 }: {
   boxKey: string;
   run?: Run;
   selected: boolean;
   onSelect?: (key: string) => void;
-  className?: string;
 }) {
   const box = boxOf(boxKey);
+  const pos = NODE_POS[boxKey];
+  const Icon = ICONS[boxKey] ?? User;
   const status = statusOf(box, run);
-  const Icon = ICONS[boxKey] ?? Cpu;
-  const isDone = status === "done";
-  const isActive = status === "active";
+  const clickable = Boolean(onSelect && !box.isActor);
 
-  return (
-    <button
-      type="button"
-      onClick={onSelect ? () => onSelect(boxKey) : undefined}
-      className={cn(
-        "flex w-[190px] flex-col rounded-2xl border bg-background p-3.5 text-left transition-[border-color,box-shadow]",
-        isDone && "border-border/80",
-        isActive && "border-foreground/60 animate-canvas-node-pulse",
-        status === "pending" && "border-border/80",
-        selected &&
-          (isActive
-            ? "border-foreground shadow-[0_0_0_3px_var(--border),0_10px_26px_rgba(0,0,0,0.12)]"
-            : "border-foreground/50 shadow-[0_0_0_3px_var(--border),0_10px_26px_rgba(0,0,0,0.12)]"),
-        !selected && !isActive && "shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_22px_rgba(0,0,0,0.05)]",
-        "hover:border-foreground/40",
-        className,
-      )}
-    >
-      <div className="mb-2.5 flex items-center justify-between">
-        <div
-          className={cn(
-            "flex size-8 items-center justify-center rounded-[9px] transition-all",
-            isDone && "bg-foreground text-background",
-            isActive && "border-[1.5px] border-foreground bg-background text-foreground",
-            status === "pending" && "border border-border bg-foreground/5 text-muted-foreground/70",
-          )}
-        >
-          <Icon className="size-4" />
-        </div>
-        {isActive ? <Loader2 className="size-3.5 shrink-0 animate-spin" /> : null}
-      </div>
-      <div className={cn("text-[12.5px] font-semibold leading-tight", status === "pending" && "text-muted-foreground")}>
-        {box.label}
-      </div>
-      {box.sublabel ? (
-        <div className="mt-1 truncate text-[10.5px] text-muted-foreground/70">{box.sublabel}</div>
-      ) : null}
-      {run ? (
-        <div className="mt-2 text-[11px] font-semibold text-muted-foreground/70">
-          {isDone ? "Received" : isActive ? "Processing" : "Pending"}
-        </div>
-      ) : null}
-    </button>
+  const tile = (
+    <>
+      <span className="absolute top-1/2 left-[-5px] h-[9px] w-[9px] -translate-y-1/2 rounded-full border-[1.5px] border-[rgba(0,0,0,0.3)] bg-[#f8f8f9]" />
+      <span className="absolute top-1/2 right-[-5px] h-[9px] w-[9px] -translate-y-1/2 rounded-full border-[1.5px] border-[rgba(0,0,0,0.3)] bg-[#f8f8f9]" />
+      <span className="arch-soft-pulse absolute top-[8px] right-[8px] h-[7px] w-[7px] rounded-full bg-[#FF7300]" />
+      <Icon className="h-[30px] w-[30px]" strokeWidth={1.7} />
+    </>
   );
-}
 
-function FlowArrow({ label }: { label?: string }) {
+  const tileClass = cn(
+    "relative box-border flex h-[96px] w-[96px] items-center justify-center rounded-[18px] border-[1.5px] border-[rgba(0,0,0,0.14)] bg-white text-[#16161a] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_10px_22px_rgba(0,0,0,0.06)] transition-[border-color,box-shadow] duration-200",
+    "hover:border-[rgba(0,0,0,0.4)] hover:shadow-[0_3px_6px_rgba(0,0,0,0.07),0_14px_30px_rgba(0,0,0,0.1)]",
+    clickable ? "cursor-pointer" : "cursor-default",
+    status === "active" && "border-[#FF7300] animate-canvas-node-pulse",
+    selected && "border-[#FF7300]",
+  );
+
   return (
-    <div className="flex shrink-0 flex-col items-center justify-center gap-1 px-1.5">
-      {label ? <span className="text-[10px] text-muted-foreground/60">{label}</span> : null}
-      <span className="relative h-4 w-6 overflow-hidden">
-        <ArrowRight className="size-4 text-muted-foreground/40" />
-        <span className="absolute top-1/2 left-0 size-1 -translate-y-1/2 rounded-full bg-foreground/50 animate-canvas-flow-dot-h" />
-      </span>
+    <div className="absolute z-[3]" style={{ left: pos.x, top: pos.y, width: NW }}>
+      {clickable ? (
+        <button type="button" onClick={() => onSelect!(boxKey)} className={tileClass}>
+          {tile}
+        </button>
+      ) : (
+        <div className={tileClass}>{tile}</div>
+      )}
+      <div className="mt-[10px] ml-[-47px] w-[190px] text-center">
+        <div className="text-[12.5px] leading-tight font-bold tracking-[-0.1px] text-[#16161a]">
+          {box.label}
+        </div>
+        {box.sublabel ? (
+          <div className="mt-[3px] font-mono text-[9.5px] text-[rgba(0,0,0,0.45)]">
+            {box.sublabel}
+          </div>
+        ) : null}
+        {run && !box.isActor ? (
+          <div
+            className={cn(
+              "mt-[3px] font-mono text-[9.5px]",
+              status === "active" ? "text-[#FF7300]" : "text-[rgba(0,0,0,0.45)]",
+            )}
+          >
+            {status === "done" ? "Received" : status === "active" ? "Processing" : "Pending"}
+          </div>
+        ) : null}
+      </div>
     </div>
   );
-}
-
-const ZOOM_MIN = 0.6;
-const ZOOM_MAX = 1.6;
-const ZOOM_STEP = 0.15;
-
-function clampZoom(z: number): number {
-  return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
 }
 
 export function ArchitectureView({
@@ -171,161 +222,229 @@ export function ArchitectureView({
   selectedBoxKey?: string | null;
   onSelectBox?: (key: string) => void;
 }) {
-  const decisionEngineKeys = ["ml-model", "deterministic-rules", "clinical-analysis-agent"];
-  const decisionEngineStatus: BoxStatus = decisionEngineKeys
-    .map((k) => statusOf(boxOf(k), run))
-    .includes("active")
-    ? "active"
-    : decisionEngineKeys.every((k) => statusOf(boxOf(k), run) === "done")
-      ? "done"
-      : "pending";
-
   const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
-  const dragStateRef = useRef<{ startX: number; startY: number; panX: number; panY: number } | null>(null);
-  const [dragging, setDragging] = useState(false);
+  const zoomRef = useRef(1);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const dragRef = useRef<{ sx: number; sy: number; sl: number; st: number } | null>(null);
 
-  const resetView = useCallback(() => {
-    setZoom(1);
-    setPan({ x: 0, y: 0 });
+  const centerCanvas = useCallback((smooth: boolean) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTo({
+      left: Math.max(0, (el.scrollWidth - el.clientWidth) / 2),
+      top: Math.max(0, (el.scrollHeight - el.clientHeight) / 2),
+      behavior: smooth ? "smooth" : "auto",
+    });
   }, []);
 
+  const zoomBy = useCallback((f: number) => {
+    const el = scrollRef.current;
+    const z0 = zoomRef.current;
+    const z = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z0 * f));
+    if (z === z0) return;
+    const cx0 = el ? (el.scrollLeft + el.clientWidth / 2) / z0 : 0;
+    const cy0 = el ? (el.scrollTop + el.clientHeight / 2) / z0 : 0;
+    zoomRef.current = z;
+    setZoom(z);
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        const el2 = scrollRef.current;
+        if (!el2) return;
+        el2.scrollTo({ left: cx0 * z - el2.clientWidth / 2, top: cy0 * z - el2.clientHeight / 2 });
+      }),
+    );
+  }, []);
+
+  const fit = useCallback(() => {
+    zoomRef.current = 1;
+    setZoom(1);
+    requestAnimationFrame(() => requestAnimationFrame(() => centerCanvas(true)));
+  }, [centerCanvas]);
+
+  useEffect(() => {
+    const t = setTimeout(centerCanvas, 60, false);
+    return () => clearTimeout(t);
+  }, [centerCanvas]);
+
+  // Native non-passive listener: React's synthetic onWheel cannot
+  // preventDefault, so ctrl+scroll would zoom the whole page instead.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      zoomBy(e.deltaY < 0 ? 1.12 : 1 / 1.12);
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [zoomBy]);
+
   function onPointerDown(e: React.PointerEvent) {
-    dragStateRef.current = { startX: e.clientX, startY: e.clientY, panX: pan.x, panY: pan.y };
-    setDragging(true);
-    (e.target as Element).setPointerCapture?.(e.pointerId);
+    if ((e.target as Element).closest("button")) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    dragRef.current = { sx: e.clientX, sy: e.clientY, sl: el.scrollLeft, st: el.scrollTop };
+    el.setPointerCapture?.(e.pointerId);
+    el.style.cursor = "grabbing";
   }
 
   function onPointerMove(e: React.PointerEvent) {
-    if (!dragStateRef.current) return;
-    const dx = e.clientX - dragStateRef.current.startX;
-    const dy = e.clientY - dragStateRef.current.startY;
-    setPan({ x: dragStateRef.current.panX + dx, y: dragStateRef.current.panY + dy });
+    const d = dragRef.current;
+    const el = scrollRef.current;
+    if (!d || !el) return;
+    el.scrollLeft = d.sl - (e.clientX - d.sx);
+    el.scrollTop = d.st - (e.clientY - d.sy);
   }
 
   function onPointerUp() {
-    dragStateRef.current = null;
-    setDragging(false);
-  }
-
-  function onWheel(e: React.WheelEvent) {
-    if (!e.ctrlKey) return;
-    e.preventDefault();
-    setZoom((z) => clampZoom(z - e.deltaY * 0.0015));
+    dragRef.current = null;
+    if (scrollRef.current) scrollRef.current.style.cursor = "grab";
   }
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="relative overflow-hidden rounded-2xl border border-border canvas-dotted-grid bg-muted/20 shadow-inner">
-        <span className="absolute top-3 left-3 z-10 rounded-full border border-border bg-background/90 px-2.5 py-1 text-[10.5px] font-semibold text-muted-foreground">
-          System architecture
-        </span>
+      <div className="relative overflow-hidden rounded-[16px] border border-[rgba(0,0,0,0.08)] bg-[#f8f8f9] shadow-[inset_0_1px_3px_rgba(0,0,0,0.03)]">
+        <div className="absolute top-[12px] left-[14px] z-10">
+          <span className="rounded-[7px] border border-[rgba(0,0,0,0.08)] bg-[rgba(255,255,255,0.9)] px-[11px] py-[5px] text-[12px] font-bold whitespace-nowrap text-[#16161a]">
+            System architecture
+          </span>
+        </div>
 
-        <div className="absolute top-3 right-3 z-10 flex items-center gap-0.5 rounded-full border border-border bg-background/90 p-0.5">
+        <div className="absolute bottom-[12px] left-[14px] z-10">
+          <span className="rounded-[6px] border border-[rgba(0,0,0,0.08)] bg-[rgba(255,255,255,0.85)] px-[9px] py-[5px] text-[10.5px] whitespace-nowrap text-[rgba(0,0,0,0.45)]">
+            Drag to pan · ⌃ scroll to zoom
+          </span>
+        </div>
+
+        <div className="absolute top-[12px] right-[12px] z-10 flex gap-[6px]">
           <button
             type="button"
-            onClick={() => setZoom((z) => clampZoom(z - ZOOM_STEP))}
-            className="flex size-6 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+            onClick={() => zoomBy(1 / 1.25)}
+            className="h-[28px] w-[28px] cursor-pointer rounded-[6px] border border-[rgba(0,0,0,0.12)] bg-white text-[14px] font-semibold text-[#16161a] shadow-[0_1px_2px_rgba(0,0,0,0.05)] hover:border-[#FF7300] hover:bg-[#FF7300] hover:text-white"
           >
-            <Minus className="size-3.5" />
+            −
           </button>
-          <span className="w-9 text-center text-[10.5px] font-medium text-muted-foreground">
+          <span className="flex h-[28px] min-w-[44px] items-center justify-center rounded-[6px] border border-[rgba(0,0,0,0.1)] bg-white font-mono text-[10.5px] text-[rgba(0,0,0,0.55)]">
             {Math.round(zoom * 100)}%
           </span>
           <button
             type="button"
-            onClick={() => setZoom((z) => clampZoom(z + ZOOM_STEP))}
-            className="flex size-6 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+            onClick={() => zoomBy(1.25)}
+            className="h-[28px] w-[28px] cursor-pointer rounded-[6px] border border-[rgba(0,0,0,0.12)] bg-white text-[14px] font-semibold text-[#16161a] shadow-[0_1px_2px_rgba(0,0,0,0.05)] hover:border-[#FF7300] hover:bg-[#FF7300] hover:text-white"
           >
-            <Plus className="size-3.5" />
+            +
           </button>
           <button
             type="button"
-            onClick={resetView}
-            className="ml-0.5 flex size-6 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
-            title="Fit"
+            onClick={fit}
+            className="h-[28px] cursor-pointer rounded-[6px] border border-[rgba(0,0,0,0.12)] bg-white px-[12px] text-[11px] font-semibold text-[#16161a] shadow-[0_1px_2px_rgba(0,0,0,0.05)] hover:border-[#FF7300] hover:bg-[#FF7300] hover:text-white"
           >
-            <Maximize2 className="size-3.5" />
+            Fit
           </button>
         </div>
 
-        <span className="absolute bottom-3 left-3 z-10 text-[10.5px] text-muted-foreground/50">
-          Drag to pan · Ctrl+scroll to zoom
-        </span>
-
         <div
-          className={cn("overflow-hidden p-6", dragging ? "cursor-grabbing" : "cursor-grab")}
+          ref={scrollRef}
+          className="arch-flow-scroll h-[440px] cursor-grab overflow-auto"
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
-          onPointerLeave={onPointerUp}
-          onWheel={onWheel}
+          onPointerCancel={onPointerUp}
         >
-          <div
-            className="flex min-w-max items-center gap-0 transition-transform"
-            style={{
-              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-              transformOrigin: "top left",
-            }}
-          >
-            <ActorBox boxKey="patient" />
-            <FlowArrow />
-
-            <div className="flex flex-col gap-3">
-              <PipelineBox boxKey="apple-health" run={run} selected={selectedBoxKey === "apple-health"} onSelect={onSelectBox} />
-              <PipelineBox boxKey="whatsapp-agent" run={run} selected={selectedBoxKey === "whatsapp-agent"} onSelect={onSelectBox} />
-            </div>
-            <FlowArrow label="Predict / Evaluate" />
-
+          <div style={{ width: Math.round(WORLD_W * zoom), height: Math.round(WORLD_H * zoom) }}>
             <div
-              className={cn(
-                "flex flex-col gap-3 rounded-2xl border-2 border-dashed p-4",
-                decisionEngineStatus === "done" && "border-foreground/40 bg-foreground/[0.03]",
-                decisionEngineStatus === "active" && "border-foreground/60 bg-foreground/[0.03]",
-                decisionEngineStatus === "pending" && "border-border/70",
-              )}
+              className="run-dotted-grid relative"
+              style={{
+                width: WORLD_W,
+                height: WORLD_H,
+                transform: `scale(${zoom})`,
+                transformOrigin: "0 0",
+              }}
             >
-              <span className="text-[10.5px] font-bold tracking-wide text-muted-foreground uppercase">
-                Decision Engine
-              </span>
-              <div className="flex flex-col gap-3">
-                <PipelineBox boxKey="ml-model" run={run} selected={selectedBoxKey === "ml-model"} onSelect={onSelectBox} className="w-[176px]" />
-                <PipelineBox
-                  boxKey="clinical-analysis-agent"
+              <svg
+                width={WORLD_W}
+                height={WORLD_H}
+                className="pointer-events-none absolute inset-0 z-[1]"
+              >
+                <defs>
+                  <marker
+                    id="arch-arr"
+                    viewBox="0 0 8 8"
+                    refX={7}
+                    refY={4}
+                    markerWidth={7}
+                    markerHeight={7}
+                    orient="auto"
+                  >
+                    <path d="M0 0L8 4L0 8z" fill="rgba(0,0,0,0.35)" />
+                  </marker>
+                </defs>
+                {EDGES.map((e, i) => (
+                  <g key={e.d}>
+                    <path
+                      d={e.d}
+                      fill="none"
+                      stroke={e.strong ? "rgba(0,0,0,0.55)" : "rgba(0,0,0,0.22)"}
+                      strokeWidth={e.strong ? 2.5 : 1.5}
+                      markerEnd="url(#arch-arr)"
+                    />
+                    <circle r={4.5} fill="#FF7300">
+                      <animateMotion
+                        dur={e.dur}
+                        repeatCount="indefinite"
+                        path={e.d}
+                        keyPoints="0;1"
+                        keyTimes="0;1"
+                        calcMode="linear"
+                      />
+                    </circle>
+                    <circle r={2.5} fill="rgba(0,0,0,0.45)">
+                      <animateMotion
+                        dur={e.dur}
+                        begin={`${(i * 0.35 + 0.8).toFixed(2)}s`}
+                        repeatCount="indefinite"
+                        path={e.d}
+                        keyPoints="0;1"
+                        keyTimes="0;1"
+                        calcMode="linear"
+                      />
+                    </circle>
+                  </g>
+                ))}
+              </svg>
+
+              {EDGES.filter((e) => e.label).map((e) => (
+                <div
+                  key={e.label}
+                  className="absolute z-[4] -translate-x-1/2 -translate-y-1/2"
+                  style={{ left: e.lx, top: e.ly }}
+                >
+                  <span className="rounded-[6px] border border-[rgba(0,0,0,0.12)] bg-white px-[7px] py-[2px] font-mono text-[9.5px] whitespace-nowrap text-[rgba(0,0,0,0.6)] shadow-[0_3px_10px_rgba(0,0,0,0.07)]">
+                    {e.label}
+                  </span>
+                </div>
+              ))}
+
+              {ARCHITECTURE_BOXES.map((box) => (
+                <Node
+                  key={box.key}
+                  boxKey={box.key}
                   run={run}
-                  selected={selectedBoxKey === "clinical-analysis-agent"}
+                  selected={selectedBoxKey === box.key}
                   onSelect={onSelectBox}
-                  className="w-[176px]"
                 />
-                <PipelineBox
-                  boxKey="deterministic-rules"
-                  run={run}
-                  selected={selectedBoxKey === "deterministic-rules"}
-                  onSelect={onSelectBox}
-                  className="w-[176px]"
-                />
-              </div>
-            </div>
-            <FlowArrow label="Upon Alert" />
+              ))}
 
-            <PipelineBox boxKey="fhir-converter" run={run} selected={selectedBoxKey === "fhir-converter"} onSelect={onSelectBox} />
-            <FlowArrow />
-
-            <PipelineBox
-              boxKey="notification-ehr-integration"
-              run={run}
-              selected={selectedBoxKey === "notification-ehr-integration"}
-              onSelect={onSelectBox}
-              className="w-[210px]"
-            />
-            <FlowArrow />
-
-            <PipelineBox boxKey="front-desk" run={run} selected={selectedBoxKey === "front-desk"} onSelect={onSelectBox} />
-            <FlowArrow label="Notify" />
-
-            <div className="flex flex-col gap-3">
-              <ActorBox boxKey="doctor" />
-              <ActorBox boxKey="ehr" />
+              {ZONES.map((z) => (
+                <div
+                  key={z.label}
+                  className="absolute z-[2] text-[10px] font-bold tracking-[0.1em] text-[rgba(0,0,0,0.3)]"
+                  style={{ left: z.x, top: z.y }}
+                >
+                  {z.label}
+                </div>
+              ))}
             </div>
           </div>
         </div>

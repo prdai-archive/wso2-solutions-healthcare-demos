@@ -11,8 +11,8 @@ const STATUS_LABEL: Record<RunStage["status"], string> = {
 };
 
 const STATUS_BADGE: Record<RunStage["status"], string> = {
-  done: "bg-foreground/10 text-foreground/70",
-  active: "bg-foreground text-background",
+  done: "bg-accent-brand/10 text-accent-brand/70",
+  active: "bg-accent-brand text-background",
   pending: "border border-border text-muted-foreground",
   "not-observable": "border border-border text-muted-foreground",
 };

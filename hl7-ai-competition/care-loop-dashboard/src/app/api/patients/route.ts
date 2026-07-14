@@ -12,6 +12,7 @@ export interface OpsPatient {
   name: string;
   birthDate: string | undefined;
   gender: string | undefined;
+  raw: FhirPatient;
 }
 
 function formatName(patient: FhirPatient): string {
@@ -26,6 +27,7 @@ function toOpsPatient(patient: FhirPatient): OpsPatient {
     name: formatName(patient),
     birthDate: patient.birthDate,
     gender: patient.gender,
+    raw: patient,
   };
 }
 

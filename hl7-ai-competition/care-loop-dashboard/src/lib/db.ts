@@ -31,15 +31,6 @@ function openWithRetry(path: string, attempts = 5): Database {
 const sqlite = openWithRetry(dbPath);
 const db = drizzle(sqlite);
 
-export interface RequestLogEntry {
-  id: number;
-  patientId: string;
-  endpoint: string;
-  triggeredAt: string;
-  status: "sent" | "ok" | "error";
-  responseSummary: string | null;
-}
-
 export function insertRequestLog(patientId: string, endpoint: string): number {
   const [row] = db
     .insert(requestLog)
@@ -138,16 +129,4 @@ export function getEventStats(): EventStats {
   const [lastRow] = db.select({ value: max(events.receivedAt) }).from(events).all();
 
   return { hitsToday: countRow!.value, lastHitAt: lastRow!.value ?? null };
-}
-
-export function listRequestLog(limit = 50): RequestLogEntry[] {
-  const rows = db.select().from(requestLog).orderBy(desc(requestLog.id)).limit(limit).all();
-  return rows.map((row) => ({
-    id: row.id,
-    patientId: row.patientId,
-    endpoint: row.endpoint,
-    triggeredAt: row.triggeredAt,
-    status: row.status as RequestLogEntry["status"],
-    responseSummary: row.responseSummary,
-  }));
 }

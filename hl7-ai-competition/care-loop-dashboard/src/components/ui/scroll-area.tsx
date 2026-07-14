@@ -18,7 +18,13 @@ function ScrollArea({
     >
       <ScrollAreaPrimitive.Viewport
         data-slot="scroll-area-viewport"
-        className="size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1"
+        // Radix wraps children in an internal `display:table` div (inline style,
+        // so only `!important` can override it) for content-size measurement.
+        // Table auto-layout sizes to the widest child regardless of `width`, so
+        // wide flex rows (e.g. alert cards) grow past the panel instead of
+        // shrinking. Forcing that wrapper back to `display:block` restores
+        // normal block sizing, so flex children with `min-w-0` shrink correctly.
+        className="size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1 [&>div]:block!"
       >
         {children}
       </ScrollAreaPrimitive.Viewport>

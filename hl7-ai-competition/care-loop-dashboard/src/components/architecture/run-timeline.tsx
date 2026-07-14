@@ -3,180 +3,400 @@
 import type { Run, RunStage } from "@/lib/runs";
 
 import {
-  ArrowRight,
-  BrainCircuit,
-  CheckCircle2,
+  Activity,
+  Bell,
   ClipboardCheck,
   Cpu,
-  Loader2,
   MessageSquare,
   Send,
-  Smartphone,
+  Sparkles,
   Stethoscope,
 } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { STAGE_DEFS } from "@/lib/stages";
-import { cn } from "@/lib/utils";
+import { compactUnit } from "@/lib/vitals";
 
-const STAGE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  vitals: Smartphone,
+const STAGE_ICONS: Record<string, React.ComponentType<{ size?: number; strokeWidth?: number }>> = {
+  vitals: Activity,
   ml: Cpu,
   escalation: ClipboardCheck,
-  quest: MessageSquare,
+  quest: Sparkles,
   sent: Send,
   respond: MessageSquare,
-  agentic_draft: BrainCircuit,
-  agentic: BrainCircuit,
+  agentic_draft: Sparkles,
+  agentic: Sparkles,
   task_desc: ClipboardCheck,
-  fhir: ClipboardCheck,
+  fhir: Bell,
   clinician: Stethoscope,
 };
 
-const STATUS_LABEL: Record<RunStage["status"], string> = {
+// Display-only: a settled run renders everything after its last done stage as "ended" (mock's dashed terminal state) instead of perpetual Pending.
+type DisplayStatus = RunStage["status"] | "ended";
+
+const STATUS_LABEL: Record<DisplayStatus, string> = {
+  done: "Done",
+  active: "Processing",
+  pending: "Pending",
+  "not-observable": "Not observable",
+  ended: "Run ended",
+};
+
+const BADGE_LABEL: Record<DisplayStatus, string> = {
   done: "Received",
   active: "Processing",
   pending: "Pending",
   "not-observable": "Not observable",
+  ended: "Run ended",
 };
 
-function formatRunLabel(run: Run): string {
-  return new Date(run.startedAt).toLocaleString([], {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+// One real value per completed stage, pulled straight from that stage's own
+// event.payload (see CareLoopEvent in lib/db.ts) - never a value invented for
+// display. Stages whose payload has no single salient short value return null
+// and simply render no chip.
+function roundedNumber(raw: string): string {
+  const n = Number(raw);
+  return Number.isFinite(n) ? n.toFixed(2) : raw;
 }
 
-// Horizontal step-timeline for a single run's real stage data (same
-// STAGE_DEFS/RunStage source ArchitectureView uses) - hover a step to inspect
-// its real event payload instead of click-to-select on a free-form canvas.
-export function RunTimeline({ run }: { run: Run }) {
-  const [hovered, setHovered] = useState<string | null>(null);
-  const hoveredStage = hovered ? run.stages.find((s) => s.key === hovered) : null;
-  const hoveredIndex = hoveredStage ? STAGE_DEFS.findIndex((def) => def.key === hoveredStage.key) : -1;
-  const hoveredDef = hoveredIndex >= 0 ? STAGE_DEFS[hoveredIndex] : null;
+const CONNECTOR_CHIP_BUILDERS: Record<string, (payload: Record<string, string>) => string | null> = {
+  vitals: (p) => (p.value ? (p.unit ? `${p.value} ${compactUnit(p.unit)}` : p.value) : null),
+  ml: (p) => (p.probability ? `probability ${roundedNumber(p.probability)}` : null),
+  escalation: (p) => (p.threshold ? `threshold ${roundedNumber(p.threshold)}` : null),
+  quest: (p) => (p.itemCount ? `${p.itemCount} item(s)` : null),
+  sent: (p) => (p.status ? p.status : null),
+  respond: (p) => (p.answerCount ? `${p.answerCount} answer(s)` : null),
+  agentic_draft: (p) => (p.probability ? `probability ${roundedNumber(p.probability)}` : null),
+  agentic: (p) => (p.probability ? `probability ${roundedNumber(p.probability)}` : null),
+  fhir: (p) => (p.priority ? `priority ${p.priority}` : null),
+};
 
-  const rows: { key: string; value: string }[] = [];
-  if (hoveredStage?.event?.detail) rows.push({ key: "detail", value: hoveredStage.event.detail });
-  if (hoveredStage?.event?.payload) {
-    for (const [key, value] of Object.entries(hoveredStage.event.payload)) rows.push({ key, value });
+function connectorChip(stage: RunStage): string | null {
+  if (stage.status !== "done" || !stage.event?.payload) return null;
+  return CONNECTOR_CHIP_BUILDERS[stage.key]?.(stage.event.payload) ?? null;
+}
+
+function formatTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString([], { hour12: false, hour: "2-digit", minute: "2-digit" });
+}
+
+// Mock's exact serpentine geometry: 88px nodes, 4 per row, 290px column
+// pitch, 200px row pitch, rows alternating direction.
+const RW = 88;
+const RH = 88;
+const PX = 290;
+const PY = 200;
+const RSX = 90;
+const RSY = 64;
+const PER = 4;
+const CANVAS_MIN_W = 1180;
+const PANEL_W = 270;
+
+function rpos(i: number): { left: number; top: number; row: number } {
+  const row = Math.floor(i / PER);
+  const c = i % PER;
+  const col = row % 2 === 0 ? c : PER - 1 - c;
+  return { left: RSX + col * PX, top: RSY + row * PY, row };
+}
+
+const CHIP_BASE =
+  "absolute rounded-[6px] border border-[rgba(0,0,0,0.12)] bg-white px-[7px] py-[2px] font-mono text-[9.5px] whitespace-nowrap text-[rgba(0,0,0,0.6)] shadow-[0_3px_10px_rgba(0,0,0,0.07)] z-[5]";
+
+function Connector({ from, to, done, chip }: { from: number; to: number; done: boolean; chip: string | null }) {
+  const a = rpos(from);
+  const b = rpos(to);
+  if (a.row === b.row) {
+    const lx = Math.min(a.left, b.left) + RW;
+    const w = Math.max(a.left, b.left) - lx;
+    const rev = a.left > b.left;
+    return (
+      <div
+        className="absolute z-[1] h-[2px] rounded-[2px]"
+        style={{
+          left: lx,
+          top: a.top + RH / 2 - 1,
+          width: w,
+          background: done
+            ? "linear-gradient(90deg, rgba(0,0,0,0.35), rgba(0,0,0,0.15))"
+            : "rgba(0,0,0,0.09)",
+        }}
+      >
+        {done ? (
+          <div
+            className="animate-run-dot-h absolute top-1/2 size-[6px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent-brand shadow-[0_0_8px_1px_rgba(255,115,0,0.5)]"
+            style={rev ? { animationDirection: "reverse" } : undefined}
+          />
+        ) : null}
+        {chip ? <span className={`${CHIP_BASE} -top-[26px] left-1/2 -translate-x-1/2`}>{chip}</span> : null}
+      </div>
+    );
   }
-  if (hoveredStage?.status === "not-observable") {
-    rows.push({ key: "note", value: "This handoff happens outside care-loop-dashboard." });
+  const x = a.left + RW / 2;
+  const ty = a.top + RH + 62;
+  const h = b.top - ty;
+  return (
+    <div
+      className="absolute z-[1] w-[2px] rounded-[2px]"
+      style={{
+        left: x - 1,
+        top: ty,
+        height: h,
+        background: done
+          ? "linear-gradient(180deg, rgba(0,0,0,0.35), rgba(0,0,0,0.15))"
+          : "rgba(0,0,0,0.09)",
+      }}
+    >
+      {done ? (
+        <div className="animate-run-dot absolute left-1/2 size-[6px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent-brand shadow-[0_0_8px_1px_rgba(255,115,0,0.5)]" />
+      ) : null}
+      {chip ? <span className={`${CHIP_BASE} top-1/2 left-[14px] -translate-y-1/2`}>{chip}</span> : null}
+    </div>
+  );
+}
+
+interface NodeLook {
+  border: string;
+  iconStyle: React.CSSProperties;
+  titleColor: string;
+  cardOpacity: number;
+  stateColor: string;
+}
+
+function nodeLook(status: DisplayStatus): NodeLook {
+  if (status === "active") {
+    return {
+      border: "1.5px solid #FF7300",
+      iconStyle: { background: "#fff", color: "#FF7300" },
+      titleColor: "#16161a",
+      cardOpacity: 1,
+      stateColor: "#16161a",
+    };
   }
-  if (hoveredStage?.event) {
-    rows.push({ key: "received_at", value: new Date(hoveredStage.event.receivedAt).toLocaleTimeString() });
+  if (status === "done") {
+    return {
+      border: "1.5px solid rgba(0,0,0,0.11)",
+      iconStyle: { background: "#FF7300", color: "#fff" },
+      titleColor: "#16161a",
+      cardOpacity: 1,
+      stateColor: "rgba(0,0,0,0.45)",
+    };
+  }
+  if (status === "ended") {
+    return {
+      border: "1.5px dashed rgba(0,0,0,0.25)",
+      iconStyle: { background: "transparent", color: "rgba(0,0,0,0.4)" },
+      titleColor: "rgba(0,0,0,0.55)",
+      cardOpacity: 1,
+      stateColor: "rgba(0,0,0,0.45)",
+    };
+  }
+  // pending and not-observable share the mock's faded pending look.
+  return {
+    border: "1px solid rgba(0,0,0,0.07)",
+    iconStyle: { background: "rgba(0,0,0,0.04)", color: "rgba(0,0,0,0.3)" },
+    titleColor: "rgba(0,0,0,0.45)",
+    cardOpacity: 0.8,
+    stateColor: "rgba(0,0,0,0.35)",
+  };
+}
+
+function inspectorBadgeStyle(status: DisplayStatus): React.CSSProperties {
+  if (status === "done") return { background: "rgba(0,0,0,0.08)", color: "rgba(0,0,0,0.65)" };
+  if (status === "active") return { background: "#FF7300", color: "#fff" };
+  return { background: "transparent", color: "rgba(0,0,0,0.4)", border: "1px solid rgba(0,0,0,0.14)" };
+}
+
+// Mock's "Latest run" canvas: absolutely-positioned serpentine node grid with
+// animated connector tracks and a hover inspector, bound to the run's real
+// RunStage/CareLoopEvent data.
+export function RunTimeline({ run }: { run: Run }) {
+  const [selected, setSelected] = useState<number | null>(null);
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const rows = Math.ceil(run.stages.length / PER);
+  const canvasH = RSY + (rows - 1) * PY + RH + 110;
+
+  // A run settled below threshold has nothing more coming (lib/runs.ts outcome logic), so its unreached tail renders as ended, not pending.
+  const runEnded = run.outcome === "Below escalation threshold";
+  let lastDoneIndex = -1;
+  run.stages.forEach((s, i) => {
+    if (s.status === "done") lastDoneIndex = i;
+  });
+  function displayStatus(stage: RunStage, i: number): DisplayStatus {
+    if (runEnded && i > lastDoneIndex && stage.status !== "done" && stage.status !== "active") return "ended";
+    return stage.status;
+  }
+
+  const selStage = selected !== null ? run.stages[selected] : null;
+  const selDef = selected !== null ? STAGE_DEFS[selected] : null;
+  const payloadRows: { k: string; v: string }[] = [];
+  if (selStage) {
+    if (selStage.event?.detail) payloadRows.push({ k: "detail", v: selStage.event.detail });
+    if (selStage.event?.payload) {
+      for (const [k, v] of Object.entries(selStage.event.payload)) {
+        // Round long numerics (16-decimal probabilities) for display; never lengthen short values like "6".
+        const rounded = roundedNumber(v);
+        payloadRows.push({ k, v: rounded.length < v.length ? rounded : v });
+      }
+    }
+    if (selStage.status === "not-observable") {
+      payloadRows.push({ k: "note", v: "Happens outside this dashboard." });
+    }
+    if (selStage.event) {
+      payloadRows.push({ k: "received_at", v: new Date(selStage.event.receivedAt).toLocaleTimeString([], { hour12: false }) });
+    }
+  }
+  const selDisplay = selStage !== null && selected !== null ? displayStatus(selStage, selected) : null;
+  const selPos = selected !== null ? rpos(selected) : null;
+  const panelLeft = selPos
+    ? selPos.left + RW + 16 + PANEL_W <= CANVAS_MIN_W
+      ? selPos.left + RW + 16
+      : selPos.left - PANEL_W - 16
+    : 0;
+
+  function enter(i: number) {
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    setSelected(i);
+  }
+  function leave() {
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    hoverTimerRef.current = setTimeout(setSelected, 120, null);
   }
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-border canvas-dotted-grid bg-muted/20 shadow-inner">
-      <span className="absolute top-3 left-3 z-10 rounded-full border border-border bg-background/90 px-2.5 py-1 text-[10.5px] font-semibold text-muted-foreground">
-        Latest run
-      </span>
-      <span className="absolute top-3 right-3 z-10 font-mono text-[10px] text-muted-foreground/60">
-        {formatRunLabel(run)} · {run.outcome}
-      </span>
+    <div className="relative overflow-hidden rounded-2xl border border-[rgba(0,0,0,0.08)] bg-[#f8f8f9] shadow-[inset_0_1px_3px_rgba(0,0,0,0.03)]">
+      <div className="absolute top-3 left-3.5 z-10">
+        <span className="rounded-[7px] border border-[rgba(0,0,0,0.08)] bg-white/90 px-[11px] py-[5px] text-[12px] font-bold whitespace-nowrap text-[#16161a]">
+          Latest run
+        </span>
+      </div>
+      <div className="absolute top-3 right-3.5 z-10">
+        <span className="rounded-[6px] border border-[rgba(0,0,0,0.08)] bg-white/85 px-[9px] py-[5px] font-mono text-[10px] whitespace-nowrap text-[rgba(0,0,0,0.45)]">
+          triggered by vitals · {formatTime(run.startedAt)} · {run.outcome}
+        </span>
+      </div>
 
-      <div className="overflow-x-auto p-6 pt-14">
-        <div className="flex min-w-max items-center">
-          {run.stages.map((stage, index) => {
-            const def = STAGE_DEFS[index]!;
+      <div className="overflow-x-auto">
+        <div className="run-dotted-grid relative" style={{ height: canvasH, minWidth: CANVAS_MIN_W }}>
+          {run.stages.slice(0, -1).map((stage, i) => (
+            <Connector
+              key={`conn-${stage.key}`}
+              from={i}
+              to={i + 1}
+              done={stage.status === "done"}
+              chip={connectorChip(stage)}
+            />
+          ))}
+
+          {run.stages.map((stage, i) => {
+            const def = STAGE_DEFS[i]!;
             const Icon = STAGE_ICONS[stage.key] ?? Cpu;
-            const isDone = stage.status === "done";
-            const isActive = stage.status === "active";
-            const isLast = index === run.stages.length - 1;
-
+            const status = displayStatus(stage, i);
+            const look = nodeLook(status);
+            const pos = rpos(i);
+            const isSelected = selected === i;
+            const showMethod = (status === "done" || status === "active") && def.method !== "—";
+            // Mock only recolors the selected border on done/active nodes; pending/ended keep their own border.
+            const border =
+              isSelected && (status === "done" || status === "active")
+                ? `1.5px solid ${status === "active" ? "#FF7300" : "rgba(0,0,0,0.45)"}`
+                : look.border;
+            const subtitle =
+              def.method === "—" ? `${def.service} · internal decision` : `${def.service} · ${def.method} ${def.endpoint}`;
             return (
-              <div key={stage.key} className="flex items-center">
-                <button
-                  type="button"
-                  onMouseEnter={() => setHovered(stage.key)}
-                  onMouseLeave={() => setHovered((current) => (current === stage.key ? null : current))}
-                  className="flex w-[150px] flex-col items-center gap-2 text-center"
+              <div
+                key={stage.key}
+                onMouseEnter={() => enter(i)}
+                onMouseLeave={leave}
+                className="absolute z-[2] cursor-pointer"
+                style={{ left: pos.left, top: pos.top, width: RW, opacity: look.cardOpacity }}
+              >
+                <div
+                  className="relative box-border flex items-center justify-center rounded-[18px] transition-[border-color,box-shadow] duration-200"
+                  style={{
+                    width: RW,
+                    height: RH,
+                    border,
+                    boxShadow: isSelected
+                      ? "0 0 0 3px rgba(0,0,0,0.08), 0 10px 26px rgba(0,0,0,0.1)"
+                      : "0 1px 2px rgba(0,0,0,0.04), 0 8px 20px rgba(0,0,0,0.05)",
+                    ...look.iconStyle,
+                  }}
                 >
-                  <div
-                    className={cn(
-                      "relative flex size-11 items-center justify-center rounded-full border transition-all",
-                      isDone && "border-foreground bg-foreground text-background",
-                      isActive && "border-foreground/70 bg-background text-foreground animate-canvas-node-pulse",
-                      stage.status === "pending" && "border-border bg-background text-muted-foreground/60",
-                      stage.status === "not-observable" && "border-dashed border-border text-muted-foreground/40",
-                      hovered === stage.key && "ring-2 ring-foreground/30 ring-offset-2 ring-offset-background",
-                    )}
-                  >
-                    {isDone ? <CheckCircle2 className="size-4" /> : <Icon className="size-4" />}
-                    {isActive ? (
-                      <span className="absolute -right-1 -bottom-1 flex size-4 items-center justify-center rounded-full border border-foreground bg-background">
-                        <Loader2 className="size-2.5 animate-spin" />
+                  <span className="absolute top-1/2 -left-[5px] size-[9px] -translate-y-1/2 rounded-full border-[1.5px] border-[rgba(0,0,0,0.3)] bg-[#f8f8f9]" />
+                  <span className="absolute top-1/2 -right-[5px] size-[9px] -translate-y-1/2 rounded-full border-[1.5px] border-[rgba(0,0,0,0.3)] bg-[#f8f8f9]" />
+                  {showMethod ? (
+                    <span className="absolute -top-[9px] left-1/2 -translate-x-1/2 rounded-[5px] bg-accent-brand px-1.5 py-px font-mono text-[8.5px] font-semibold text-white">
+                      {def.method}
+                    </span>
+                  ) : null}
+                  {stage.status === "active" ? (
+                    <div className="absolute -right-[7px] -bottom-[7px] size-4 animate-spin rounded-full border-[1.5px] border-accent-brand border-t-transparent bg-white [animation-duration:0.9s]" />
+                  ) : null}
+                  <Icon size={26} strokeWidth={2} />
+                </div>
+                <div className="mt-2.5 text-center" style={{ width: 220, marginLeft: -66 }}>
+                  <div className="text-[12.5px] font-bold tracking-[-0.1px]" style={{ color: look.titleColor }}>
+                    {def.label}
+                  </div>
+                  <div className="mt-[3px] overflow-hidden font-mono text-[9px] text-ellipsis whitespace-nowrap text-[rgba(0,0,0,0.42)]">
+                    {subtitle}
+                  </div>
+                  <div className="mt-1 flex items-center justify-center gap-1.5">
+                    <span className="text-[10.5px] font-semibold" style={{ color: look.stateColor }}>
+                      {STATUS_LABEL[status]}
+                    </span>
+                    {stage.event ? (
+                      <span className="font-mono text-[9.5px] text-[rgba(0,0,0,0.38)]">
+                        {formatTime(stage.event.receivedAt)}
                       </span>
                     ) : null}
                   </div>
-                  <div className="text-[11.5px] font-semibold leading-tight">{def.label}</div>
-                  <div className="truncate font-mono text-[9px] text-muted-foreground/60">{def.service}</div>
-                  <span
-                    className={cn(
-                      "rounded-full px-2 py-0.5 text-[9.5px] font-semibold",
-                      isDone && "bg-foreground/10 text-foreground/70",
-                      isActive && "bg-foreground text-background",
-                      (stage.status === "pending" || stage.status === "not-observable") &&
-                        "border border-border text-muted-foreground",
-                    )}
-                  >
-                    {STATUS_LABEL[stage.status]}
-                  </span>
-                </button>
-                {!isLast ? (
-                  <span className="relative mx-1 flex h-4 w-8 shrink-0 items-center overflow-hidden">
-                    <ArrowRight className="size-4 text-muted-foreground/40" />
-                    {isDone ? (
-                      <span className="absolute top-1/2 left-0 size-1 -translate-y-1/2 rounded-full bg-foreground/50 animate-canvas-flow-dot-h" />
-                    ) : null}
-                  </span>
-                ) : null}
+                </div>
               </div>
             );
           })}
+
+          {selStage && selDef && selPos ? (
+            <div
+              onMouseEnter={() => enter(selected!)}
+              onMouseLeave={leave}
+              className="animate-canvas-fade-up absolute z-[6] rounded-[14px] border border-[rgba(0,0,0,0.14)] bg-white shadow-[0_14px_40px_rgba(0,0,0,0.14),0_2px_6px_rgba(0,0,0,0.06)]"
+              style={{ left: panelLeft, top: selPos.top, width: PANEL_W }}
+            >
+              <div className="flex items-center gap-2 px-[15px] pt-[13px]">
+                <span className="text-[13px] font-bold tracking-[-0.2px]">{selDef.label}</span>
+                <span
+                  className="rounded-[20px] px-[9px] py-0.5 text-[10.5px] font-semibold"
+                  style={inspectorBadgeStyle(selDisplay ?? selStage.status)}
+                >
+                  {BADGE_LABEL[selDisplay ?? selStage.status]}
+                </span>
+              </div>
+              <div className="border-b border-[rgba(0,0,0,0.06)] px-[15px] pt-[3px] pb-[9px] font-mono text-[9.5px] text-[rgba(0,0,0,0.42)]">
+                {selDef.method === "—" ? selDef.service : `${selDef.service} · ${selDef.method} ${selDef.endpoint}`}
+              </div>
+              <div className="flex flex-col px-[15px] pt-1 pb-[11px]">
+                {payloadRows.length === 0 ? (
+                  <div className="py-1.5 font-mono text-[10.5px] text-[rgba(0,0,0,0.45)]">
+                    Awaiting upstream stage — nothing received yet.
+                  </div>
+                ) : (
+                  payloadRows.map((row) => (
+                    <div
+                      key={row.k}
+                      className="flex items-center justify-between gap-3.5 border-b border-[rgba(0,0,0,0.04)] py-1.5"
+                    >
+                      <span className="font-mono text-[10.5px] text-[rgba(0,0,0,0.45)]">{row.k}</span>
+                      <span className="text-right font-mono text-[10.5px] break-all text-[#16161a]">{row.v}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
-
-      {hoveredStage && hoveredDef ? (
-        <div className="animate-canvas-fade-up absolute top-14 left-1/2 z-20 w-[320px] -translate-x-1/2 rounded-2xl border border-border bg-background p-4 shadow-[0_20px_50px_rgba(0,0,0,0.15)]">
-          <div className="mb-1 flex items-center gap-2">
-            <span className="text-[13px] font-bold tracking-tight">{hoveredDef.label}</span>
-            <span
-              className={cn(
-                "rounded-full px-2 py-0.5 text-[10.5px] font-semibold",
-                hoveredStage.status === "done" && "bg-foreground/10 text-foreground/70",
-                hoveredStage.status === "active" && "bg-foreground text-background",
-                (hoveredStage.status === "pending" || hoveredStage.status === "not-observable") &&
-                  "border border-border text-muted-foreground",
-              )}
-            >
-              {STATUS_LABEL[hoveredStage.status]}
-            </span>
-          </div>
-          <div className="mb-3 border-b border-border/60 pb-2 font-mono text-[10.5px] text-muted-foreground">
-            {hoveredDef.method} {hoveredDef.endpoint}
-          </div>
-          {rows.length === 0 ? (
-            <p className="text-[12px] text-muted-foreground">Awaiting upstream stage - nothing received yet.</p>
-          ) : (
-            <div className="flex flex-col">
-              {rows.map((row) => (
-                <div
-                  key={row.key}
-                  className="flex items-center justify-between gap-3 border-t border-border/40 py-1.5 first:border-t-0"
-                >
-                  <span className="font-mono text-[10.5px] text-muted-foreground">{row.key}</span>
-                  <span className="truncate text-right font-mono text-[10.5px] text-foreground">{row.value}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      ) : null}
     </div>
   );
 }

@@ -1,20 +1,9 @@
+import care_loop/care_loop_common as common;
 import ballerinax/health.clients.fhir;
 import ballerinax/health.fhir.r4;
 import ballerinax/health.fhir.r4.international401;
 
-# create()'s default MINIMAL preference returns {resourceId, version}, not a full resource - fall back to "id" in case that changes.
-isolated function extractFhirId(fhir:FHIRResponse response) returns string? {
-    json|xml resourceValue = response.'resource;
-    if resourceValue is xml {
-        return ();
-    }
-    string|error resourceId = trap <string>(checkpanic resourceValue.resourceId);
-    if resourceId is string {
-        return resourceId;
-    }
-    string|error id = trap <string>(checkpanic resourceValue.id);
-    return id is string ? id : ();
-}
+isolated function extractFhirId(fhir:FHIRResponse response) returns string? => common:extractFhirId(response);
 
 isolated function priorityForProbability(float probability) returns international401:TaskPriority {
     if probability >= 0.85 {
@@ -71,8 +60,9 @@ isolated function buildEscalationTask(string patientId, float mlProbability, AiR
 
 isolated function buildTimeoutEscalationTask(string patientId, float mlProbability, PatientDisplay display,
         string? riskAssessmentId, string[] observationRefs) returns international401:Task {
+    int mlProbabilityPercent = <int>(mlProbability * 100);
     string description = string `Patient ${display.patientName} (${display.ageSexSummary}) flagged for review.
-Questionnaire timed out with no patient response. Fail-safe escalation on ML probability ${mlProbability} alone (no agentic probability available).`;
+Questionnaire timed out with no patient response. Fail-safe escalation on ML probability ${mlProbabilityPercent}% alone (no agentic probability available).`;
 
     international401:Task task = {
         status: international401:CODE_STATUS_REQUESTED,

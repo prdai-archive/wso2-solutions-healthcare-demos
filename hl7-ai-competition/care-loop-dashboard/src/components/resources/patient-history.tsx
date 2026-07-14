@@ -2,9 +2,12 @@
 
 import type {
   AllergySummary,
+  BaselineObservationSummary,
   ConditionSummary,
+  EncounterSummary,
   MedicationSummary,
 } from "@/app/api/patients/[id]/history/route";
+import type { OpsPatient } from "@/app/api/patients/route";
 
 import { useEffect, useState } from "react";
 
@@ -17,59 +20,65 @@ interface HistoryData {
   conditions: ConditionSummary[];
   medications: MedicationSummary[];
   allergies: AllergySummary[];
+  encounters: EncounterSummary[];
+  baselineObservations: BaselineObservationSummary[];
 }
 
-function HistorySection<T extends { id: string; raw: unknown }>({
+interface RecordRow {
+  key: string;
+  name: string;
+  sub: string | null;
+  fhir: { resourcePath: string; raw: unknown; server?: "care-loop" | "ehr" } | null;
+}
+
+function RecordSection({
   title,
-  resourceType,
-  items,
-  renderItem,
-  emptyLabel,
+  rtype,
+  rows,
+  emptyText = "None recorded.",
 }: {
   title: string;
-  resourceType: string;
-  items: T[];
-  renderItem: (item: T) => { primary: React.ReactNode; secondary?: React.ReactNode };
-  emptyLabel: string;
+  rtype: string;
+  rows: RecordRow[];
+  emptyText?: string;
 }) {
   return (
-    <div className="rounded-2xl border border-border p-4">
-      <div className="mb-2.5 flex items-center justify-between">
-        <h3 className="text-[12.5px] font-semibold">{title}</h3>
-        <span className="font-mono text-[10px] text-muted-foreground/50">{resourceType}</span>
+    <div className="overflow-hidden rounded-[12px] border border-[rgba(0,0,0,0.08)]">
+      <div className="flex items-center justify-between border-b border-[rgba(0,0,0,0.06)] bg-[rgba(0,0,0,0.02)] px-3.5 py-2.5">
+        <span className="text-[11px] font-bold tracking-[0.06em] text-[rgba(0,0,0,0.55)] uppercase">{title}</span>
+        <span className="font-mono text-[9.5px] text-[rgba(0,0,0,0.38)]">{rtype}</span>
       </div>
-      {items.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{emptyLabel}</p>
-      ) : (
-        <ul className="space-y-1.5">
-          {items.map((item) => {
-            const { primary, secondary } = renderItem(item);
-            return (
-              <li
-                key={item.id}
-                className="flex items-center justify-between gap-2 rounded-lg border border-border/60 px-2.5 py-2"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-[13px]">{primary}</div>
-                  {secondary ? (
-                    <div className="truncate text-[11px] text-muted-foreground">{secondary}</div>
-                  ) : null}
-                </div>
-                <FhirButton resourcePath={`${resourceType}/${item.id}`} raw={item.raw} />
-              </li>
-            );
-          })}
-        </ul>
-      )}
+      <div className="flex flex-col">
+        {rows.length === 0 ? (
+          <div className="p-3.5 text-[11.5px] text-[rgba(0,0,0,0.4)]">{emptyText}</div>
+        ) : (
+          rows.map((row) => (
+            <div
+              key={row.key}
+              className="flex items-center justify-between gap-2.5 border-t border-[rgba(0,0,0,0.04)] px-3.5 py-2.5"
+            >
+              <div className="min-w-0">
+                <div className="text-[12.5px] leading-[1.35] font-semibold">{row.name}</div>
+                {row.sub ? <div className="mt-0.5 text-[11px] text-[rgba(0,0,0,0.45)]">{row.sub}</div> : null}
+              </div>
+              {row.fhir ? (
+                <FhirButton resourcePath={row.fhir.resourcePath} raw={row.fhir.raw} server={row.fhir.server} />
+              ) : null}
+            </div>
+          ))
+        )}
+      </div>
     </div>
   );
 }
 
-export function PatientHistory({ patientId }: { patientId: string }) {
+export function PatientHistory({ patient }: { patient: OpsPatient }) {
   const [history, setHistory] = useState<HistoryData>({
     conditions: [],
     medications: [],
     allergies: [],
+    encounters: [],
+    baselineObservations: [],
   });
   const [loaded, setLoaded] = useState(false);
 
@@ -79,7 +88,7 @@ export function PatientHistory({ patientId }: { patientId: string }) {
 
     async function poll() {
       try {
-        const response = await fetch(`/api/patients/${patientId}/history`);
+        const response = await fetch(`/api/patients/${patient.id}/history`);
         const data = (await response.json()) as HistoryData;
         if (!cancelled) setHistory(data);
       } catch (error) {
@@ -95,53 +104,109 @@ export function PatientHistory({ patientId }: { patientId: string }) {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [patientId]);
+  }, [patient.id]);
 
-  if (!loaded) {
-    return (
-      <div className="space-y-2">
-        {Array.from({ length: 3 }).map((_, i) => (
-          // eslint-disable-next-line react/no-array-index-key
-          <Skeleton key={i} className="h-16 w-full" />
-        ))}
-      </div>
-    );
-  }
+  const demographics: RecordRow[] = [
+    {
+      key: patient.id,
+      name: patient.name,
+      sub: [
+        patient.gender ? patient.gender.charAt(0).toUpperCase() + patient.gender.slice(1) : null,
+        patient.birthDate ? `born ${patient.birthDate}` : null,
+      ]
+        .filter(Boolean)
+        .join(" · ") || null,
+      fhir: { resourcePath: `Patient/${patient.id}`, raw: patient.raw },
+    },
+  ];
 
   return (
-    <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-      <HistorySection
-        title="Conditions"
-        resourceType="Condition"
-        items={history.conditions}
-        emptyLabel="None recorded."
-        renderItem={(condition) => ({
-          primary: condition.code,
-          secondary: condition.onsetDateTime
-            ? `since ${new Date(condition.onsetDateTime).toLocaleDateString()}`
-            : undefined,
-        })}
-      />
-      <HistorySection
-        title="Medications"
-        resourceType="MedicationRequest"
-        items={history.medications}
-        emptyLabel="None recorded."
-        renderItem={(medication) => ({
-          primary: medication.medication,
-          secondary: medication.status ?? undefined,
-        })}
-      />
-      <HistorySection
-        title="Allergies"
-        resourceType="AllergyIntolerance"
-        items={history.allergies}
-        emptyLabel="None recorded."
-        renderItem={(allergy) => ({
-          primary: allergy.substance,
-          secondary: allergy.reaction ? `reaction: ${allergy.reaction}` : undefined,
-        })}
-      />
+    <div className="mt-4 overflow-hidden rounded-[16px] border border-[rgba(0,0,0,0.08)] bg-white">
+      <div className="px-5 py-[18px]">
+        <div className="mb-3.5 flex items-baseline justify-between">
+          <span className="text-[14px] font-bold">Patient record</span>
+        </div>
+        {!loaded ? (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {Array.from({ length: 6 }).map((_, i) => (
+              // eslint-disable-next-line react/no-array-index-key
+              <Skeleton key={i} className="h-20 w-full" />
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
+            <RecordSection title="Demographics" rtype="Patient" rows={demographics} />
+            <RecordSection
+              title="Encounter"
+              rtype="Encounter"
+              rows={history.encounters.map((encounter) => ({
+                key: encounter.id,
+                name: encounter.name,
+                sub: encounter.sub,
+                fhir: {
+                  resourcePath: `Encounter/${encounter.id}`,
+                  raw: encounter.raw,
+                  server: "ehr" as const,
+                },
+              }))}
+            />
+            <RecordSection
+              title="Conditions"
+              rtype="Condition"
+              rows={history.conditions.map((condition) => ({
+                key: condition.id,
+                name: condition.code,
+                sub: condition.onsetDateTime
+                  ? `since ${new Date(condition.onsetDateTime).toLocaleDateString()}`
+                  : null,
+                fhir: { resourcePath: `Condition/${condition.id}`, raw: condition.raw },
+              }))}
+            />
+            <RecordSection
+              title="Allergies"
+              rtype="AllergyIntolerance"
+              rows={history.allergies.map((allergy) => ({
+                key: allergy.id,
+                name: allergy.substance,
+                sub: allergy.reaction ? `reaction: ${allergy.reaction}` : null,
+                fhir: { resourcePath: `AllergyIntolerance/${allergy.id}`, raw: allergy.raw },
+              }))}
+            />
+            <RecordSection
+              title="Medications"
+              rtype="MedicationRequest"
+              rows={history.medications.map((medication) => ({
+                key: medication.id,
+                name: medication.medication,
+                sub: medication.status ?? null,
+                fhir: { resourcePath: `MedicationRequest/${medication.id}`, raw: medication.raw },
+              }))}
+            />
+            <RecordSection
+              title="Baseline observations"
+              rtype="Observation"
+              rows={history.baselineObservations.map((observation) => ({
+                key: observation.id,
+                name: observation.name,
+                sub:
+                  [
+                    observation.value,
+                    observation.effectiveDateTime
+                      ? new Date(observation.effectiveDateTime).toLocaleDateString()
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ") || null,
+                fhir: {
+                  resourcePath: `Observation/${observation.id}`,
+                  raw: observation.raw,
+                  server: "ehr" as const,
+                },
+              }))}
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

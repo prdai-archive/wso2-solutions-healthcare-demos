@@ -10,7 +10,7 @@ THUNDER=${AMP_THUNDER_URL:-http://amp:8080}
 GATEWAY=${AMP_GATEWAY_URL:-http://amp:22893}
 KEY_FILE=/amp-shared/gateway.key
 CURL="curl -s -m 30 --connect-timeout 5"
-SCOPES="amp:org:view amp:llm-provider:read amp:llm-provider:create amp:llm-provider:update amp:llm-provider:deploy amp:llm-provider:api-key-manage amp:gateway:read"
+SCOPES="amp:org:view amp:llm-provider:read amp:llm-provider:create amp:llm-provider:update amp:llm-provider:deploy amp:llm-provider:api-key-manage amp:gateway:read amp:project:view amp:agent:view amp:agent:read amp:agent:create"
 
 log() { printf '\n== %s\n' "$*"; }
 
@@ -108,5 +108,53 @@ else
     printf '%s' "$GW_KEY" > "$KEY_FILE"
     log "Gateway key written to $KEY_FILE"
 fi
+
+# Register the external agent so its traces are visible in the console, then
+# resolve the OpenChoreo identity UUIDs and generate the otel-collector config
+# that stamps them on spans (the collector is shell-less, so it can't read a
+# runtime env file; a generated config is the injection point).
+log "External agent careloop-ai-service"
+AGENTS="$API/api/v1/orgs/default/projects/default/agents"
+if [ -z "$($CURL -H "Authorization: Bearer $TOK" "$AGENTS" | jq -r '.agents[]? | select(.name=="careloop-ai-service") | .name')" ]; then
+    $CURL -f -X POST -H "Authorization: Bearer $TOK" -H "Content-Type: application/json" "$AGENTS" \
+        -d '{"name":"careloop-ai-service","displayName":"Care Loop AI Service","description":"External Care Loop agent","provisioning":{"type":"external"},"agentType":{"type":"agent-api","subType":"custom-api"}}' >/dev/null 2>&1 || true
+fi
+
+log "Resolving OpenChoreo identity for trace scoping"
+PROJECT_UID=$($CURL -H "Authorization: Bearer $TOK" "$API/api/v1/orgs/default/projects" | jq -r '.projects[]? | select(.name=="default") | .uuid')
+ENV_UID=$($CURL -H "Authorization: Bearer $TOK" "$API/api/v1/orgs/default/environments" | jq -r '(.environments // .)[]? | select(.name=="default") | .id')
+COMPONENT_UID=""
+i=0
+while [ $i -lt 12 ]; do
+    COMPONENT_UID=$($CURL -H "Authorization: Bearer $TOK" "$AGENTS/careloop-ai-service" | jq -r '.uuid // empty')
+    [ -n "$COMPONENT_UID" ] && break
+    i=$((i + 1)); sleep 5
+done
+[ -n "$COMPONENT_UID" ] || echo "warning: agent uuid unresolved; traces may not scope to the agent" >&2
+
+cat > /amp-shared/otelcol-config.yaml <<EOF
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+processors:
+  resource/openchoreo:
+    attributes:
+      - {key: openchoreo.dev/project-uid, value: "$PROJECT_UID", action: upsert}
+      - {key: openchoreo.dev/component-uid, value: "$COMPONENT_UID", action: upsert}
+      - {key: openchoreo.dev/environment-uid, value: "$ENV_UID", action: upsert}
+      - {key: openchoreo.dev/namespace, value: "default", action: upsert}
+exporters:
+  otlphttp/amp:
+    endpoint: "$GATEWAY/otel"
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [resource/openchoreo]
+      exporters: [otlphttp/amp]
+EOF
+log "Wrote otel-collector config to /amp-shared/otelcol-config.yaml"
 
 log "Registration complete"

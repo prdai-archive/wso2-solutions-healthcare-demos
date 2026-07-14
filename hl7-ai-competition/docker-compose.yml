@@ -274,23 +274,17 @@ services:
         condition: service_healthy
     restart: "no"
 
-  # Bridges Ballerina OTLP/gRPC span export to AMP's OTLP/HTTP otel ingest.
+  # Bridges Ballerina OTLP/gRPC span export to AMP's OTLP/HTTP otel ingest. Uses
+  # the config amp-init generates in amp-shared (with the resolved agent identity).
   otel-collector:
     image: otel/opentelemetry-collector:0.128.0
     container_name: otel-collector
-    command: ["--config=/etc/otelcol/config.yaml"]
-    environment:
-      AMP_OTEL_ENDPOINT: "${AMP_OTEL_ENDPOINT:-http://amp:22893/otel}"
-      AMP_AGENT_API_KEY: "${AMP_AGENT_API_KEY:-}"
-      # OpenChoreo identity (instance-specific) scoping traces to the agent.
-      OC_PROJECT_UID: "${OC_PROJECT_UID:-}"
-      OC_COMPONENT_UID: "${OC_COMPONENT_UID:-}"
-      OC_ENVIRONMENT_UID: "${OC_ENVIRONMENT_UID:-}"
-      OC_NAMESPACE: "${OC_NAMESPACE:-default}"
+    command: ["--config=/amp-shared/otelcol-config.yaml"]
     volumes:
-      - ./otel-collector/config.yaml:/etc/otelcol/config.yaml:ro
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - amp-shared:/amp-shared:ro
+    depends_on:
+      amp-init:
+        condition: service_completed_successfully
     restart: unless-stopped
 
   care-loop-ai-service:

@@ -300,7 +300,6 @@ services:
     ports:
       - "8003:8003"
     environment:
-      BAL_CONFIG_VAR_USEAMPGATEWAY: "true"
       BAL_CONFIG_VAR_OPENAISERVICEURL: "http://amp:22893/careloop-openai"
       # MCP direct to the FHIR server (the k3d gateway can't reach this compose service).
       BAL_CONFIG_VAR_FHIRMCPURL: "http://fhir-mcp-server:8000/mcp"

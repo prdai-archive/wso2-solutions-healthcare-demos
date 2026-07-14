@@ -7,8 +7,8 @@ import ballerinax/ai.openai;
 import ballerinax/jaeger as _;
 
 final ai:McpToolKit fhirToolkit = check createFhirToolkit();
-final ai:ModelProvider nanoModelProvider = check createModelProvider(openai:GPT_4_1_NANO);
-final ai:ModelProvider fullModelProvider = check createModelProvider(openai:GPT_4_1);
+final ai:ModelProvider nanoModelProvider = check createModelProvider(nanoModel);
+final ai:ModelProvider fullModelProvider = check createModelProvider(fullModel);
 
 isolated function createFhirToolkit() returns ai:McpToolKit|ai:Error {
     // Empty token means the MCP server is reached directly, without gateway auth.
@@ -16,11 +16,12 @@ isolated function createFhirToolkit() returns ai:McpToolKit|ai:Error {
     return new (fhirMcpUrl, auth = mcpAuth);
 }
 
-isolated function createModelProvider(openai:OPEN_AI_MODEL_NAMES modelType) returns ai:ModelProvider|ai:Error {
-    if useAmpGateway {
-        return new AmpModelProvider(openAiApiKey, modelType, serviceUrl = openAiServiceUrl);
+isolated function createModelProvider(string modelName) returns ai:ModelProvider|ai:Error {
+    openai:OPEN_AI_MODEL_NAMES|error modelType = modelName.ensureType();
+    if modelType is error {
+        return error ai:Error(string `'${modelName}' is not a supported ballerinax/ai.openai model`);
     }
-    return new openai:ModelProvider(openAiApiKey, modelType, serviceUrl = openAiServiceUrl);
+    return new AmpModelProvider(openAiApiKey, modelType, serviceUrl = openAiServiceUrl);
 }
 
 final ai:Agent questionnaireAgent = check new (

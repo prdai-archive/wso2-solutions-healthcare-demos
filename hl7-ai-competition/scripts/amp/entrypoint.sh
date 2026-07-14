@@ -1,18 +1,8 @@
 #!/bin/bash
-# Boot WSO2 Agent Manager (AMP v0.18.0 quick-start) inside this container.
-#
-# Runs dockerd (docker-in-docker), brings up the quick-start k3d cluster via
-# the image's own install.sh, then applies the environment fixes this stack
-# needs before the AMP chart can work: cluster DNS forwarding with AAAA
-# suppression, a DNAT bypass for kube-proxy's broken UDP ClusterIP handling,
-# pre-created jwt/tls hook secrets with the hook jobs stripped from the chart,
-# and the console OAuth alignment for host port 13000. Every step is
-# idempotent so container restarts resume the existing cluster (persisted in
-# the /var/lib/docker volume) instead of reinstalling.
-#
-# Agent in-cluster build support from the original bootstrap (builder image
-# seeding, workflow template patches, registry warm-up) is intentionally
-# omitted: agents are no longer built inside the cluster.
+# Boot WSO2 Agent Manager (AMP v0.18.0) in docker-in-docker: run dockerd, bring
+# up the quick-start k3d cluster, then apply the fixes this stack needs (DNS,
+# DNAT, pre-created hook secrets, missing install steps, console OAuth). Every
+# step is idempotent so restarts resume the cluster persisted in /var/lib/docker.
 
 set -euo pipefail
 
@@ -79,9 +69,7 @@ resume_cluster() {
 }
 
 run_install() {
-    # install.sh is idempotent for completed steps; its final AMP chart step
-    # needs the DNS fixes and pre-created secrets first, so let it fail there
-    # and install the chart separately below.
+    # install.sh is idempotent; let its AMP-chart step fail (we install it below).
     log "Running quick-start install (AMP chart step may fail; handled below)"
     (cd "$QS_HOME" && ./install.sh) || true
 }
@@ -108,8 +96,7 @@ $gw host.k3d.internal" \
 }
 
 apply_dns_dnat() {
-    # kube-proxy's UDP ClusterIP DNAT is broken on this kernel; send DNS
-    # traffic for the kube-dns VIP straight to the CoreDNS pod.
+    # kube-proxy ClusterIP DNAT is broken here; DNAT the kube-dns VIP to the CoreDNS pod.
     local cip
     cip=$(kubectl get pod -n kube-system -l k8s-app=kube-dns -o jsonpath='{.items[0].status.podIP}')
     docker exec "$NODE" sh -c "
@@ -120,9 +107,7 @@ apply_dns_dnat() {
 }
 
 apply_gateway_dnat() {
-    # The gateway-runtime service is ClusterIP with no hostPort/NodePort, so the
-    # k3d serverlb's forward to node:22893 dead-ends. DNAT it straight to the
-    # gateway-runtime pod, which serves the AI gateway and OTel ingest.
+    # gateway-runtime is a ClusterIP with no node binding; DNAT node:22893 to its pod.
     local pip
     pip=$(kubectl get pod -n openchoreo-data-plane -l app.kubernetes.io/component=gateway-runtime \
         -o jsonpath='{.items[0].status.podIP}' 2>/dev/null) || return 0
@@ -135,8 +120,7 @@ apply_gateway_dnat() {
 
 precreate_amp_secrets() {
     log "Pre-creating AMP hook secrets"
-    # The chart's hook jobs apk-install tools at run time and need pod egress;
-    # pre-create their secrets and strip the jobs from the chart instead.
+    # Pre-create the hook secrets so the egress-dependent hook jobs can be stripped.
     kubectl create ns wso2-amp --dry-run=client -o yaml | kubectl apply -f - >/dev/null
     if ! kubectl get secret amp-jwt-keys -n wso2-amp >/dev/null 2>&1; then
         mkdir -p /tmp/keys && cd /tmp/keys
@@ -165,10 +149,8 @@ precreate_amp_secrets() {
     fi
 }
 
-# install.sh Step 11: the gateway-operator ships the gateway.api-platform.wso2.com
-# CRDs that the gateway extension's CRs need. The quick-start install dies at its
-# AMP-chart step before reaching this, so install it here. Versions track
-# install.sh (GATEWAY_OPERATOR_VERSION / GATEWAY_CHART_VERSION).
+# install.sh Step 11 (skipped by the failing quick-start): the gateway-operator
+# provides the gateway.api-platform.wso2.com CRDs the gateway extension needs.
 install_gateway_operator() {
     helm status gateway-operator -n openchoreo-data-plane >/dev/null 2>&1 || \
         helm install gateway-operator \
@@ -205,10 +187,8 @@ subjects:
 EOF
 }
 
-# install.sh Step 10 sub-install: the observability-traces-opensearch chart ships
-# the OTel collector that receives agent traces and writes them to OpenSearch.
-# The quick-start's partial run skips it, leaving the otel-collector Service with
-# no backing pod, so trace ingest returns "no healthy upstream".
+# install.sh Step 10 sub-install (skipped): the traces-opensearch chart ships the
+# OTel collector that receives agent traces; without it ingest has no backing pod.
 install_observability_traces() {
     helm status observability-traces-opensearch -n openchoreo-observability-plane >/dev/null 2>&1 || \
         helm upgrade --install observability-traces-opensearch \
@@ -221,11 +201,8 @@ install_observability_traces() {
             --timeout 10m
 }
 
-# LOCAL-DEMO ONLY: the otel trace-ingest route is gated by a jwt-auth policy that
-# only a platform-deployed agent identity can satisfy. This Care Loop service runs
-# externally (we do not use AMP-managed deployment), so its collector cannot mint
-# that token. Drop the policy to let it post traces. Do not do this on any cluster
-# that is not a throwaway local demo.
+# LOCAL-DEMO ONLY: drop the otel route's jwt-auth so the externally-run collector
+# can post traces (an external agent can't mint the required identity token).
 disable_otel_trace_auth() {
     local rn=api-platform-default-default-otel-restapi
     kubectl get restapi "$rn" -n openchoreo-data-plane >/dev/null 2>&1 || return 0
@@ -255,17 +232,14 @@ install_amp_chart() {
         retry 3 install_observability_extension
         retry 3 install_observability_traces
         retry 3 install_evaluation_extension
-        # The gateway extension's CRs need the gateway-operator CRDs (step 11)
-        # and its bootstrap job mints a JWT from the thunder extension (step 12);
-        # the quick-start install never reaches either before it fails.
+        # Gateway extension needs the operator CRDs (step 11) and thunder (step 12).
         retry 3 install_amp_thunder_extension
         retry 3 install_gateway_operator
         wait_for_crd apigateways.gateway.api-platform.wso2.com
         wait_for_crd restapis.gateway.api-platform.wso2.com
         retry 5 install_gateway_extension
         retry 5 kubectl apply -f "https://raw.githubusercontent.com/wso2/agent-manager/amp/v${AMP_VERSION}/deployments/values/otel-collector-rest-api.yaml"
-        # The gateway extension creates the active otel route with jwt-auth; drop
-        # it so the externally-run collector can post traces (local demo only).
+        # Drop the jwt-auth the gateway extension puts on the otel route (local demo).
         disable_otel_trace_auth || true
     )
 }
@@ -333,14 +307,12 @@ main() {
     fix_cluster_dns
     precreate_amp_secrets
     install_amp_chart
-    # Console OAuth alignment is a host-port-13000 login convenience; a failure
-    # here must not restart-loop the container or block the ready file.
+    # Console OAuth alignment is best-effort; a failure must not block the ready file.
     fix_console_port || log "console OAuth alignment failed (non-fatal); dashboard login redirect may need a manual fix"
     apply_gateway_dnat
     touch "$READY_FILE"
     log "AMP ready. Console: http://localhost:13000 (admin/admin)."
-    # Both DNATs target pod IPs that change on pod restart; reconcile them so DNS
-    # resolution and gateway routing self-heal without a container restart.
+    # Reconcile both DNATs; their target pod IPs change on pod restart.
     while docker info >/dev/null 2>&1; do
         apply_dns_dnat >/dev/null 2>&1 || true
         apply_gateway_dnat >/dev/null 2>&1 || true

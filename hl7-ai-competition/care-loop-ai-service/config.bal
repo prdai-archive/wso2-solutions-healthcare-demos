@@ -3,4 +3,5 @@ configurable string fhirMcpAuthToken = "";
 configurable int listenPort = 8003;
 configurable string openAiApiKey = ?;
 configurable string openAiServiceUrl = "https://api.openai.com/v1";
-configurable boolean useAmpGateway = false;
+configurable string nanoModel = "gpt-4.1-nano";
+configurable string fullModel = "gpt-4.1";

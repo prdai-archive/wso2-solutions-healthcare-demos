@@ -8,15 +8,11 @@ import ballerinax/openai.chat;
 const int DEFAULT_MAX_TOKEN_COUNT = 512;
 const decimal DEFAULT_TEMPERATURE = 0.7;
 
-# OpenAI-compatible model provider for the WSO2 Agent Manager egress AI
-# gateway, which authenticates with an `API-Key` header instead of the
-# `Authorization: Bearer` header the stock `ballerinax/ai.openai` provider
-# sends. `chat` (the method agents use, including tool calling) goes through
-# the gateway with the `API-Key` header.
+# OpenAI model provider for the AMP egress gateway: `chat` sends an `API-Key`
+# header (not `Authorization: Bearer`) so it goes through the gateway.
 public isolated distinct client class AmpModelProvider {
     *ai:ModelProvider;
-    // The borrowed native `generate` implementation reads these two fields, so
-    // their names and types must match the ballerinax/ai.openai provider.
+    // Native `generate` reads llmClient and modelType; names/types must match ballerinax/ai.openai.
     private final chat:Client llmClient;
     private final openai:OPEN_AI_MODEL_NAMES modelType;
     private final http:Client gatewayClient;
@@ -44,12 +40,7 @@ public isolated distinct client class AmpModelProvider {
         self.maxTokens = maxTokens;
     }
 
-    # Sends a chat request to the model through the AMP gateway.
-    #
-    # + messages - List of chat messages or a single user message
-    # + tools - Tool definitions to be used for the tool call
-    # + stop - Stop sequence to stop the completion
-    # + return - Chat response or an error in case of failures
+    // Sends a chat request to the model through the AMP gateway.
     isolated remote function chat(ai:ChatMessage[]|ai:ChatUserMessage messages, ai:ChatCompletionFunctions[] tools = [],
             string? stop = ()) returns ai:ChatAssistantMessage|ai:Error {
         chat:CreateChatCompletionRequest request = {
@@ -64,9 +55,7 @@ public isolated distinct client class AmpModelProvider {
         }
         chat:CreateChatCompletionResponse|error response =
             self.gatewayClient->post("/chat/completions", request.toJson(), {"API-Key": self.apiKey});
-        // The ai:Agent already emits a GenAI span for this call; add the token
-        // usage from the response so Agent Manager renders it (input/output
-        // tokens follow the OpenTelemetry GenAI semantic conventions).
+        // Add GenAI token-usage tags so Agent Manager renders them on the span.
         if response is chat:CreateChatCompletionResponse {
             chat:CompletionUsage? usage = response.usage;
             if usage is chat:CompletionUsage {
@@ -85,23 +74,16 @@ public isolated distinct client class AmpModelProvider {
         return mapToAssistantMessage(choices[0].message);
     }
 
-    # Sends a chat request to the model and generates a value that belongs to the type
-    # corresponding to the type descriptor argument.
-    #
-    # + prompt - The prompt to use in the chat messages
-    # + td - Type descriptor specifying the expected return type format
-    # + return - Generates a value that belongs to the type, or an error if generation fails
+    // Required by ai:ModelProvider but unused by the agents; borrows the native impl.
     isolated remote function generate(ai:Prompt prompt, typedesc<anydata> td = <>) returns td|ai:Error = @java:Method {
         'class: "io.ballerina.lib.ai.openai.Generator"
     } external;
 }
 
-# Best-effort tag on the current span; observability failures must not break
-# the LLM call.
+// Best-effort span tag; observability failures must not break the LLM call.
 isolated function spanTag(string key, string value) {
     error? result = observe:addTagToSpan(key, value);
     if result is error {
-        // ignore
     }
 }
 

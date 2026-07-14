@@ -1,9 +1,7 @@
 #!/bin/sh
-# Register the Care Loop resources in the compose-hosted Agent Manager:
-# the OpenAI LLM provider (deployed to the default AI gateway, upstream auth
-# from OPENAI_API_KEY, published to the catalog) and a gateway API key written
-# to /amp-shared/gateway.key for care-loop-ai-service.
-# Idempotent: safe to re-run against an already-registered AMP.
+# Register the Care Loop resources in AMP: the OpenAI LLM provider (deployed to
+# the gateway and published to the catalog) and a gateway API key written to
+# /amp-shared/gateway.key. Idempotent.
 
 set -eu
 
@@ -49,9 +47,7 @@ provider_uuid() {
         | jq -r '.providers[]? | select(.id == "careloop-openai") | .uuid'
 }
 
-# Full provider object: the handle is the `id` field and the template is
-# referenced by handle in `template`. Both create and update take this shape;
-# a partial body wipes auth/template.
+# Full provider object (handle = `id`, template by handle); a partial body wipes auth.
 provider_body() {
     jq -n --arg key "$OPENAI_API_KEY" '{
         id: "careloop-openai", name: "Care Loop OpenAI", template: "openai",
@@ -83,8 +79,7 @@ $CURL -f -X POST -H "Authorization: Bearer $TOK" -H "Content-Type: application/j
         '{name: $name, base: "current", gatewayId: $gw}')" >/dev/null
 log "Provider deployed"
 
-# Publish to the catalog (sets artifacts.in_catalog); without this the provider
-# is deployed but the console's LLM Providers/catalog view stays empty.
+# Publish to the catalog (artifacts.in_catalog); without it the console view stays empty.
 $CURL -f -X PUT -H "Authorization: Bearer $TOK" -H "Content-Type: application/json" \
     "$API/api/v1/orgs/default/llm-providers/$PROVIDER_UUID/catalog" \
     -d '{"inCatalog":true}' >/dev/null

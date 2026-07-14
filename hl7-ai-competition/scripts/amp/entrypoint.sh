@@ -201,6 +201,17 @@ install_observability_traces() {
             --timeout 10m
 }
 
+# Observer authorizes trace queries on the client_id claim, not sub; without this
+# the console traces view 403s. (install.sh Step 10 does the same patch.)
+patch_observer_auth() {
+    local ns=openchoreo-observability-plane
+    kubectl get cm observer-auth-config -n "$ns" >/dev/null 2>&1 || return 0
+    kubectl get cm observer-auth-config -n "$ns" -o yaml \
+        | sed -E "s/claim:[[:space:]]*['\"]?sub['\"]?/claim: client_id/g" \
+        | kubectl apply --server-side --field-manager=helm --force-conflicts -f - >/dev/null
+    kubectl rollout restart deployment/observer -n "$ns" >/dev/null 2>&1 || true
+}
+
 # LOCAL-DEMO ONLY: drop the otel route's jwt-auth so the externally-run collector
 # can post traces (an external agent can't mint the required identity token).
 disable_otel_trace_auth() {
@@ -309,6 +320,7 @@ main() {
     install_amp_chart
     # Console OAuth alignment is best-effort; a failure must not block the ready file.
     fix_console_port || log "console OAuth alignment failed (non-fatal); dashboard login redirect may need a manual fix"
+    patch_observer_auth || log "observer-auth patch failed (non-fatal); console traces view may 403"
     apply_gateway_dnat
     touch "$READY_FILE"
     log "AMP ready. Console: http://localhost:13000 (admin/admin)."

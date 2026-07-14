@@ -10,7 +10,7 @@ THUNDER=${AMP_THUNDER_URL:-http://amp:8080}
 GATEWAY=${AMP_GATEWAY_URL:-http://amp:22893}
 KEY_FILE=/amp-shared/gateway.key
 CURL="curl -s -m 30 --connect-timeout 5"
-SCOPES="amp:org:view amp:llm-provider:read amp:llm-provider:create amp:llm-provider:update amp:llm-provider:deploy amp:llm-provider:api-key-manage amp:gateway:read amp:project:view amp:agent:view amp:agent:read amp:agent:create"
+SCOPES="amp:org:view amp:llm-provider:read amp:llm-provider:create amp:llm-provider:update amp:llm-provider:deploy amp:llm-provider:api-key-manage amp:gateway:read amp:project:read amp:agent:view amp:agent:read amp:agent:create"
 
 log() { printf '\n== %s\n' "$*"; }
 
@@ -121,12 +121,12 @@ if [ -z "$($CURL -H "Authorization: Bearer $TOK" "$AGENTS" | jq -r '.agents[]? |
 fi
 
 log "Resolving OpenChoreo identity for trace scoping"
-PROJECT_UID=$($CURL -H "Authorization: Bearer $TOK" "$API/api/v1/orgs/default/projects" | jq -r '.projects[]? | select(.name=="default") | .uuid')
-ENV_UID=$($CURL -H "Authorization: Bearer $TOK" "$API/api/v1/orgs/default/environments" | jq -r '(.environments // .)[]? | select(.name=="default") | .id')
+PROJECT_UID=$($CURL -H "Authorization: Bearer $TOK" "$API/api/v1/orgs/default/projects/default" | jq -r '.uuid // empty' 2>/dev/null || true)
+ENV_UID=$($CURL -H "Authorization: Bearer $TOK" "$API/api/v1/orgs/default/environments" | jq -r '(.environments? // .) | .[]? | select(.name=="default") | .id' 2>/dev/null || true)
 COMPONENT_UID=""
 i=0
 while [ $i -lt 12 ]; do
-    COMPONENT_UID=$($CURL -H "Authorization: Bearer $TOK" "$AGENTS/careloop-ai-service" | jq -r '.uuid // empty')
+    COMPONENT_UID=$($CURL -H "Authorization: Bearer $TOK" "$AGENTS/careloop-ai-service" | jq -r '.uuid // empty' 2>/dev/null || true)
     [ -n "$COMPONENT_UID" ] && break
     i=$((i + 1)); sleep 5
 done

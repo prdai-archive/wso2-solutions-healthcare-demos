@@ -86,7 +86,7 @@ service /questionnaires on sharedListener {
 
         int? itemCount = draftedItemCount(questionnaire);
         string? itemCountDetail = itemCount is int ? string `${itemCount} item(s) drafted` : ();
-        map<string>? itemCountPayload = itemCount is int ? {channel: "whatsapp", itemCount: itemCount.toString()} : ();
+        map<string>? itemCountPayload = itemCount is int ? {channel: common:WHATSAPP, itemCount: itemCount.toString()} : ();
         future<()> _ = start reportDashboardEvent(request.patientId, common:QUESTIONNAIRE_DRAFTED, itemCountDetail, itemCountPayload);
 
         return {questionnaire};
@@ -114,11 +114,9 @@ service /risk\-assessment on sharedListener {
             return <http:InternalServerError>{body: {message: "agent JSON did not match expected shape: " + assessment.message()}};
         }
 
-        string reasoningSnippet = assessment.reasoning.length() > 120 ?
-            assessment.reasoning.substring(0, 120) : assessment.reasoning;
         future<()> _ = start reportDashboardEvent(request.patientId, common:AGENTIC_RISK_ASSESSMENT_DRAFTED,
                 string `risk=${assessment.risk}, probability=${assessment.probability}`,
-                {risk: assessment.risk, probability: assessment.probability.toString(), reasoning: reasoningSnippet});
+                {risk: assessment.risk, probability: assessment.probability.toString(), reasoning: assessment.reasoning});
 
         return assessment;
     }
@@ -142,9 +140,8 @@ Patient answers: ${request.answers.toJsonString()}`;
                     request.mlProbability}. Agentic probability: ${agentic.probability} (risk=${agentic.risk}).`
             };
         }
-        string descriptionSnippet = result.length() > 120 ? result.substring(0, 120) : result;
         future<()> _ = start reportDashboardEvent(request.patientId, common:TASK_DESCRIPTION_DRAFTED, (),
-                {description: descriptionSnippet});
+                {description: result});
         return {description: result};
     }
 }

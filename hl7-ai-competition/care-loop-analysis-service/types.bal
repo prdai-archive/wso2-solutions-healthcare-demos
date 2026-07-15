@@ -1,3 +1,5 @@
+import care_loop/care_loop_common as common;
+
 # + patientId - the FHIR Patient id whose vitals were just forwarded
 public type VitalsReadyRequest record {|
     string patientId;
@@ -64,7 +66,7 @@ public type AiRiskAssessmentRequest record {|
 # + referencedResources - "Observation/{id}" resources the agent says it actually consulted
 public type AiRiskAssessmentResponse record {|
     float probability;
-    "low"|"moderate"|"high" risk;
+    common:RiskLevel risk;
     string reasoning;
     string[] referencedResources;
 |};
@@ -95,3 +97,8 @@ public type PendingCase record {|
     string[] observationRefs;
     PatientDisplay display;
 |};
+
+public enum VitalsBand {
+    ELEVATED = "elevated",
+    NORMAL = "normal"
+}

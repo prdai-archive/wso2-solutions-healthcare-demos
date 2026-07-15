@@ -32,7 +32,7 @@ isolated function buildQuestionnaireResponse(TranscriptCallback callback, Genera
     map<string> questionTextByLinkId = {};
     foreach ChatMessage message in callback.messages {
         string? questionId = message.questionId;
-        if message.role == "bot" && questionId is string {
+        if message.role == BOT && questionId is string {
             questionTextByLinkId[questionId] = message.text;
         }
     }
@@ -40,7 +40,7 @@ isolated function buildQuestionnaireResponse(TranscriptCallback callback, Genera
     international401:QuestionnaireResponseItem[] items = [];
     foreach ChatMessage message in callback.messages {
         string? questionId = message.questionId ?: message.replyTo?.questionId;
-        if message.role == "user" && questionId is string {
+        if message.role == USER && questionId is string {
             string? questionText = questionTextByLinkId[questionId] ?: message.replyTo?.questionText;
             items.push({
                 linkId: questionId,
@@ -69,7 +69,7 @@ isolated function buildEmergencyAnswers(TranscriptCallback callback) returns Eme
     map<string> questionTextByLinkId = {};
     foreach ChatMessage message in callback.messages {
         string? questionId = message.questionId;
-        if message.role == "bot" && questionId is string {
+        if message.role == BOT && questionId is string {
             questionTextByLinkId[questionId] = message.text;
         }
     }
@@ -77,7 +77,7 @@ isolated function buildEmergencyAnswers(TranscriptCallback callback) returns Eme
     EmergencyAnswer[] answers = [];
     foreach ChatMessage message in callback.messages {
         string? questionId = message.questionId ?: message.replyTo?.questionId;
-        if message.role != "user" || questionId is () {
+        if message.role != USER || questionId is () {
             continue;
         }
         string question = questionTextByLinkId[questionId] ?: message.replyTo?.questionText ?: questionId;

@@ -65,7 +65,7 @@ isolated function runVitalsReadyCycle(string patientId) {
     future<()> _ = start notifyDashboard(patientId, common:ML_RISK_SCORING_COMPLETE, "probability " + heartRiskResponse.probability.toString(), {
         model: heartRiskResponse.selected_model,
         probability: heartRiskResponse.probability.toString(),
-        band: heartRiskResponse.probability >= mlEscalationThreshold ? "elevated" : "normal"
+        band: heartRiskResponse.probability >= mlEscalationThreshold ? ELEVATED : NORMAL
     });
 
     string[] observationRefs = readings.map(r => "Observation/" + r.id);

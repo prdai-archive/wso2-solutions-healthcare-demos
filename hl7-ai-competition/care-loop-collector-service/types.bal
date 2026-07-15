@@ -80,7 +80,7 @@ public type ReplyRef record {|
 # + questionId - the linkId this message answers, if any
 # + replyTo - the question this message is replying to, if any
 public type ChatMessage record {|
-    string role;
+    MessageRole role;
     string text;
     string time;
     string questionId?;
@@ -141,3 +141,8 @@ public type EmergencyAnswersNotification record {|
     EmergencyAnswer[] answers;
     string? questionnaireResponseId;
 |};
+
+public enum MessageRole {
+    BOT = "bot",
+    USER = "user"
+}

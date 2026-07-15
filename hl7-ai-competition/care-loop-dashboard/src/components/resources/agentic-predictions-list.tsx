@@ -2,11 +2,36 @@
 
 import type { RiskAssessmentSummary } from "@/app/api/patients/[id]/risk-assessments/route";
 
+import { useState } from "react";
+
 import { FhirButton } from "@/components/resources/fhir-drawer";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 export type AgenticRiskAssessmentDto = RiskAssessmentSummary;
+
+function Reasoning({ text }: { text: string | null }) {
+  const [expanded, setExpanded] = useState(false);
+  const base = "border-l-2 border-accent-brand pl-3.5 text-[13px] leading-[1.65] whitespace-pre-wrap";
+  if (!text) {
+    return <div className={cn(base, "text-[rgba(0,0,0,0.4)]")}>No agentic reasoning recorded.</div>;
+  }
+  const clampable = text.length > 240;
+  return (
+    <div>
+      <div className={cn(base, "text-[rgba(0,0,0,0.7)]", clampable && !expanded && "line-clamp-4")}>{text}</div>
+      {clampable ? (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="mt-1.5 ml-3.5 cursor-pointer text-[11.5px] font-semibold text-accent-brand hover:underline"
+        >
+          {expanded ? "Show less" : "Show more"}
+        </button>
+      ) : null}
+    </div>
+  );
+}
 
 function formatWhen(occurrenceDateTime: string | null): string {
   if (!occurrenceDateTime) return "no recorded time";
@@ -119,9 +144,7 @@ export function AgenticPredictionsList({
                 <div className="mb-2 text-[10.5px] font-semibold tracking-[0.06em] text-[rgba(0,0,0,0.4)] uppercase">
                   Agent reasoning
                 </div>
-                <div className="border-l-2 border-accent-brand pl-3.5 text-[13px] leading-[1.65] whitespace-pre-wrap text-[rgba(0,0,0,0.7)]">
-                  {riskAssessment.note ?? "No agentic reasoning recorded."}
-                </div>
+                <Reasoning text={riskAssessment.note} />
                 <div className="mt-[18px] mb-2 text-[10.5px] font-semibold tracking-[0.06em] text-[rgba(0,0,0,0.4)] uppercase">
                   Cited FHIR resources
                 </div>

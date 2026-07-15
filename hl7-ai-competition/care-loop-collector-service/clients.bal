@@ -11,7 +11,7 @@ final http:Client whatsappClient = check new (whatsappUrl, httpVersion = http:HT
 final http:Client dashboardEventsClient = check common:newDashboardEventsClient(dashboardEventsUrl);
 
 // Fire-and-forget: the ops dashboard is a nice-to-have live feed, never a reason to slow down or fail real pipeline work.
-isolated function notifyDashboard(string patientId, string label, string? detail = (), map<string>? payload = ()) {
+isolated function notifyDashboard(string patientId, common:DashboardEventLabel label, string? detail = (), map<string>? payload = ()) {
     common:notifyDashboard(dashboardEventsClient, patientId, label, detail, payload);
 }
 

@@ -6,6 +6,8 @@ import ballerinax/ai.openai;
 // OTLP gRPC span exporter (despite the name); activated via [ballerina.observe] config.
 import ballerinax/jaeger as _;
 
+import care_loop/care_loop_common as common;
+
 final ai:McpToolKit fhirToolkit = check createFhirToolkit();
 final ai:ModelProvider nanoModelProvider = check createModelProvider(nanoModel);
 final ai:ModelProvider fullModelProvider = check createModelProvider(fullModel);
@@ -80,7 +82,7 @@ service /questionnaires on sharedListener {
                 itemCountPayload = {channel: "whatsapp", itemCount: items.length().toString()};
             }
         }
-        future<()> _ = start reportDashboardEvent(request.patientId, "Questionnaire drafted", itemCountDetail, itemCountPayload);
+        future<()> _ = start reportDashboardEvent(request.patientId, common:QUESTIONNAIRE_DRAFTED, itemCountDetail, itemCountPayload);
 
         return {questionnaire};
     }
@@ -109,7 +111,7 @@ service /risk\-assessment on sharedListener {
 
         string reasoningSnippet = assessment.reasoning.length() > 120 ?
             assessment.reasoning.substring(0, 120) : assessment.reasoning;
-        future<()> _ = start reportDashboardEvent(request.patientId, "Agentic risk assessment drafted",
+        future<()> _ = start reportDashboardEvent(request.patientId, common:AGENTIC_RISK_ASSESSMENT_DRAFTED,
                 string `risk=${assessment.risk}, probability=${assessment.probability}`,
                 {risk: assessment.risk, probability: assessment.probability.toString(), reasoning: reasoningSnippet});
 
@@ -136,7 +138,7 @@ Patient answers: ${request.answers.toJsonString()}`;
             };
         }
         string descriptionSnippet = result.length() > 120 ? result.substring(0, 120) : result;
-        future<()> _ = start reportDashboardEvent(request.patientId, "Task description drafted", (),
+        future<()> _ = start reportDashboardEvent(request.patientId, common:TASK_DESCRIPTION_DRAFTED, (),
                 {description: descriptionSnippet});
         return {description: result};
     }

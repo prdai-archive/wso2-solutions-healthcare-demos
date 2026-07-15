@@ -1,3 +1,4 @@
+import care_loop/care_loop_common as common;
 import ballerina/http;
 import ballerina/log;
 import ballerinax/health.clients.fhir;
@@ -25,7 +26,7 @@ service / on new http:Listener(listenPort) {
         int|error entryCount = trap (<json[]>checkpanic bundle.entry).length();
         string detail = entryCount is int ? entryCount.toString() + " reading(s) ingested" : "vitals ingested";
         map<string> payload = extractVitalsDashboardPayload(bundle);
-        future<()> _ = start notifyDashboard(patientId, "Vitals ingested", detail, payload);
+        future<()> _ = start notifyDashboard(patientId, common:VITALS_INGESTED, detail, payload);
 
         return http:OK;
     }

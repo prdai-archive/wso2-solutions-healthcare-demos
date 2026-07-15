@@ -12,7 +12,9 @@ import {
   Sparkles,
   Stethoscope,
 } from "lucide-react";
+
 import { useRef, useState } from "react";
+import { OUTCOME_BELOW_THRESHOLD } from "@/lib/runs";
 
 import { STAGE_DEFS } from "@/lib/stages";
 import { compactUnit } from "@/lib/vitals";
@@ -50,7 +52,6 @@ const BADGE_LABEL: Record<DisplayStatus, string> = {
   ended: "Run ended",
 };
 
-// One real value per completed stage, pulled straight from that stage's own event.payload (see CareLoopEvent in lib/db.ts) - never a value invented for display. Stages whose payload has no single salient short value return null and simply render no chip.
 function roundedNumber(raw: string): string {
   const n = Number(raw);
   return Number.isFinite(n) ? n.toFixed(2) : raw;
@@ -77,7 +78,6 @@ function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour12: false, hour: "2-digit", minute: "2-digit" });
 }
 
-// Mock's exact serpentine geometry: 88px nodes, 4 per row, 290px column pitch, 200px row pitch, rows alternating direction.
 const RW = 88;
 const RH = 88;
 const PX = 290;
@@ -186,7 +186,6 @@ function nodeLook(status: DisplayStatus): NodeLook {
       stateColor: "rgba(0,0,0,0.45)",
     };
   }
-  // pending and not-observable share the mock's faded pending look.
   return {
     border: "1px solid rgba(0,0,0,0.07)",
     iconStyle: { background: "rgba(0,0,0,0.04)", color: "rgba(0,0,0,0.3)" },
@@ -202,7 +201,6 @@ function inspectorBadgeStyle(status: DisplayStatus): React.CSSProperties {
   return { background: "transparent", color: "rgba(0,0,0,0.4)", border: "1px solid rgba(0,0,0,0.14)" };
 }
 
-// Mock's "Latest run" canvas: absolutely-positioned serpentine node grid with animated connector tracks and a hover inspector, bound to the run's real RunStage/CareLoopEvent data.
 export function RunTimeline({ run }: { run: Run }) {
   const [selected, setSelected] = useState<number | null>(null);
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -211,7 +209,7 @@ export function RunTimeline({ run }: { run: Run }) {
   const canvasH = RSY + (rows - 1) * PY + RH + 110;
 
   // A run settled below threshold has nothing more coming (lib/runs.ts outcome logic), so its unreached tail renders as ended, not pending.
-  const runEnded = run.outcome === "Below escalation threshold";
+  const runEnded = run.outcome === OUTCOME_BELOW_THRESHOLD;
   let lastDoneIndex = -1;
   run.stages.forEach((s, i) => {
     if (s.status === "done") lastDoneIndex = i;
@@ -264,10 +262,15 @@ export function RunTimeline({ run }: { run: Run }) {
           Latest run
         </span>
       </div>
-      <div className="absolute top-3 right-3.5 z-10">
+      <div className="absolute top-3 right-3.5 z-10 flex items-center gap-1.5">
         <span className="rounded-[6px] border border-[rgba(0,0,0,0.08)] bg-white/85 px-[9px] py-[5px] font-mono text-[10px] whitespace-nowrap text-[rgba(0,0,0,0.45)]">
           triggered by vitals · {formatTime(run.startedAt)} · {run.outcome}
         </span>
+        {runEnded ? (
+          <span className="rounded-[6px] border border-[rgba(22,128,61,0.28)] bg-[#f2faf4]/90 px-[9px] py-[5px] font-mono text-[10px] whitespace-nowrap text-[#15803d]">
+            ✓ no escalation needed
+          </span>
+        ) : null}
       </div>
 
       <div className="overflow-x-auto">

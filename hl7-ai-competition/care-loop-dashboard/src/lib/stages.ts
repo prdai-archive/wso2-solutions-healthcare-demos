@@ -1,13 +1,5 @@
 // The real, distinct event labels our backend services fire, in pipeline order - keep in sync with the notifyDashboard/reportDashboardEvent call sites in each service.
-export interface StageDef {
-  key: string;
-  label: string;
-  service: string;
-  method: string;
-  endpoint: string;
-}
-
-export const STAGE_DEFS: StageDef[] = [
+export const STAGE_DEFS = [
   {
     key: "vitals",
     label: "Vitals ingested",
@@ -85,7 +77,10 @@ export const STAGE_DEFS: StageDef[] = [
     method: "—",
     endpoint: "not observable from this dashboard",
   },
-];
+] as const;
+
+// Single TS source of truth for the known label set; mirrored (unavoidably, per language) by care-loop-common/dashboard_events.bal's DashboardEventLabel enum.
+export type StageLabel = (typeof STAGE_DEFS)[number]["label"];
 
 // A new run starts at each "Vitals ingested" event - the real trigger collector-service fires at the top of every pipeline pass.
-export const RUN_BOUNDARY_LABEL = "Vitals ingested";
+export const RUN_BOUNDARY_LABEL: StageLabel = "Vitals ingested";

@@ -1,9 +1,11 @@
+import type { StageLabel } from "@/lib/stages";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
-import process from "node:process";
 
+import process from "node:process";
 import { Database } from "bun:sqlite";
 import { desc, eq } from "drizzle-orm";
+
 import { drizzle } from "drizzle-orm/bun-sqlite";
 
 import { events } from "@/lib/schema";
@@ -34,7 +36,8 @@ const db = drizzle(sqlite);
 export interface CareLoopEvent {
   id: number;
   patientId: string;
-  label: string;
+  // Known labels get the StageLabel union; the (string & {}) arm keeps ingestion permissive - unknown labels are stored and shown, never rejected (README's fixed contract).
+  label: StageLabel | (string & {});
   detail: string | null;
   payload: Record<string, string> | null;
   receivedAt: string;

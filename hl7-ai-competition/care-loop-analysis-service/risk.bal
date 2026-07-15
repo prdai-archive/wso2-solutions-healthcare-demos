@@ -1,3 +1,4 @@
+import care_loop/care_loop_common as common;
 import ballerina/http;
 import ballerina/lang.runtime;
 import ballerina/lang.'string as strings;
@@ -61,7 +62,7 @@ isolated function runVitalsReadyCycle(string patientId) {
         log:printError("vitals-ready: heart-risk-service call failed", patientId = patientId, 'error = heartRiskResponse);
         return;
     }
-    future<()> _ = start notifyDashboard(patientId, "ML risk scoring complete", "probability " + heartRiskResponse.probability.toString(), {
+    future<()> _ = start notifyDashboard(patientId, common:ML_RISK_SCORING_COMPLETE, "probability " + heartRiskResponse.probability.toString(), {
         model: heartRiskResponse.selected_model,
         probability: heartRiskResponse.probability.toString(),
         band: heartRiskResponse.probability >= mlEscalationThreshold ? "elevated" : "normal"
@@ -80,7 +81,7 @@ isolated function runVitalsReadyCycle(string patientId) {
 
     log:printWarn("vitals-ready: ML probability crossed escalation threshold, starting emergency questionnaire",
             patientId = patientId, probability = heartRiskResponse.probability);
-    future<()> _ = start notifyDashboard(patientId, "Escalation triggered",
+    future<()> _ = start notifyDashboard(patientId, common:ESCALATION_TRIGGERED,
             "ML probability " + heartRiskResponse.probability.toString() + " crossed threshold " + mlEscalationThreshold.toString(),
             {probability: heartRiskResponse.probability.toString(), threshold: mlEscalationThreshold.toString()});
     PatientDisplay display = patientDisplay(patient, patientId, age, sex);
@@ -120,7 +121,7 @@ isolated function runTimeoutWatcher(string patientId, float mlProbability) {
         log:printError("timeout escalation: failed to save Task to ehr-fhir-server", patientId = patientId, 'error = saveResult);
         return;
     }
-    future<()> _ = start notifyDashboard(patientId, "FHIR Task created for front-desk", extractFhirId(saveResult), {
+    future<()> _ = start notifyDashboard(patientId, common:FHIR_TASK_CREATED_FOR_FRONT_DESK, extractFhirId(saveResult), {
         taskId: extractFhirId(saveResult) ?: "",
         status: task.status,
         priority: task.priority ?: ""
@@ -156,7 +157,7 @@ isolated function runEmergencyAnswersCycle(EmergencyAnswersRequest request, Pend
     }
     // escalated mirrors the guard below, computed server-side so the dashboard never re-derives threshold math.
     boolean escalated = pendingCase.heartRisk.probability >= mlEscalationThreshold && aiResponse.probability >= agenticEscalationThreshold;
-    future<()> _ = start notifyDashboard(request.patientId, "Agentic risk assessment complete",
+    future<()> _ = start notifyDashboard(request.patientId, common:AGENTIC_RISK_ASSESSMENT_COMPLETE,
             aiResponse.risk + " risk, probability " + aiResponse.probability.toString(), {
         risk: aiResponse.risk,
         probability: aiResponse.probability.toString(),
@@ -191,7 +192,7 @@ isolated function runEmergencyAnswersCycle(EmergencyAnswersRequest request, Pend
         log:printError("emergency-answers: failed to save Task to ehr-fhir-server", patientId = request.patientId, 'error = taskSaveResult);
         return;
     }
-    future<()> _ = start notifyDashboard(request.patientId, "FHIR Task created for front-desk", extractFhirId(taskSaveResult), {
+    future<()> _ = start notifyDashboard(request.patientId, common:FHIR_TASK_CREATED_FOR_FRONT_DESK, extractFhirId(taskSaveResult), {
         taskId: extractFhirId(taskSaveResult) ?: "",
         status: task.status,
         priority: task.priority ?: ""

@@ -10,7 +10,6 @@ export function AppHeader({ lastPollAt }: { lastPollAt: number | null }) {
     return () => clearInterval(interval);
   }, []);
 
-  // Prefer the most recent real poll timestamp over the wall clock, so the header reflects actual data freshness rather than implying a tighter update cadence than the 4s polling loop.
   const displayed = lastPollAt ?? now;
 
   return (

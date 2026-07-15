@@ -5,9 +5,14 @@ import { logger } from "@/lib/logger";
 const DASHBOARD_EVENTS_URL =
   process.env.DASHBOARD_EVENTS_URL ?? "http://localhost:3003";
 
+// The only live-feed labels this app fires; values must stay byte-identical to care-loop-common/dashboard_events.bal's DashboardEventLabel enum and care-loop-dashboard/src/lib/stages.ts.
+type DashboardEventLabel =
+  | "Sent via WhatsApp"
+  | "Patient responded via WhatsApp";
+
 interface DashboardEvent {
   patientId: string;
-  label: string;
+  label: DashboardEventLabel;
   detail?: string;
   payload?: Record<string, string>;
 }

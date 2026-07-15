@@ -55,7 +55,6 @@ function statusOf(box: ArchitectureBoxDef, run: Run | undefined): BoxStatus {
   return "pending";
 }
 
-// Fixed world canvas per the mock (2320x1160, 96px tiles), populated with the real Care Loop boxes from src/lib/architecture.ts.
 const NW = 96;
 const NH = 96;
 const WORLD_W = 2320;

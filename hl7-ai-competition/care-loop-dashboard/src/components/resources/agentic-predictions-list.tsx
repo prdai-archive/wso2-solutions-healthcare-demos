@@ -49,7 +49,6 @@ function ProbabilityCard({
   );
 }
 
-// Data is fetched once at the page level (shared with MlPredictionsList and AlertsList's ML/Agent columns) rather than each consumer polling the same /risk-assessments route independently.
 export function AgenticPredictionsList({
   riskAssessments,
   latestMlProbability,
@@ -88,6 +87,7 @@ export function AgenticPredictionsList({
     <div className="flex flex-col gap-7 px-5 py-[18px]">
       {riskAssessments.map((riskAssessment, index) => {
         const probability = riskAssessment.predictions[0]?.probability ?? null;
+        const qualitativeRisk = riskAssessment.predictions[0]?.qualitativeRisk ?? null;
         const highlighted = focusedRefs?.has(`RiskAssessment/${riskAssessment.id}`);
         return (
           <div key={riskAssessment.id} className={cn(highlighted && "rounded-xl bg-accent-brand/[0.04] p-2 -m-2")}>
@@ -97,6 +97,11 @@ export function AgenticPredictionsList({
                 {probability !== null ? (
                   <span className="rounded-[20px] bg-accent-brand px-[9px] py-0.5 text-[10.5px] font-semibold text-white">
                     probability {probability.toFixed(2)}
+                  </span>
+                ) : null}
+                {qualitativeRisk ? (
+                  <span className="rounded-[20px] border border-[rgba(0,0,0,0.15)] px-[9px] py-0.5 text-[10.5px] font-semibold text-[rgba(0,0,0,0.6)]">
+                    {qualitativeRisk.toUpperCase()}
                   </span>
                 ) : null}
                 <span className="font-mono text-[10.5px] text-[rgba(0,0,0,0.4)]">

@@ -4,6 +4,9 @@ import { RUN_BOUNDARY_LABEL, STAGE_DEFS } from "@/lib/stages";
 
 export type StageStatus = "done" | "active" | "pending" | "not-observable";
 
+// The settled healthy outcome - exported so the UI's positive treatments key off one string, not re-typed literals.
+export const OUTCOME_BELOW_THRESHOLD = "Below escalation threshold";
+
 export interface RunStage {
   key: string;
   status: StageStatus;
@@ -19,9 +22,8 @@ export interface Run {
   stages: RunStage[];
 }
 
-const stageIndexByLabel = new Map(STAGE_DEFS.map((s, i) => [s.label, i]));
+const stageIndexByLabel = new Map<string, number>(STAGE_DEFS.map((s, i) => [s.label, i]));
 
-// Segments a patient's event history (newest-first, as listEvents returns) into runs, each starting at a "Vitals ingested" event.
 export function segmentRuns(events: CareLoopEvent[]): Run[] {
   const ascending = [...events].reverse();
   const runs: Run[] = [];
@@ -78,7 +80,7 @@ function buildRun(runEvents: CareLoopEvent[], isLatest: boolean): Run {
     ? "Task created"
     : hasEscalation && !settledBelowThreshold
       ? "Escalated, no Task yet"
-      : "Below escalation threshold";
+      : OUTCOME_BELOW_THRESHOLD;
 
   const startedAt = runEvents[0]!.receivedAt;
   const endedAt = runEvents[runEvents.length - 1]!.receivedAt;

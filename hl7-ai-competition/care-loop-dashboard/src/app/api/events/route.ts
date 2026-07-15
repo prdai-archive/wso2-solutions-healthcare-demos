@@ -33,6 +33,7 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
+  // Any non-empty string is accepted on purpose - known labels are typed via StageLabel (lib/stages.ts) but the ingestion contract stays permissive so new services can post before this app knows their labels.
   if (typeof label !== "string" || label.trim() === "") {
     return NextResponse.json(
       { error: "label must be a non-empty string" },

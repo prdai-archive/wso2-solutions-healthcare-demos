@@ -5,7 +5,7 @@ import type { OpsPatient } from "@/app/api/patients/route";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { statusBandFor } from "@/lib/status-band";
+import { statusBand } from "@/lib/status-band";
 import { cn } from "@/lib/utils";
 
 function initials(name: string): string {
@@ -13,9 +13,8 @@ function initials(name: string): string {
   return ((parts[0]?.[0] ?? "") + (parts.at(-1)?.[0] ?? "")).toUpperCase();
 }
 
-// Same worst-of-ML/agentic + real-threshold band rule as the home table and patient header.
 function bandForRow(row: HomePatientRow | undefined) {
-  return statusBandFor(row?.mlRisk ?? null, row?.agenticRisk ?? null, row?.escalationThreshold ?? null);
+  return statusBand((row?.openTasks ?? 0) > 0);
 }
 
 function patientMeta(patient: OpsPatient): string {
@@ -23,7 +22,6 @@ function patientMeta(patient: OpsPatient): string {
   return patient.birthDate ? `${sex} · ${patient.birthDate}` : sex;
 }
 
-// Mock's Cmd/Ctrl+K search palette: overlay + centered panel with keyboard navigation. Rows come from the same real /api/patients + /api/home-summary data the home table renders.
 export function CommandPalette({
   patients,
   summaryRows,

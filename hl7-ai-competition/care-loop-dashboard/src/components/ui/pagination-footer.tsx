@@ -2,7 +2,6 @@
 
 import { useCallback, useState } from "react";
 
-// Same pager treatment as the home patients table (mock footer: page info left, Prev/Next right, accent hover, muted disabled).
 const PAGER_BUTTON =
   "cursor-pointer rounded-[7px] border border-[rgba(0,0,0,0.14)] bg-white px-3 py-[5px] text-[11px] font-semibold text-[#16161a] hover:border-accent-brand hover:bg-accent-brand hover:text-white disabled:pointer-events-none disabled:text-[rgba(0,0,0,0.25)]";
 

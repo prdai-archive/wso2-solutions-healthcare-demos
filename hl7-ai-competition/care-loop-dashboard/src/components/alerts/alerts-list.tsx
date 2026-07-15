@@ -54,6 +54,7 @@ export function AlertsList({
   onOpenTasks,
   mlPredictions,
   agenticPredictions,
+  hasRiskData,
 }: {
   patientId: string;
   focusedTaskId: string | null;
@@ -63,6 +64,8 @@ export function AlertsList({
   onOpenTasks?: (openTasks: TaskSummary[]) => void;
   mlPredictions: RiskAssessmentSummary[];
   agenticPredictions: RiskAssessmentSummary[];
+  // True when the patient has at least one ML RiskAssessment - with zero open Tasks that means risk was assessed and no escalation was needed, a real FHIR-derived fact.
+  hasRiskData?: boolean;
 }) {
   const [tasks, setTasks] = useState<TaskSummary[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -139,14 +142,25 @@ export function AlertsList({
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center gap-2 px-5 py-[30px] text-center">
-            <div className="flex size-9 items-center justify-center rounded-full border-[1.5px] border-dashed border-[rgba(0,0,0,0.2)] text-[15px] text-[rgba(0,0,0,0.3)]">
+            <div
+              className={cn(
+                "flex size-9 items-center justify-center rounded-full border-[1.5px] border-dashed text-[15px]",
+                hasRiskData
+                  ? "border-[rgba(22,128,61,0.4)] text-[#15803d]"
+                  : "border-[rgba(0,0,0,0.2)] text-[rgba(0,0,0,0.3)]",
+              )}
+            >
               ✓
             </div>
-            <div className="text-[12.5px] font-semibold text-[rgba(0,0,0,0.5)]">No open tasks</div>
+            <div className={cn("text-[12.5px] font-semibold", hasRiskData ? "text-[#15803d]" : "text-[rgba(0,0,0,0.5)]")}>
+              No open tasks
+            </div>
             <div className="text-[11.5px] leading-normal text-[rgba(0,0,0,0.4)]">
-              {tasks.length === 0
-                ? "No Task resources recorded yet for this patient."
-                : "All recorded Tasks are closed."}
+              {hasRiskData
+                ? "Risk was assessed and no escalation Task was needed."
+                : tasks.length === 0
+                  ? "No Task resources recorded yet for this patient."
+                  : "All recorded Tasks are closed."}
             </div>
           </div>
         )

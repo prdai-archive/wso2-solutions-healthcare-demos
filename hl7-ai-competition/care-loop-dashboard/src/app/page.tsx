@@ -22,8 +22,7 @@ import { ObservationsList } from "@/components/resources/observations-list";
 import { PatientHistory } from "@/components/resources/patient-history";
 import { QuestionnaireResponsesList } from "@/components/resources/questionnaire-responses-list";
 import { usePolledResource } from "@/hooks/use-polled-resource";
-import { parseEscalationThreshold } from "@/lib/ml-rationale";
-import { statusBandFor } from "@/lib/status-band";
+import { statusBand } from "@/lib/status-band";
 import { cn } from "@/lib/utils";
 import { displayableRows } from "@/lib/vitals";
 
@@ -180,14 +179,18 @@ export default function DashboardPage() {
   const mlPredictions = riskAssessments.filter((r) => r.method?.toLowerCase().includes(ML_METHOD_MARKER));
   const agenticPredictions = riskAssessments.filter((r) => r.method?.toLowerCase().includes(AGENTIC_METHOD_MARKER));
   const latestMlProbability = mlPredictions[0]?.predictions[0]?.probability ?? null;
-  const latestAgenticProbability = agenticPredictions[0]?.predictions[0]?.probability ?? null;
-  const band = selected
-    ? statusBandFor(
-        latestMlProbability,
-        latestAgenticProbability,
-        parseEscalationThreshold(mlPredictions[0]?.predictions[0]?.rationale),
-      )
-    : null;
+
+  const openTaskCount =
+    liveOpenTasks?.length ?? homeSummary.patients.find((row) => row.id === selected?.id)?.openTasks ?? 0;
+  const band = selected ? statusBand(openTaskCount > 0) : null;
+
+  // RiskAssessment ids referenced by an open Task's basedOn - the ML tab marks these predictions "escalated" straight from the Task record.
+  const escalatedRiskAssessmentIds = new Set(
+    (liveOpenTasks ?? [])
+      .flatMap((task) => task.basedOn)
+      .filter((ref) => ref.startsWith("RiskAssessment/"))
+      .map((ref) => ref.slice("RiskAssessment/".length)),
+  );
 
   // Mock's focus filter narrows only the vitals and ML tabs (fVitals/fMl in the mock script); questionnaires and agent reasoning stay unfiltered.
   const visibleObservations = focusedRefs ? filterObservationsByFocus(observations, focusedRefs) : observations;
@@ -257,9 +260,7 @@ export default function DashboardPage() {
               observations={observations}
               mlPredictions={mlPredictions}
               agenticPredictions={agenticPredictions}
-              openTaskCount={
-                liveOpenTasks?.length ?? homeSummary.patients.find((row) => row.id === selected.id)?.openTasks ?? 0
-              }
+              openTaskCount={openTaskCount}
               openTaskPriority={liveOpenTasks ? highestTaskPriority(liveOpenTasks) : null}
             />
           </div>
@@ -286,6 +287,7 @@ export default function DashboardPage() {
                   onOpenTasks={setLiveOpenTasks}
                   mlPredictions={mlPredictions}
                   agenticPredictions={agenticPredictions}
+                  hasRiskData={mlPredictions.length > 0}
                 />
               </div>
 
@@ -360,6 +362,7 @@ export default function DashboardPage() {
                     loaded={riskAssessmentsPoll.loaded}
                     error={riskAssessmentsPoll.error}
                     focusedRefs={focusedRefs}
+                    escalatedRiskAssessmentIds={escalatedRiskAssessmentIds}
                   />
                 ) : null}
                 {tab === "agentic" ? (

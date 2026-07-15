@@ -7,7 +7,6 @@ import { useState } from "react";
 import { FhirDrawerContext, useFhirDrawer } from "@/lib/fhir-drawer-context";
 import { cn } from "@/lib/utils";
 
-// Mock's exact hlJson token palette for the dark JSON pane.
 const JSON_COLORS = {
   key: "#7fb5f5",
   str: "#9ece8c",
@@ -59,7 +58,6 @@ function highlightJson(value: unknown): React.ReactNode[] {
   return out;
 }
 
-// Shared slide-in drawer so every "{ } FHIR" button across alerts, vitals, questionnaires, predictions, and patient-record rows opens the same raw resource viewer instead of each list keeping its own inline toggle.
 export function FhirDrawerProvider({ children }: { children: React.ReactNode }) {
   const [target, setTarget] = useState<FhirDrawerTarget | null>(null);
 
@@ -124,7 +122,6 @@ function fhirDrawerPath(resourcePath: string, server?: keyof typeof SERVER_PREFI
   return `${prefix}/${resourcePath}`;
 }
 
-// Mock's exact "{ } FHIR" button: mono 10px, rgba surfaces, orange fill on hover. size "sm" is the table-row variant (3px 8px, r5), "md" the card variant (5px 10px, r6).
 export function FhirButton({
   resourcePath,
   raw,

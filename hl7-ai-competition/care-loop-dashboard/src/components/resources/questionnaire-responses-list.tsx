@@ -25,7 +25,6 @@ function formatAuthored(authored: string | null): string {
   });
 }
 
-// Data is fetched once at the page level (shared with the tab counts) rather than polled again here.
 export function QuestionnaireResponsesList({
   responses,
   loaded,

@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 
 export interface RiskAssessmentPredictionSummary {
   probability: number | null;
-  rationale: string | null;
+  qualitativeRisk: string | null;
 }
 
 export interface RiskAssessmentSummary {
@@ -35,7 +35,7 @@ function toRiskAssessmentSummary(
 
   const predictions = (assessment.prediction ?? []).map((prediction) => ({
     probability: prediction.probabilityDecimal ?? null,
-    rationale: prediction.rationale ?? null,
+    qualitativeRisk: prediction.qualitativeRisk?.coding?.[0]?.code ?? null,
   }));
 
   const basis = (assessment.basis ?? [])

@@ -8,11 +8,10 @@ import { useMemo, useState } from "react";
 
 import { ArchitectureView } from "@/components/architecture/architecture-view";
 import { Skeleton } from "@/components/ui/skeleton";
-import { statusBandFor } from "@/lib/status-band";
+import { statusBand } from "@/lib/status-band";
 
 const PAGE_SIZE = 5;
 
-// Mock table grid: 1.6fr 110px 1fr 1fr 0.8fr 1.2fr 46px with 12px gap.
 const ROW_GRID = "grid grid-cols-[1.6fr_110px_1fr_1fr_0.8fr_1.2fr_46px] gap-3";
 
 const PAGER_BUTTON =
@@ -37,9 +36,9 @@ interface KpiTile {
   sub: string;
 }
 
-// Band from the same worst-of-ML/agentic + real-threshold rule every view uses.
+// Band derives from open-Task existence - the FHIR record of the escalation decision - like every view.
 function bandForRow(row: HomePatientRow | undefined) {
-  return statusBandFor(row?.mlRisk ?? null, row?.agenticRisk ?? null, row?.escalationThreshold ?? null);
+  return statusBand((row?.openTasks ?? 0) > 0);
 }
 
 function buildKpis(summary: HomeSummary, loaded: boolean, error: boolean): KpiTile[] {

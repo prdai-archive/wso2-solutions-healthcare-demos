@@ -1,6 +1,5 @@
 import type { ObservationSummary } from "@/app/api/patients/[id]/observations/route";
 
-// LOINC codes actually posted by apple-healthkit-simulator per vitals reading.
 export const HEART_RATE_LOINC = "8867-4";
 export const SPO2_LOINC = "59408-5";
 const RESP_RATE_LOINC = "9279-1";
@@ -28,7 +27,6 @@ export function groupIntoRows(observations: ObservationDto[]): VitalsRow[] {
 
   for (const observation of observations) {
     if (!observation.effectiveDateTime) continue;
-    // Bucket key format: YYYY-MM-DDTHH:mm
     const bucketKey = observation.effectiveDateTime.slice(0, 16);
     const row =
       buckets.get(bucketKey) ??
@@ -69,7 +67,6 @@ export function groupIntoRows(observations: ObservationDto[]): VitalsRow[] {
   return [...buckets.values()].sort((a, b) => (a.time < b.time ? 1 : -1));
 }
 
-// Display-only mapping of the FHIR unit strings the simulator actually posts to the mock's compact forms ("88 bpm", "14 /min"); unmapped units pass through.
 const COMPACT_UNITS: Record<string, string> = {
   "beats/minute": "bpm",
   "breaths/minute": "/min",

@@ -1,17 +1,8 @@
 import type { CSSProperties } from "react";
 
-// Mirrors care-loop-analysis-service/config.bal's default mlEscalationThreshold/agenticEscalationThreshold (0.5).
-const DEFAULT_ESCALATION_THRESHOLD = 0.5;
-
-// Band from the worst of the latest ML and agentic probabilities, against the real escalation threshold (from the newest ML RiskAssessment's rationale when available, the config.bal default otherwise) - the same comparison the backend actually escalates on. Pill styles are the mock's bandStyle() values.
-export function statusBandFor(
-  mlProbability: number | null,
-  agenticProbability: number | null,
-  escalationThreshold: number | null,
-): { label: string; style: CSSProperties } | null {
-  if (mlProbability === null && agenticProbability === null) return null;
-  const worst = Math.max(mlProbability ?? -Infinity, agenticProbability ?? -Infinity);
-  if (worst >= (escalationThreshold ?? DEFAULT_ESCALATION_THRESHOLD)) {
+// The escalation decision's real record is the FHIR Task analysis-service creates - an open Task means the patient is escalated, no open Task means stable. No probability-vs-threshold math. Pill styles are the mock's bandStyle() values.
+export function statusBand(hasOpenTask: boolean): { label: string; style: CSSProperties } {
+  if (hasOpenTask) {
     return { label: "Escalated", style: { background: "#FF7300", color: "#fff" } };
   }
   return { label: "Stable", style: { color: "rgba(0,0,0,0.45)", border: "1px solid rgba(0,0,0,0.14)" } };

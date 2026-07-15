@@ -8,8 +8,7 @@ isolated function buildMlRiskAssessment(string patientId, string[] observationRe
         subject: {reference: "Patient/" + patientId},
         basis,
         method: {text: "care-loop-heart-risk-service (" + heartRisk.selected_model + ")"},
-        // Encode analysis-service's own escalation policy (mlEscalationThreshold), not heartRisk.threshold - that is the model's classification cutoff and can diverge from what actually escalates (see risk.bal).
-        prediction: [{probabilityDecimal: <decimal>heartRisk.probability, rationale: "threshold=" + mlEscalationThreshold.toString() + " outcome=" + (heartRisk.probability >= mlEscalationThreshold ? "escalated" : "not-escalated")}]
+        prediction: [{probabilityDecimal: <decimal>heartRisk.probability}]
     };
 }
 
@@ -24,6 +23,6 @@ isolated function buildAgenticRiskAssessment(string patientId, AiRiskAssessmentR
         basis,
         method: {text: "care-loop-ai-service agentic assessment"},
         note: [{text: agentic.reasoning}],
-        prediction: [{probabilityDecimal: <decimal>agentic.probability, rationale: "risk=" + agentic.risk}]
+        prediction: [{probabilityDecimal: <decimal>agentic.probability, qualitativeRisk: {coding: [{system: "http://terminology.hl7.org/CodeSystem/risk-probability", code: agentic.risk}]}}]
     };
 }

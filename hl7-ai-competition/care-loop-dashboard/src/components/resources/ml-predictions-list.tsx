@@ -7,12 +7,11 @@ import { useEffect } from "react";
 import { FhirButton } from "@/components/resources/fhir-drawer";
 import { PaginationFooter, usePagination } from "@/components/ui/pagination-footer";
 import { Skeleton } from "@/components/ui/skeleton";
-import { parseMlRationale } from "@/lib/ml-rationale";
 import { cn } from "@/lib/utils";
 
 export type MlRiskAssessmentDto = RiskAssessmentSummary;
 
-const GRID_COLUMNS = "96px 1.3fr 1fr 1fr 1fr 76px";
+const GRID_COLUMNS = "96px 1.3fr 1fr 1fr 76px";
 const PAGE_SIZE = 8;
 
 function formatTime(occurrenceDateTime: string | null): string {
@@ -33,17 +32,19 @@ function middleTruncate(text: string, max = 44): string {
   return `${text.slice(0, half)}…${text.slice(text.length - half)}`;
 }
 
-// Data is fetched once at the page level (shared with AgenticPredictionsList and AlertsList's ML/Agent columns) rather than each consumer polling the same /risk-assessments route independently.
 export function MlPredictionsList({
   riskAssessments,
   loaded,
   error = false,
   focusedRefs,
+  escalatedRiskAssessmentIds,
 }: {
   riskAssessments: MlRiskAssessmentDto[];
   loaded: boolean;
   error?: boolean;
   focusedRefs?: Set<string> | null;
+  // RiskAssessment ids an open Task's basedOn references - the FHIR record that this prediction escalated.
+  escalatedRiskAssessmentIds?: Set<string>;
 }) {
   const pager = usePagination(riskAssessments.length, PAGE_SIZE);
   const { reset } = pager;
@@ -85,14 +86,13 @@ export function MlPredictionsList({
         <span>Time</span>
         <span>Model input</span>
         <span>Probability</span>
-        <span>Threshold</span>
         <span>Outcome</span>
         <span />
       </div>
       {riskAssessments.slice(pager.start, pager.end).map((riskAssessment) => {
         const probability = riskAssessment.predictions[0]?.probability ?? null;
-        const { threshold, outcome } = parseMlRationale(riskAssessment.predictions[0]?.rationale);
-        const escalated = outcome === "escalated";
+        const escalated = escalatedRiskAssessmentIds?.has(riskAssessment.id) ?? false;
+        const outcome = escalated ? "escalated" : "not escalated";
         const highlighted = focusedRefs?.has(`RiskAssessment/${riskAssessment.id}`);
         return (
           <div
@@ -121,7 +121,6 @@ export function MlPredictionsList({
                 {probability !== null ? probability.toFixed(2) : "—"}
               </span>
             </div>
-            <span className="font-mono text-[11.5px] text-[rgba(0,0,0,0.45)]">{threshold}</span>
             <span
               className={cn(
                 "w-fit rounded-[20px] px-[9px] py-0.5 text-[11px] font-semibold",

@@ -3,7 +3,6 @@
 import type { RiskAssessmentSummary } from "@/app/api/patients/[id]/risk-assessments/route";
 import type { ObservationDto } from "@/lib/vitals";
 
-import { parseAgenticRisk, parseMlRationale } from "@/lib/ml-rationale";
 import { compactUnit, groupIntoRows, HEART_RATE_LOINC, loincCode, SPO2_LOINC } from "@/lib/vitals";
 
 function formatProbability(value: number | null | undefined): string {
@@ -21,7 +20,6 @@ interface Tile {
   dim?: boolean;
 }
 
-// Observations are fetched once at the page level and shared with the vitals tab.
 export function PatientMetrics({
   observations,
   mlPredictions,
@@ -41,8 +39,7 @@ export function PatientMetrics({
   const latestSpo2Observation = observations.find((o) => loincCode(o) === SPO2_LOINC) ?? null;
   const latestMl = mlPredictions[0];
   const latestAgentic = agenticPredictions[0];
-  const mlThreshold = latestMl ? parseMlRationale(latestMl.predictions[0]?.rationale).threshold : "—";
-  const agenticRisk = latestAgentic ? parseAgenticRisk(latestAgentic.predictions[0]?.rationale) : null;
+  const agenticRisk = latestAgentic?.predictions[0]?.qualitativeRisk ?? null;
 
   const tiles: Tile[] = [
     {
@@ -70,12 +67,11 @@ export function PatientMetrics({
     {
       label: "ML risk",
       value: formatProbability(latestMl?.predictions[0]?.probability),
-      sub: latestMl ? `threshold ${mlThreshold}` : "no prediction yet",
+      sub: latestMl ? (latestMl.method ?? "latest ML prediction") : "no prediction yet",
     },
     {
       label: "Agent risk",
       value: formatProbability(latestAgentic?.predictions[0]?.probability),
-      // Mock shows the band ("HIGH") as the sub; only show it when the record carries one.
       sub: latestAgentic ? (agenticRisk ? agenticRisk.toUpperCase() : "latest agentic assessment") : "not run",
       dim: !latestAgentic,
     },

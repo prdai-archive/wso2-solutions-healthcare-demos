@@ -1,6 +1,20 @@
 import ballerina/http;
 import ballerina/log;
 
+# The full set of live-feed milestone labels; the values must stay byte-identical to care-loop-dashboard/src/lib/stages.ts (run segmentation matches on them) and whatsapp-simulator/src/lib/dashboard-events.ts.
+public enum DashboardEventLabel {
+    VITALS_INGESTED = "Vitals ingested",
+    ML_RISK_SCORING_COMPLETE = "ML risk scoring complete",
+    ESCALATION_TRIGGERED = "Escalation triggered",
+    QUESTIONNAIRE_DRAFTED = "Questionnaire drafted",
+    SENT_VIA_WHATSAPP = "Sent via WhatsApp",
+    PATIENT_RESPONDED_VIA_WHATSAPP = "Patient responded via WhatsApp",
+    AGENTIC_RISK_ASSESSMENT_DRAFTED = "Agentic risk assessment drafted",
+    AGENTIC_RISK_ASSESSMENT_COMPLETE = "Agentic risk assessment complete",
+    TASK_DESCRIPTION_DRAFTED = "Task description drafted",
+    FHIR_TASK_CREATED_FOR_FRONT_DESK = "FHIR Task created for front-desk"
+}
+
 # A milestone event surfaced in the ops dashboard's live feed.
 #
 # + patientId - FHIR Patient id the event is about
@@ -9,7 +23,7 @@ import ballerina/log;
 # + payload - optional structured key/value fields rendered in the dashboard's detail panel
 public type DashboardEvent record {|
     string patientId;
-    string label;
+    DashboardEventLabel label;
     string detail?;
     map<string> payload?;
 |};
@@ -25,7 +39,7 @@ public isolated function newDashboardEventsClient(string dashboardEventsUrl) ret
 # + label - short milestone label shown in the live feed
 # + detail - optional extra context shown alongside the label
 # + payload - optional structured key/value fields rendered in the dashboard's detail panel
-public isolated function notifyDashboard(http:Client dashboardEventsClient, string patientId, string label,
+public isolated function notifyDashboard(http:Client dashboardEventsClient, string patientId, DashboardEventLabel label,
         string? detail = (), map<string>? payload = ()) {
     DashboardEvent event = {patientId, label, detail, payload};
     http:Response|http:ClientError result = dashboardEventsClient->post("/api/events", event);

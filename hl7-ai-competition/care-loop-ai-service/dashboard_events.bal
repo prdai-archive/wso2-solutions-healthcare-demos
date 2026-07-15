@@ -10,6 +10,6 @@ final http:Client dashboardEventsClient = check common:newDashboardEventsClient(
 # + label - short milestone label shown in the live feed
 # + detail - optional extra context shown alongside the label
 # + payload - optional structured key/value fields rendered in the dashboard's detail panel
-function reportDashboardEvent(string patientId, string label, string? detail = (), map<string>? payload = ()) {
+function reportDashboardEvent(string patientId, common:DashboardEventLabel label, string? detail = (), map<string>? payload = ()) {
     common:notifyDashboard(dashboardEventsClient, patientId, label, detail, payload);
 }

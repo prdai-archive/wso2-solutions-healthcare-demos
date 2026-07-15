@@ -5,7 +5,6 @@ import { NextResponse } from "next/server";
 import { degradedResponse } from "@/lib/api-degraded";
 import { listEvents, listRecentEvents } from "@/lib/db";
 import { careLoopClient, ehrClient, formatPatientName, searchResources } from "@/lib/fhir";
-import { parseEscalationThreshold } from "@/lib/ml-rationale";
 import { HEART_RATE_LOINC } from "@/lib/vitals";
 
 export const runtime = "nodejs";
@@ -20,7 +19,6 @@ export interface HomePatientRow {
   latestHr: number | null;
   mlRisk: number | null;
   agenticRisk: number | null;
-  escalationThreshold: number | null;
   openTasks: number;
   lastActivity: string | null;
 }
@@ -83,7 +81,6 @@ export async function GET() {
           assessment.method?.text?.toLowerCase().includes(ML_METHOD_MARKER),
         );
         const mlRisk = mlAssessment?.prediction?.[0]?.probabilityDecimal ?? null;
-        const escalationThreshold = parseEscalationThreshold(mlAssessment?.prediction?.[0]?.rationale);
         const agenticAssessment = riskAssessments.find((assessment) =>
           assessment.method?.text?.toLowerCase().includes(AGENTIC_METHOD_MARKER),
         );
@@ -102,7 +99,6 @@ export async function GET() {
           latestHr,
           mlRisk,
           agenticRisk,
-          escalationThreshold,
           openTasks,
           escalationsToday,
           lastActivity,

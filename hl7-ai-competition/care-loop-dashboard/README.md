@@ -3,34 +3,53 @@
 Internal ops dashboard for the Care Loop. Not a clinician-facing tool like
 front-desk-dashboard - this is a live, per-patient pipeline view of what the
 other Care Loop services are doing (vitals in, ML scoring, questionnaire
-delivery, agentic assessment, FHIR Task handoff), plus a way to manually fire
-a questionnaire draft during a demo.
+delivery, agentic assessment, FHIR Task handoff), styled one-to-one against
+the Claude Design mock the team iterated on.
 
-The main view is a pannable canvas of stage nodes connected in pipeline
-order, a per-patient run picker (a run is one pass through the pipeline,
-starting at "Vitals ingested"), a detail panel for whichever stage is
-selected, and a live ticker of the most recent events across all patients.
+Two screens:
+
+- **Home** - KPI tiles (total patients, open tasks, escalations today, avg
+  ML risk, latest event), a searchable/paginated patient table with a
+  status band per patient (Escalated/Stable, derived from the worst of the
+  latest ML and agentic probabilities against the real escalation
+  threshold), and a pannable/zoomable system-architecture canvas.
+- **Patient** - per-patient KPI tiles, the latest pipeline run as a
+  serpentine node canvas (real payload chips on the connectors, hover a
+  node to inspect the exact event payload), open Tasks as a paginated
+  alerts table (click a row to filter the vitals/ML tabs down to that
+  Task's basedOn evidence), paginated data tabs (Vitals, Questionnaires,
+  ML predictions, Agent reasoning), and a patient-record section
+  (demographics, conditions, medications, allergies, encounters, baseline
+  observations). Every FHIR-backed row has a `{ } FHIR` button that opens
+  the raw resource in a drawer.
+
+Cmd/Ctrl+K opens a patient search palette from anywhere.
 
 Built with Next.js 16 (App Router, TypeScript), Tailwind CSS v4, and the same
 shadcn/ui component set as front-desk-dashboard, run with bun.
 
 ## What it shows
 
-This dashboard does not poll or infer state from FHIR or whatsapp-simulator.
-Instead, other backend services POST a simple event to this dashboard
-whenever something happens for a patient, and the dashboard segments those
-events into runs and renders them as a pipeline (`src/lib/runs.ts`,
+Pipeline progress does not come from polling FHIR or whatsapp-simulator.
+Other backend services POST a simple event to this dashboard whenever
+something happens for a patient, and the dashboard segments those events
+into runs and renders them as the run canvas (`src/lib/runs.ts`,
 `src/lib/stages.ts` list the real stage order - keep it in sync with the
 notifyDashboard/reportDashboardEvent call sites in each service).
 
-Selecting a patient defaults to their latest run; the run picker lets you
-look at earlier ones. Everything polls every 4s. If a patient has no events
-yet, the canvas says so plainly.
+Everything else on screen is real FHIR data fetched from the two FHIR
+servers (patients, Observations, RiskAssessments, QuestionnaireResponses,
+Tasks, patient history). Nothing rendered is invented client-side: where a
+FHIR field is genuinely absent the UI shows an em-dash, and if a FHIR
+server is unreachable the affected views say so instead of rendering
+empty-looking zeros.
 
-- **Generate questionnaire** - fires `POST /questionnaires` directly at
-  care-loop-ai-service with `{patientId}`. This is fire-and-forget: the
-  button sends the request, logs it, and returns immediately rather than
-  blocking on the agent's response.
+Everything polls every 4s. If a patient has no events yet, the run canvas
+says so plainly.
+
+`POST /api/questionnaires` (proxied to care-loop-ai-service) is kept as an
+API-only demo trigger for firing a questionnaire draft at a patient; it has
+no UI button.
 
 ## Event ingestion contract
 
@@ -57,8 +76,7 @@ placeholders; invalid input gets a `400`.
 
 Events for a patient are read back via `GET /api/patients/{id}/events`
 (newest first) or, segmented into pipeline runs, via
-`GET /api/patients/{id}/runs`. `GET /api/events/recent` and
-`GET /api/events/stats` back the live ticker and the metrics row.
+`GET /api/patients/{id}/runs`.
 
 ## Local SQLite storage
 
@@ -69,8 +87,8 @@ module install step), queried through Drizzle (`src/lib/schema.ts`,
 
 - `events` - the per-patient event feed described above.
 - `request_log` - every request this dashboard itself fires (currently just
-  the "Trigger questionnaire" button): patient id, endpoint, timestamp, and
-  status/response summary once it resolves.
+  the `POST /api/questionnaires` proxy): patient id, endpoint, timestamp,
+  and status/response summary once it resolves.
 
 Neither table is a cache of FHIR data. Schema changes go through
 `bun run db:generate` (drizzle-kit, writes a new file under `drizzle/`);
@@ -96,16 +114,19 @@ Copy `.env.example` to `.env` (gitignored):
 
 - `CARE_LOOP_FHIR_SERVER_URL` - care-loop-fhir-server, host port `9091`
   (`localhost:9091/fhir` outside docker-compose;
-  `care-loop-fhir-server-readonly-proxy` has no host port). Still used for
-  the patient roster (names/DOB).
+  `care-loop-fhir-server-readonly-proxy` has no host port). Patient roster,
+  Observations, RiskAssessments, QuestionnaireResponses.
+- `EHR_FHIR_SERVER_URL` - ehr-fhir-server, host port `9090`. Tasks (the
+  alerts table) and patient history (Condition, MedicationRequest,
+  AllergyIntolerance, Encounter, baseline Observations).
 - `CARE_LOOP_AI_SERVICE_URL` - care-loop-ai-service, host port `8003`, used
-  by the "Trigger questionnaire" button.
+  by the `POST /api/questionnaires` demo trigger.
 - `REQUEST_LOG_DB_PATH` - where the local SQLite file lives (`events` and
   `request_log` tables).
 
 ## docker-compose
 
 Wired into the main stack as `care-loop-dashboard`, port `3003:3003`, with
-the two URLs above pointed at the compose service names and a
+the three URLs above pointed at the compose service names and a
 `care-loop-dashboard-data` volume for the SQLite file. Comes up with
 `docker compose up -d` / `make up` alongside everything else.

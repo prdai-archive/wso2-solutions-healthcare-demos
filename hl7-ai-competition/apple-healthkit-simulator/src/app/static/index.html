@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Apple Health Simulator — Care Loop</title>
+<style>
+  :root {
+    --bg: #f2f2f7;
+    --card: #ffffff;
+    --ink: #1c1c1e;
+    --muted: #8e8e93;
+    --line: #e5e5ea;
+    --hr: #fa2b56;
+    --spo2: #0a84ff;
+    --resp: #30b0c7;
+    --bp: #af52de;
+    --ok: #34c759;
+    --shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.06);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 28px 20px 64px; }
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
+  h1 { font-size: 28px; font-weight: 700; letter-spacing: -.02em; margin: 0; }
+  .sub { color: var(--muted); font-size: 14px; }
+  .card {
+    background: var(--card);
+    border-radius: 18px;
+    box-shadow: var(--shadow);
+    padding: 18px 20px;
+    margin-bottom: 16px;
+  }
+  .card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 14px; font-weight: 600; }
+  .row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  label.field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); }
+  select, input[type=number] {
+    font: inherit; font-size: 16px; color: var(--ink);
+    background: var(--bg); border: 1px solid var(--line); border-radius: 12px;
+    padding: 10px 12px; min-width: 120px;
+  }
+  select { min-width: 260px; }
+  .presets { display: flex; gap: 8px; }
+  .chip {
+    border: 1px solid var(--line); background: var(--card); color: var(--ink);
+    border-radius: 999px; padding: 7px 14px; font-size: 14px; cursor: pointer; transition: .12s;
+  }
+  .chip:hover { background: var(--bg); }
+  .chip.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .tile { background: var(--bg); border-radius: 14px; padding: 14px; }
+  .tile .top { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .tile .name { font-size: 13px; font-weight: 600; color: var(--muted); }
+  .tile .val { display: flex; align-items: baseline; gap: 6px; }
+  .tile .val input { width: 100%; font-size: 22px; font-weight: 700; padding: 6px 8px; background: var(--card); }
+  .tile .unit { font-size: 13px; color: var(--muted); white-space: nowrap; }
+  .icon { width: 20px; height: 20px; flex: 0 0 20px; }
+  .actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 4px; }
+  button.primary, button.ghost {
+    font: inherit; font-size: 15px; font-weight: 600; border-radius: 12px; padding: 12px 18px; cursor: pointer; border: none;
+  }
+  button.primary { background: var(--spo2); color: #fff; }
+  button.ghost { background: var(--card); color: var(--spo2); border: 1px solid var(--line); }
+  button:disabled { opacity: .5; cursor: default; }
+  .target { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
+  .dot.on { background: var(--ok); }
+  .dot.off { background: var(--hr); }
+  pre {
+    background: #0b0b0f; color: #d7d7dc; border-radius: 14px; padding: 14px 16px; overflow: auto;
+    font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: 12.5px; line-height: 1.5; margin: 0;
+  }
+  .log { list-style: none; margin: 0; padding: 0; font-size: 13.5px; }
+  .log li { padding: 8px 0; border-top: 1px solid var(--line); display: flex; gap: 8px; }
+  .log li:first-child { border-top: none; }
+  .log .t { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .empty { color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Apple Health Simulator</h1>
+      <div class="sub">Push simulated vitals into the Care Loop as FHIR Observations</div>
+    </div>
+    <div class="target">
+      <span id="targetDot" class="dot"></span>
+      <span id="targetText">checking target…</span>
+    </div>
+  </header>
+
+  <div class="card">
+    <h2>Patient</h2>
+    <div class="row">
+      <label class="field">
+        Source patient
+        <select id="patient"></select>
+      </label>
+      <div style="flex:1"></div>
+      <div class="presets" id="presets">
+        <button class="chip" data-preset="normal">Normal</button>
+        <button class="chip" data-preset="elevated">Elevated</button>
+        <button class="chip" data-preset="critical">Critical</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Vitals</h2>
+    <div class="tiles" id="tiles"></div>
+  </div>
+
+  <div class="card">
+    <div class="actions">
+      <button class="primary" id="sendOne">Send to Care Loop</button>
+      <button class="ghost" id="sendAll">Send for all patients</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Last forward result</h2>
+    <pre id="result">No forward run yet.</pre>
+  </div>
+
+  <div class="card">
+    <h2>Activity</h2>
+    <ul class="log" id="log"><li class="empty">Nothing sent yet.</li></ul>
+  </div>
+</div>
+
+<script>
+const HEART = '<svg class="icon" viewBox="0 0 24 24" fill="var(--hr)"><path d="M12 21s-7.5-4.9-10-9.2C.4 8.6 2 5 5.5 5 7.7 5 9 6.3 12 9c3-2.7 4.3-4 6.5-4C22 5 23.6 8.6 22 11.8 19.5 16.1 12 21 12 21z"/></svg>';
+const DROP = '<svg class="icon" viewBox="0 0 24 24" fill="var(--spo2)"><path d="M12 2s7 8 7 12a7 7 0 1 1-14 0c0-4 7-12 7-12z"/></svg>';
+const WAVE = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="var(--resp)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h4l2-6 4 12 2-6h6"/></svg>';
+const GAUGE = '<svg class="icon" viewBox="0 0 24 24" fill="var(--bp)"><path d="M12 4a8 8 0 0 0-8 8 8 8 0 0 0 2 5.3l1.5-1.4A6 6 0 1 1 18 12h-3l4 5 4-5h-3a8 8 0 0 0-8-8z"/></svg>';
+
+// Each vital: HealthKit quantity type, unit stored on the sample, and its icon.
+const VITALS = [
+  { key: "hr",   name: "Heart Rate",    type: "HKQuantityTypeIdentifierHeartRate",            unit: "count/min", icon: HEART },
+  { key: "spo2", name: "Oxygen (SpO2)", type: "HKQuantityTypeIdentifierOxygenSaturation",     unit: "%",         icon: DROP  },
+  { key: "resp", name: "Respiratory",   type: "HKQuantityTypeIdentifierRespiratoryRate",      unit: "count/min", icon: WAVE  },
+  { key: "sys",  name: "BP Systolic",   type: "HKQuantityTypeIdentifierBloodPressureSystolic",  unit: "mmHg",    icon: GAUGE },
+  { key: "dia",  name: "BP Diastolic",  type: "HKQuantityTypeIdentifierBloodPressureDiastolic", unit: "mmHg",    icon: GAUGE },
+];
+
+const PRESETS = {
+  normal:   { hr: 72,  spo2: 98, resp: 15, sys: 118, dia: 76 },
+  elevated: { hr: 104, spo2: 94, resp: 22, sys: 148, dia: 94 },
+  critical: { hr: 133, spo2: 88, resp: 28, sys: 176, dia: 110 },
+};
+
+const $ = (id) => document.getElementById(id);
+let patients = [];
+
+function tileHtml(v) {
+  return `<div class="tile">
+    <div class="top">${v.icon}<span class="name">${v.name}</span></div>
+    <div class="val">
+      <input type="number" id="v_${v.key}" step="0.1" />
+      <span class="unit">${v.unit}</span>
+    </div>
+  </div>`;
+}
+
+function applyPreset(name) {
+  const p = PRESETS[name];
+  VITALS.forEach((v) => { $("v_" + v.key).value = p[v.key]; });
+  document.querySelectorAll("#presets .chip").forEach((c) =>
+    c.classList.toggle("active", c.dataset.preset === name));
+}
+
+function readVitals() {
+  return VITALS.map((v) => ({ ...v, value: parseFloat($("v_" + v.key).value) }))
+               .filter((v) => !Number.isNaN(v.value));
+}
+
+function samplesFor(patient, vitals) {
+  const end = new Date();
+  // Back-date one minute so the reading lands inside the forwarder's lookback window.
+  const start = new Date(end.getTime() - 60_000);
+  return vitals.map((v) => ({
+    patient_id: patient.id,
+    quantity_type: v.type,
+    value: v.value,
+    unit: v.unit,
+    start_date: start.toISOString(),
+    end_date: end.toISOString(),
+    source_name: "Apple Watch (Simulator)",
+    device_name: "Apple Watch",
+    device_manufacturer: "Apple Inc.",
+  }));
+}
+
+function logLine(msg) {
+  const ul = $("log");
+  if (ul.querySelector(".empty")) ul.innerHTML = "";
+  const t = new Date().toLocaleTimeString();
+  const li = document.createElement("li");
+  li.innerHTML = `<span class="t">${t}</span><span>${msg}</span>`;
+  ul.prepend(li);
+}
+
+async function ingest(samples) {
+  const r = await fetch("/quantity-samples", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(samples),
+  });
+  if (!r.ok) throw new Error(`ingest failed (${r.status})`);
+  return r.json();
+}
+
+async function forward(patientUuid) {
+  const url = patientUuid ? `/vitals-cron/run-now?patient_uuid=${encodeURIComponent(patientUuid)}` : "/vitals-cron/run-now";
+  const r = await fetch(url, { method: "POST" });
+  if (!r.ok) throw new Error(`forward failed (${r.status})`);
+  return r.json();
+}
+
+function showResult(res) {
+  $("result").textContent = JSON.stringify(res, null, 2);
+  $("targetDot").className = "dot " + (res.target_configured ? "on" : "off");
+  $("targetText").textContent = res.target_configured
+    ? "Care Loop target configured"
+    : "No target set — bundle built but not sent";
+}
+
+function setBusy(b) { $("sendOne").disabled = b; $("sendAll").disabled = b; }
+
+async function sendOne() {
+  const patient = patients.find((p) => p.uuid === $("patient").value);
+  const vitals = readVitals();
+  if (!patient || !vitals.length) return;
+  setBusy(true);
+  try {
+    await ingest(samplesFor(patient, vitals));
+    const res = await forward(patient.uuid);
+    showResult(res);
+    logLine(`Sent ${vitals.length} reading(s) for ${patient.given_name} ${patient.family_name} — ${res.readings_forwarded} forwarded`);
+  } catch (e) {
+    logLine("Error: " + e.message);
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function sendAll() {
+  const vitals = readVitals();
+  if (!patients.length || !vitals.length) return;
+  setBusy(true);
+  try {
+    const all = patients.flatMap((p) => samplesFor(p, vitals));
+    await ingest(all);
+    const res = await forward(null);
+    showResult(res);
+    logLine(`Sent readings for all ${patients.length} patients — ${res.readings_forwarded} forwarded across ${res.patients_forwarded}`);
+  } catch (e) {
+    logLine("Error: " + e.message);
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function loadPatients() {
+  const r = await fetch("/patients?limit=1000");
+  patients = r.ok ? await r.json() : [];
+  const sel = $("patient");
+  if (!patients.length) {
+    sel.innerHTML = `<option>No patients — seed the simulator first</option>`;
+    $("sendOne").disabled = true;
+    $("sendAll").disabled = true;
+    return;
+  }
+  sel.innerHTML = patients.map((p) => {
+    const linked = p.fhir_patient_id ? "" : " (no FHIR link)";
+    return `<option value="${p.uuid}">${p.given_name} ${p.family_name} — MRN ${p.mrn}${linked}</option>`;
+  }).join("");
+}
+
+async function loadStatus() {
+  const r = await fetch("/vitals-cron/status");
+  const s = r.ok ? await r.json() : null;
+  if (s) showResult(s);
+  else { $("targetDot").className = "dot"; $("targetText").textContent = "No forward run yet"; }
+}
+
+function init() {
+  $("tiles").innerHTML = VITALS.map(tileHtml).join("");
+  applyPreset("normal");
+  document.querySelectorAll("#presets .chip").forEach((c) =>
+    c.addEventListener("click", () => applyPreset(c.dataset.preset)));
+  $("sendOne").addEventListener("click", sendOne);
+  $("sendAll").addEventListener("click", sendAll);
+  loadPatients();
+  loadStatus();
+}
+
+init();
+</script>
+</body>
+</html>

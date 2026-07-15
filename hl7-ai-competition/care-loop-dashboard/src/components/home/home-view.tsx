@@ -10,8 +10,7 @@ import { ArchitectureView } from "@/components/architecture/architecture-view";
 import { Skeleton } from "@/components/ui/skeleton";
 import { statusBandFor } from "@/lib/status-band";
 
-// Mock demo pagination (PAGE=2 in its script) so Prev/Next are exercisable with 3 seed patients.
-const PAGE_SIZE = 2;
+const PAGE_SIZE = 5;
 
 // Mock table grid: 1.6fr 110px 1fr 1fr 0.8fr 1.2fr 46px with 12px gap.
 const ROW_GRID = "grid grid-cols-[1.6fr_110px_1fr_1fr_0.8fr_1.2fr_46px] gap-3";

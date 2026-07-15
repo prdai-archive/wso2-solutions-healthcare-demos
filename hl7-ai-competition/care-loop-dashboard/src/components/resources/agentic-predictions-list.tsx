@@ -56,11 +56,13 @@ export function AgenticPredictionsList({
   riskAssessments,
   latestMlProbability,
   loaded,
+  error = false,
   focusedRefs,
 }: {
   riskAssessments: AgenticRiskAssessmentDto[];
   latestMlProbability: number | null;
   loaded: boolean;
+  error?: boolean;
   focusedRefs?: Set<string> | null;
 }) {
   if (!loaded) {
@@ -77,7 +79,9 @@ export function AgenticPredictionsList({
   if (riskAssessments.length === 0) {
     return (
       <div className="px-5 py-[26px] text-center text-[12.5px] text-[rgba(0,0,0,0.45)]">
-        No agentic assessment yet — the agent runs once an emergency questionnaire is answered.
+        {error
+          ? "care-loop-fhir-server unreachable — agentic assessments unavailable."
+          : "No agentic assessment yet — the agent runs once an emergency questionnaire is answered."}
       </div>
     );
   }

@@ -8,7 +8,7 @@ import { useMemo, useState } from "react";
 
 import { ArchitectureView } from "@/components/architecture/architecture-view";
 import { Skeleton } from "@/components/ui/skeleton";
-import { statusBand } from "@/lib/status-band";
+import { statusBandFor } from "@/lib/status-band";
 
 // Mock demo pagination (PAGE=2 in its script) so Prev/Next are exercisable with 3 seed patients.
 const PAGE_SIZE = 2;
@@ -39,7 +39,20 @@ interface KpiTile {
   sub: string;
 }
 
-function buildKpis(summary: HomeSummary, loaded: boolean): KpiTile[] {
+// Band from the same worst-of-ML/agentic + real-threshold rule every view uses.
+function bandForRow(row: HomePatientRow | undefined) {
+  return statusBandFor(row?.mlRisk ?? null, row?.agenticRisk ?? null, row?.escalationThreshold ?? null);
+}
+
+function buildKpis(summary: HomeSummary, loaded: boolean, error: boolean): KpiTile[] {
+  // A degraded summary must not read as authoritative zeros.
+  if (error) {
+    return ["Total patients", "Open tasks", "Escalations today", "Avg ML risk", "Latest event"].map((label) => ({
+      label,
+      value: "—",
+      sub: "care-loop-fhir-server unreachable",
+    }));
+  }
   if (!loaded) {
     return [
       { label: "Total patients", value: "…", sub: "" },
@@ -69,14 +82,18 @@ function buildKpis(summary: HomeSummary, loaded: boolean): KpiTile[] {
 export function HomeView({
   patients,
   patientsLoaded,
+  patientsError = false,
   summary,
   summaryLoaded,
+  summaryError = false,
   onSelect,
 }: {
   patients: OpsPatient[];
   patientsLoaded: boolean;
+  patientsError?: boolean;
   summary: HomeSummary;
   summaryLoaded: boolean;
+  summaryError?: boolean;
   onSelect: (patient: OpsPatient) => void;
 }) {
   const [query, setQuery] = useState("");
@@ -92,7 +109,7 @@ export function HomeView({
     if (!q) return patients;
     return patients.filter((patient) => {
       if (patient.name.toLowerCase().includes(q) || patient.id.toLowerCase().includes(q)) return true;
-      const band = statusBand(rowByPatientId.get(patient.id)?.mlRisk ?? null);
+      const band = bandForRow(rowByPatientId.get(patient.id));
       return band !== null && band.label.toLowerCase().includes(q);
     });
   }, [patients, query, rowByPatientId]);
@@ -106,7 +123,7 @@ export function HomeView({
       ? "No results"
       : `Showing ${start + 1}–${Math.min(start + PAGE_SIZE, filtered.length)} of ${filtered.length} · page ${currentPage + 1} / ${totalPages}`;
 
-  const kpis = buildKpis(summary, summaryLoaded);
+  const kpis = buildKpis(summary, summaryLoaded, summaryError);
 
   return (
     <div className="mx-auto flex w-full max-w-[1240px] flex-1 flex-col gap-5 px-4 pt-7 pb-[72px] md:px-6">
@@ -182,7 +199,11 @@ export function HomeView({
         ) : pageRows.length === 0 ? (
           <div className="px-5 py-7 text-center">
             <div className="text-[12.5px] font-semibold text-[rgba(0,0,0,0.55)]">
-              {query ? `No patients match “${query}”` : "No patients found on care-loop-fhir-server."}
+              {query
+                ? `No patients match “${query}”`
+                : patientsError
+                  ? "care-loop-fhir-server unreachable — patient list unavailable."
+                  : "No patients found on care-loop-fhir-server."}
             </div>
             {query ? (
               <div className="mt-[3px] text-[11.5px] text-[rgba(0,0,0,0.4)]">Try a name or MRN fragment.</div>
@@ -191,7 +212,7 @@ export function HomeView({
         ) : (
           pageRows.map((patient) => {
             const row: HomePatientRow | undefined = rowByPatientId.get(patient.id);
-            const band = statusBand(row?.mlRisk ?? null);
+            const band = bandForRow(row);
             return (
               <button
                 key={patient.id}

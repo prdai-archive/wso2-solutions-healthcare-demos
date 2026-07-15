@@ -71,9 +71,12 @@ function buildRun(runEvents: CareLoopEvent[], isLatest: boolean): Run {
 
   const hasTask = byStageIndex.has(stageIndexByLabel.get("FHIR Task created for front-desk")!);
   const hasEscalation = byStageIndex.has(stageIndexByLabel.get("Escalation triggered")!);
+  // analysis-service stamps escalated=true/false on the agentic-complete event; "false" means the run settled below the agentic threshold, so nothing more is coming. Events predating the key keep the in-flight outcome.
+  const agenticEvent = byStageIndex.get(stageIndexByLabel.get("Agentic risk assessment complete")!) ?? null;
+  const settledBelowThreshold = agenticEvent?.payload?.escalated === "false";
   const outcome = hasTask
     ? "Task created"
-    : hasEscalation
+    : hasEscalation && !settledBelowThreshold
       ? "Escalated, no Task yet"
       : "Below escalation threshold";
 

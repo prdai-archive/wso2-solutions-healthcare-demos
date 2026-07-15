@@ -18,10 +18,12 @@ const PAGE_SIZE = 8;
 export function ObservationsList({
   observations,
   loaded,
+  error = false,
   focusedRefs,
 }: {
   observations: ObservationDto[];
   loaded: boolean;
+  error?: boolean;
   focusedRefs?: Set<string> | null;
 }) {
   const rows = useMemo(() => displayableRows(observations), [observations]);
@@ -51,7 +53,9 @@ export function ObservationsList({
   if (rows.length === 0) {
     return (
       <div className="py-[26px] text-center text-[12.5px] text-[rgba(0,0,0,0.45)]">
-        No observations recorded yet for this patient.
+        {error
+          ? "care-loop-fhir-server unreachable — observations unavailable."
+          : "No observations recorded yet for this patient."}
       </div>
     );
   }

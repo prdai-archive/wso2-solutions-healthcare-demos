@@ -1,13 +1,21 @@
 import type { CSSProperties } from "react";
 
-// Mirrors care-loop-analysis-service/task_generator.bal's priorityForProbability
-// thresholds exactly, applied to the same "worst of ML vs agentic" probability
-// buildEscalationTask uses, so the badge always agrees with what the backend
-// would actually escalate to. Pill styles are the mock's bandStyle() values.
-export function statusBand(worstProbability: number | null): { label: string; style: CSSProperties } | null {
-  if (worstProbability === null) return null;
-  if (worstProbability >= 0.85) return { label: "Escalated", style: { background: "#FF7300", color: "#fff" } };
-  if (worstProbability >= 0.65)
-    return { label: "Watching", style: { color: "#16161a", border: "1px solid rgba(0,0,0,0.35)" } };
+// Mirrors care-loop-analysis-service/config.bal's default mlEscalationThreshold/agenticEscalationThreshold (0.5).
+const DEFAULT_ESCALATION_THRESHOLD = 0.5;
+
+// Band from the worst of the latest ML and agentic probabilities, against the real
+// escalation threshold (from the newest ML RiskAssessment's rationale when available,
+// the config.bal default otherwise) - the same comparison the backend actually escalates on.
+// Pill styles are the mock's bandStyle() values.
+export function statusBandFor(
+  mlProbability: number | null,
+  agenticProbability: number | null,
+  escalationThreshold: number | null,
+): { label: string; style: CSSProperties } | null {
+  if (mlProbability === null && agenticProbability === null) return null;
+  const worst = Math.max(mlProbability ?? -Infinity, agenticProbability ?? -Infinity);
+  if (worst >= (escalationThreshold ?? DEFAULT_ESCALATION_THRESHOLD)) {
+    return { label: "Escalated", style: { background: "#FF7300", color: "#fff" } };
+  }
   return { label: "Stable", style: { color: "rgba(0,0,0,0.45)", border: "1px solid rgba(0,0,0,0.14)" } };
 }

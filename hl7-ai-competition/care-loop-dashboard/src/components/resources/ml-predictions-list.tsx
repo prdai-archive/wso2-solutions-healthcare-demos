@@ -43,10 +43,12 @@ function middleTruncate(text: string, max = 44): string {
 export function MlPredictionsList({
   riskAssessments,
   loaded,
+  error = false,
   focusedRefs,
 }: {
   riskAssessments: MlRiskAssessmentDto[];
   loaded: boolean;
+  error?: boolean;
   focusedRefs?: Set<string> | null;
 }) {
   const pager = usePagination(riskAssessments.length, PAGE_SIZE);
@@ -74,7 +76,9 @@ export function MlPredictionsList({
   if (riskAssessments.length === 0) {
     return (
       <div className="py-[26px] text-center text-[12.5px] text-[rgba(0,0,0,0.45)]">
-        No ML predictions recorded yet for this patient.
+        {error
+          ? "care-loop-fhir-server unreachable — ML predictions unavailable."
+          : "No ML predictions recorded yet for this patient."}
       </div>
     );
   }

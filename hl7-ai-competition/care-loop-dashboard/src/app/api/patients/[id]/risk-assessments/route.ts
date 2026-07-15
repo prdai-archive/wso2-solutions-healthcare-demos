@@ -5,6 +5,8 @@ import process from "node:process";
 import { Client } from "fhir-kit-client";
 import { NextResponse } from "next/server";
 
+import { degradedResponse } from "@/lib/api-degraded";
+
 export const runtime = "nodejs";
 
 export interface RiskAssessmentPredictionSummary {
@@ -83,6 +85,6 @@ export async function GET(
       "failed to fetch risk assessments from care-loop-fhir-server",
       error,
     );
-    return NextResponse.json({ riskAssessments: [] });
+    return degradedResponse({ riskAssessments: [] });
   }
 }

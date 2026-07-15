@@ -72,6 +72,7 @@ export function AlertsList({
 }) {
   const [tasks, setTasks] = useState<TaskSummary[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -80,14 +81,19 @@ export function AlertsList({
     async function poll() {
       try {
         const response = await fetch(`/api/patients/${patientId}/tasks`);
-        const data = (await response.json()) as { tasks: TaskSummary[] };
+        const data = (await response.json()) as { tasks: TaskSummary[]; error?: boolean };
         if (!cancelled) {
-          setTasks(data.tasks);
-          onLoaded?.(Date.now());
-          onOpenTasks?.(data.tasks.filter((task) => !CLOSED_STATUSES.has(task.status.toLowerCase())));
+          setError(data.error === true);
+          // A degraded response keeps the last good list - never report fabricated zero open tasks upstream.
+          if (!data.error) {
+            setTasks(data.tasks);
+            onLoaded?.(Date.now());
+            onOpenTasks?.(data.tasks.filter((task) => !CLOSED_STATUSES.has(task.status.toLowerCase())));
+          }
         }
-      } catch (error) {
-        console.error("failed to poll tasks", error);
+      } catch (err) {
+        console.error("failed to poll tasks", err);
+        if (!cancelled) setError(true);
       } finally {
         if (!cancelled) setLoaded(true);
       }
@@ -130,17 +136,26 @@ export function AlertsList({
           ))}
         </div>
       ) : openTasks.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 px-5 py-[30px] text-center">
-          <div className="flex size-9 items-center justify-center rounded-full border-[1.5px] border-dashed border-[rgba(0,0,0,0.2)] text-[15px] text-[rgba(0,0,0,0.3)]">
-            ✓
+        error ? (
+          <div className="flex flex-col items-center justify-center gap-2 px-5 py-[30px] text-center">
+            <div className="text-[12.5px] font-semibold text-[rgba(0,0,0,0.5)]">Tasks unavailable</div>
+            <div className="text-[11.5px] leading-normal text-[rgba(0,0,0,0.4)]">
+              ehr-fhir-server unreachable — open tasks cannot be shown.
+            </div>
           </div>
-          <div className="text-[12.5px] font-semibold text-[rgba(0,0,0,0.5)]">No open tasks</div>
-          <div className="text-[11.5px] leading-normal text-[rgba(0,0,0,0.4)]">
-            {tasks.length === 0
-              ? "No Task resources recorded yet for this patient."
-              : "All recorded Tasks are closed."}
+        ) : (
+          <div className="flex flex-col items-center justify-center gap-2 px-5 py-[30px] text-center">
+            <div className="flex size-9 items-center justify-center rounded-full border-[1.5px] border-dashed border-[rgba(0,0,0,0.2)] text-[15px] text-[rgba(0,0,0,0.3)]">
+              ✓
+            </div>
+            <div className="text-[12.5px] font-semibold text-[rgba(0,0,0,0.5)]">No open tasks</div>
+            <div className="text-[11.5px] leading-normal text-[rgba(0,0,0,0.4)]">
+              {tasks.length === 0
+                ? "No Task resources recorded yet for this patient."
+                : "All recorded Tasks are closed."}
+            </div>
           </div>
-        </div>
+        )
       ) : (
         <div>
           <div

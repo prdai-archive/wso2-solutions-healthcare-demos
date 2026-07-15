@@ -21,7 +21,8 @@ import { MlPredictionsList } from "@/components/resources/ml-predictions-list";
 import { ObservationsList } from "@/components/resources/observations-list";
 import { PatientHistory } from "@/components/resources/patient-history";
 import { QuestionnaireResponsesList } from "@/components/resources/questionnaire-responses-list";
-import { statusBand } from "@/lib/status-band";
+import { parseEscalationThreshold } from "@/lib/ml-rationale";
+import { statusBandFor } from "@/lib/status-band";
 import { cn } from "@/lib/utils";
 import { displayableRows } from "@/lib/vitals";
 
@@ -81,20 +82,26 @@ export default function DashboardPage() {
 
   const [patients, setPatients] = useState<OpsPatient[]>([]);
   const [patientsLoaded, setPatientsLoaded] = useState(false);
+  const [patientsError, setPatientsError] = useState(false);
   const [homeSummary, setHomeSummary] = useState<HomeSummary>(EMPTY_HOME_SUMMARY);
   const [homeSummaryLoaded, setHomeSummaryLoaded] = useState(false);
+  const [homeSummaryError, setHomeSummaryError] = useState(false);
 
   const [runs, setRuns] = useState<Run[]>([]);
   const [runsLoaded, setRunsLoaded] = useState(false);
   const [focusedTask, setFocusedTask] = useState<TaskSummary | null>(null);
-  const [openTaskPriority, setOpenTaskPriority] = useState<string | null>(null);
+  // Live open tasks from AlertsList's own poll - the KPI tile derives from the same array the alerts badge renders, so the two can never disagree.
+  const [liveOpenTasks, setLiveOpenTasks] = useState<TaskSummary[] | null>(null);
   const [lastPollAt, setLastPollAt] = useState<number | null>(null);
   const [riskAssessments, setRiskAssessments] = useState<RiskAssessmentSummary[]>([]);
   const [riskAssessmentsLoaded, setRiskAssessmentsLoaded] = useState(false);
+  const [riskAssessmentsError, setRiskAssessmentsError] = useState(false);
   const [observations, setObservations] = useState<ObservationDto[]>([]);
   const [observationsLoaded, setObservationsLoaded] = useState(false);
+  const [observationsError, setObservationsError] = useState(false);
   const [responses, setResponses] = useState<QuestionnaireResponseSummary[]>([]);
   const [responsesLoaded, setResponsesLoaded] = useState(false);
+  const [responsesError, setResponsesError] = useState(false);
   const [tab, setTab] = useState<TabId>("vitals");
   const [paletteOpen, setPaletteOpen] = useState(false);
 
@@ -118,10 +125,15 @@ export default function DashboardPage() {
     async function poll() {
       try {
         const response = await fetch("/api/patients");
-        const data = (await response.json()) as { patients: OpsPatient[] };
-        if (!cancelled) setPatients(data.patients);
+        const data = (await response.json()) as { patients: OpsPatient[]; error?: boolean };
+        if (!cancelled) {
+          // A degraded response keeps the last good list rather than replacing it with fabricated emptiness.
+          setPatientsError(data.error === true);
+          if (!data.error) setPatients(data.patients);
+        }
       } catch (error) {
         console.error("failed to poll patients", error);
+        if (!cancelled) setPatientsError(true);
       } finally {
         if (!cancelled) setPatientsLoaded(true);
       }
@@ -143,9 +155,13 @@ export default function DashboardPage() {
       try {
         const response = await fetch("/api/home-summary");
         const data = (await response.json()) as HomeSummary;
-        if (!cancelled) setHomeSummary(data);
+        if (!cancelled) {
+          setHomeSummaryError(data.error === true);
+          if (!data.error) setHomeSummary(data);
+        }
       } catch (error) {
         console.error("failed to poll home summary", error);
+        if (!cancelled) setHomeSummaryError(true);
       } finally {
         if (!cancelled) setHomeSummaryLoaded(true);
       }
@@ -196,10 +212,14 @@ export default function DashboardPage() {
     async function poll() {
       try {
         const response = await fetch(`/api/patients/${selected!.id}/risk-assessments`);
-        const data = (await response.json()) as { riskAssessments: RiskAssessmentSummary[] };
-        if (!cancelled) setRiskAssessments(data.riskAssessments);
+        const data = (await response.json()) as { riskAssessments: RiskAssessmentSummary[]; error?: boolean };
+        if (!cancelled) {
+          setRiskAssessmentsError(data.error === true);
+          if (!data.error) setRiskAssessments(data.riskAssessments);
+        }
       } catch (error) {
         console.error("failed to poll risk assessments", error);
+        if (!cancelled) setRiskAssessmentsError(true);
       } finally {
         if (!cancelled) setRiskAssessmentsLoaded(true);
       }
@@ -221,10 +241,14 @@ export default function DashboardPage() {
     async function poll() {
       try {
         const response = await fetch(`/api/patients/${selected!.id}/observations`);
-        const data = (await response.json()) as { observations: ObservationDto[] };
-        if (!cancelled) setObservations(data.observations);
+        const data = (await response.json()) as { observations: ObservationDto[]; error?: boolean };
+        if (!cancelled) {
+          setObservationsError(data.error === true);
+          if (!data.error) setObservations(data.observations);
+        }
       } catch (error) {
         console.error("failed to poll observations", error);
+        if (!cancelled) setObservationsError(true);
       } finally {
         if (!cancelled) setObservationsLoaded(true);
       }
@@ -246,10 +270,14 @@ export default function DashboardPage() {
     async function poll() {
       try {
         const response = await fetch(`/api/patients/${selected!.id}/questionnaire-responses`);
-        const data = (await response.json()) as { responses: QuestionnaireResponseSummary[] };
-        if (!cancelled) setResponses(data.responses);
+        const data = (await response.json()) as { responses: QuestionnaireResponseSummary[]; error?: boolean };
+        if (!cancelled) {
+          setResponsesError(data.error === true);
+          if (!data.error) setResponses(data.responses);
+        }
       } catch (error) {
         console.error("failed to poll questionnaire responses", error);
+        if (!cancelled) setResponsesError(true);
       } finally {
         if (!cancelled) setResponsesLoaded(true);
       }
@@ -276,7 +304,7 @@ export default function DashboardPage() {
     setResponses([]);
     setResponsesLoaded(false);
     setFocusedTask(null);
-    setOpenTaskPriority(null);
+    setLiveOpenTasks(null);
     setTab("vitals");
   }
 
@@ -290,11 +318,13 @@ export default function DashboardPage() {
   const agenticPredictions = riskAssessments.filter((r) => r.method?.toLowerCase().includes(AGENTIC_METHOD_MARKER));
   const latestMlProbability = mlPredictions[0]?.predictions[0]?.probability ?? null;
   const latestAgenticProbability = agenticPredictions[0]?.predictions[0]?.probability ?? null;
-  const worstProbability =
-    latestMlProbability === null && latestAgenticProbability === null
-      ? null
-      : Math.max(latestMlProbability ?? -Infinity, latestAgenticProbability ?? -Infinity);
-  const band = selected ? statusBand(worstProbability) : null;
+  const band = selected
+    ? statusBandFor(
+        latestMlProbability,
+        latestAgenticProbability,
+        parseEscalationThreshold(mlPredictions[0]?.predictions[0]?.rationale),
+      )
+    : null;
 
   // Mock's focus filter narrows only the vitals and ML tabs (fVitals/fMl in
   // the mock script); questionnaires and agent reasoning stay unfiltered.
@@ -321,8 +351,10 @@ export default function DashboardPage() {
         <HomeView
           patients={patients}
           patientsLoaded={patientsLoaded}
+          patientsError={patientsError}
           summary={homeSummary}
           summaryLoaded={homeSummaryLoaded}
+          summaryError={homeSummaryError}
           onSelect={selectPatient}
         />
       </div>
@@ -363,8 +395,10 @@ export default function DashboardPage() {
               observations={observations}
               mlPredictions={mlPredictions}
               agenticPredictions={agenticPredictions}
-              openTaskCount={homeSummary.patients.find((row) => row.id === selected.id)?.openTasks ?? 0}
-              openTaskPriority={openTaskPriority}
+              openTaskCount={
+                liveOpenTasks?.length ?? homeSummary.patients.find((row) => row.id === selected.id)?.openTasks ?? 0
+              }
+              openTaskPriority={liveOpenTasks ? highestTaskPriority(liveOpenTasks) : null}
             />
           </div>
 
@@ -387,7 +421,7 @@ export default function DashboardPage() {
                   focusedTaskId={focusedTask?.id ?? null}
                   onFocus={setFocusedTask}
                   onLoaded={setLastPollAt}
-                  onOpenTasks={(openTasks) => setOpenTaskPriority(highestTaskPriority(openTasks))}
+                  onOpenTasks={setLiveOpenTasks}
                   mlPredictions={mlPredictions}
                   agenticPredictions={agenticPredictions}
                 />
@@ -446,6 +480,7 @@ export default function DashboardPage() {
                   <ObservationsList
                     observations={visibleObservations}
                     loaded={observationsLoaded}
+                    error={observationsError}
                     focusedRefs={focusedRefs}
                   />
                 ) : null}
@@ -453,6 +488,7 @@ export default function DashboardPage() {
                   <QuestionnaireResponsesList
                     responses={visibleResponses}
                     loaded={responsesLoaded}
+                    error={responsesError}
                     focusedRefs={focusedRefs}
                   />
                 ) : null}
@@ -460,6 +496,7 @@ export default function DashboardPage() {
                   <MlPredictionsList
                     riskAssessments={visibleMlPredictions}
                     loaded={riskAssessmentsLoaded}
+                    error={riskAssessmentsError}
                     focusedRefs={focusedRefs}
                   />
                 ) : null}
@@ -468,6 +505,7 @@ export default function DashboardPage() {
                     riskAssessments={visibleAgenticPredictions}
                     latestMlProbability={latestMlProbability}
                     loaded={riskAssessmentsLoaded}
+                    error={riskAssessmentsError}
                     focusedRefs={focusedRefs}
                   />
                 ) : null}

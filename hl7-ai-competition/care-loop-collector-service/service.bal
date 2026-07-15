@@ -78,6 +78,10 @@ service / on new http:Listener(listenPort) {
             if notifyResult is http:ClientError {
                 log:printWarn("failed to notify analysis-service of emergency answers",
                         patientId = session.patientId, 'error = notifyResult);
+            } else if notifyResult.statusCode < 200 || notifyResult.statusCode > 299 {
+                // A non-2xx here silently drops the patient's emergency answers from the pipeline - make it visible.
+                log:printWarn("analysis-service rejected emergency answers",
+                        patientId = session.patientId, statusCode = notifyResult.statusCode);
             }
         }
 

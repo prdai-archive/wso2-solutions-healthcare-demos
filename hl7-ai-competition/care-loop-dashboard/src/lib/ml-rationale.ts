@@ -10,6 +10,12 @@ export function parseMlRationale(rationale: string | null | undefined): { thresh
   return { threshold: Number.parseFloat(match[1]).toFixed(2), outcome: match[2] };
 }
 
+// Numeric form of the same encoded threshold, for band math; null when the record predates the field.
+export function parseEscalationThreshold(rationale: string | null | undefined): number | null {
+  const match = rationale ? RATIONALE_PATTERN.exec(rationale) : null;
+  return match ? Number.parseFloat(match[1]!) : null;
+}
+
 const AGENTIC_RISK_PATTERN = /^risk=(low|moderate|high)$/;
 
 // care-loop-analysis-service persists the agent's band as prediction[0].rationale

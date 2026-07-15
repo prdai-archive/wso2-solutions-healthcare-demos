@@ -81,6 +81,7 @@ export function PatientHistory({ patient }: { patient: OpsPatient }) {
     baselineObservations: [],
   });
   const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -89,10 +90,15 @@ export function PatientHistory({ patient }: { patient: OpsPatient }) {
     async function poll() {
       try {
         const response = await fetch(`/api/patients/${patient.id}/history`);
-        const data = (await response.json()) as HistoryData;
-        if (!cancelled) setHistory(data);
-      } catch (error) {
-        console.error("failed to poll patient history", error);
+        const data = (await response.json()) as HistoryData & { error?: boolean };
+        if (!cancelled) {
+          setError(data.error === true);
+          // A degraded response keeps the last good record instead of rendering fabricated empty sections.
+          if (!data.error) setHistory(data);
+        }
+      } catch (err) {
+        console.error("failed to poll patient history", err);
+        if (!cancelled) setError(true);
       } finally {
         if (!cancelled) setLoaded(true);
       }
@@ -105,6 +111,9 @@ export function PatientHistory({ patient }: { patient: OpsPatient }) {
       clearInterval(interval);
     };
   }, [patient.id]);
+
+  // FHIR fetch failed: say so per section instead of implying an empty record.
+  const sectionEmptyText = error ? "ehr-fhir-server unreachable — record unavailable." : undefined;
 
   const demographics: RecordRow[] = [
     {
@@ -139,6 +148,7 @@ export function PatientHistory({ patient }: { patient: OpsPatient }) {
             <RecordSection
               title="Encounter"
               rtype="Encounter"
+              emptyText={sectionEmptyText}
               rows={history.encounters.map((encounter) => ({
                 key: encounter.id,
                 name: encounter.name,
@@ -153,6 +163,7 @@ export function PatientHistory({ patient }: { patient: OpsPatient }) {
             <RecordSection
               title="Conditions"
               rtype="Condition"
+              emptyText={sectionEmptyText}
               rows={history.conditions.map((condition) => ({
                 key: condition.id,
                 name: condition.code,
@@ -165,6 +176,7 @@ export function PatientHistory({ patient }: { patient: OpsPatient }) {
             <RecordSection
               title="Allergies"
               rtype="AllergyIntolerance"
+              emptyText={sectionEmptyText}
               rows={history.allergies.map((allergy) => ({
                 key: allergy.id,
                 name: allergy.substance,
@@ -175,6 +187,7 @@ export function PatientHistory({ patient }: { patient: OpsPatient }) {
             <RecordSection
               title="Medications"
               rtype="MedicationRequest"
+              emptyText={sectionEmptyText}
               rows={history.medications.map((medication) => ({
                 key: medication.id,
                 name: medication.medication,
@@ -185,6 +198,7 @@ export function PatientHistory({ patient }: { patient: OpsPatient }) {
             <RecordSection
               title="Baseline observations"
               rtype="Observation"
+              emptyText={sectionEmptyText}
               rows={history.baselineObservations.map((observation) => ({
                 key: observation.id,
                 name: observation.name,

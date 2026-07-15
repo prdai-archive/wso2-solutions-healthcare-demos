@@ -30,10 +30,12 @@ function formatAuthored(authored: string | null): string {
 export function QuestionnaireResponsesList({
   responses,
   loaded,
+  error = false,
   focusedRefs,
 }: {
   responses: QuestionnaireResponseDto[];
   loaded: boolean;
+  error?: boolean;
   focusedRefs?: Set<string> | null;
 }) {
   const pager = usePagination(responses.length, PAGE_SIZE);
@@ -59,7 +61,9 @@ export function QuestionnaireResponsesList({
     return (
       <div className="px-5 py-[18px]">
         <div className="py-[26px] text-center text-[12.5px] text-[rgba(0,0,0,0.45)]">
-          No questionnaire sent — vitals have stayed below the escalation threshold.
+          {error
+            ? "care-loop-fhir-server unreachable — questionnaire responses unavailable."
+            : "No questionnaire sent — vitals have stayed below the escalation threshold."}
         </div>
       </div>
     );

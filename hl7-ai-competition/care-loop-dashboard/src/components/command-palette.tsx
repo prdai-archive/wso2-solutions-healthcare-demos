@@ -5,12 +5,17 @@ import type { OpsPatient } from "@/app/api/patients/route";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { statusBand } from "@/lib/status-band";
+import { statusBandFor } from "@/lib/status-band";
 import { cn } from "@/lib/utils";
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/);
   return ((parts[0]?.[0] ?? "") + (parts.at(-1)?.[0] ?? "")).toUpperCase();
+}
+
+// Same worst-of-ML/agentic + real-threshold band rule as the home table and patient header.
+function bandForRow(row: HomePatientRow | undefined) {
+  return statusBandFor(row?.mlRisk ?? null, row?.agenticRisk ?? null, row?.escalationThreshold ?? null);
 }
 
 function patientMeta(patient: OpsPatient): string {
@@ -44,7 +49,7 @@ export function CommandPalette({
     if (!q) return patients;
     return patients.filter((patient) => {
       if (patient.name.toLowerCase().includes(q) || patient.id.toLowerCase().includes(q)) return true;
-      const band = statusBand(rowByPatientId.get(patient.id)?.mlRisk ?? null);
+      const band = bandForRow(rowByPatientId.get(patient.id));
       return band !== null && band.label.toLowerCase().includes(q);
     });
   }, [patients, query, rowByPatientId]);
@@ -136,7 +141,7 @@ export function CommandPalette({
             ) : (
               filtered.map((patient, index) => {
                 const row = rowByPatientId.get(patient.id);
-                const band = statusBand(row?.mlRisk ?? null);
+                const band = bandForRow(row);
                 return (
                   <button
                     key={patient.id}

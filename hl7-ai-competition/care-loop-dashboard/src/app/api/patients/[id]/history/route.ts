@@ -12,6 +12,8 @@ import process from "node:process";
 import { Client } from "fhir-kit-client";
 import { NextResponse } from "next/server";
 
+import { degradedResponse } from "@/lib/api-degraded";
+
 export const runtime = "nodejs";
 
 export interface ConditionSummary {
@@ -220,7 +222,7 @@ export async function GET(
     });
   } catch (error) {
     console.error("failed to fetch patient history from ehr-fhir-server", error);
-    return NextResponse.json({
+    return degradedResponse({
       conditions: [],
       medications: [],
       allergies: [],

@@ -44,21 +44,22 @@ export function groupIntoRows(observations: ObservationDto[]): VitalsRow[] {
         diastolic: null,
       } satisfies VitalsRow);
 
+    // Observations arrive newest-first (route sorts -date), so keep the first reading seen per cell - an older same-minute reading must not overwrite a newer one.
     switch (loincCode(observation)) {
       case HEART_RATE_LOINC:
-        row.hr = observation;
+        row.hr ??= observation;
         break;
       case SPO2_LOINC:
-        row.spo2 = observation;
+        row.spo2 ??= observation;
         break;
       case RESP_RATE_LOINC:
-        row.rr = observation;
+        row.rr ??= observation;
         break;
       case SYSTOLIC_LOINC:
-        row.systolic = observation;
+        row.systolic ??= observation;
         break;
       case DIASTOLIC_LOINC:
-        row.diastolic = observation;
+        row.diastolic ??= observation;
         break;
       default:
         // Non-vitals Observation - don't create an all-empty ghost row for its bucket.

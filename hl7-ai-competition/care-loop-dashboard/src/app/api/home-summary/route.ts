@@ -5,19 +5,24 @@ import process from "node:process";
 import { Client } from "fhir-kit-client";
 import { NextResponse } from "next/server";
 
+import { degradedResponse } from "@/lib/api-degraded";
 import { listEvents, listRecentEvents } from "@/lib/db";
+import { parseEscalationThreshold } from "@/lib/ml-rationale";
+import { HEART_RATE_LOINC } from "@/lib/vitals";
 
 export const runtime = "nodejs";
 
 const CLOSED_STATUSES = new Set(["completed", "cancelled", "entered-in-error"]);
 const ML_METHOD_MARKER = "heart-risk-service";
-const HEART_RATE_MARKER = "heart rate";
+const AGENTIC_METHOD_MARKER = "ai-service";
 
 export interface HomePatientRow {
   id: string;
   name: string;
   latestHr: number | null;
   mlRisk: number | null;
+  agenticRisk: number | null;
+  escalationThreshold: number | null;
   openTasks: number;
   lastActivity: string | null;
 }
@@ -29,6 +34,7 @@ export interface HomeSummary {
   avgMlRisk: number | null;
   latestEvent: string | null;
   patients: HomePatientRow[];
+  error?: boolean;
 }
 
 function formatName(patient: FhirPatient): string {
@@ -102,14 +108,17 @@ export async function GET() {
           assessment.method?.text?.toLowerCase().includes(ML_METHOD_MARKER),
         );
         const mlRisk = mlAssessment?.prediction?.[0]?.probabilityDecimal ?? null;
+        const escalationThreshold = parseEscalationThreshold(mlAssessment?.prediction?.[0]?.rationale);
+        const agenticAssessment = riskAssessments.find((assessment) =>
+          assessment.method?.text?.toLowerCase().includes(AGENTIC_METHOD_MARKER),
+        );
+        const agenticRisk = agenticAssessment?.prediction?.[0]?.probabilityDecimal ?? null;
 
         const observations = (obsBundle.entry ?? [])
           .map((entry) => entry.resource)
           .filter((resource): resource is Observation => resource !== undefined);
-        const hrObservation = observations.find((observation) =>
-          (observation.code.coding?.[0]?.display ?? observation.code.text ?? "")
-            .toLowerCase()
-            .includes(HEART_RATE_MARKER),
+        const hrObservation = observations.find(
+          (observation) => observation.code.coding?.[0]?.code === HEART_RATE_LOINC,
         );
         const latestHr = hrObservation?.valueQuantity?.value ?? null;
 
@@ -120,6 +129,8 @@ export async function GET() {
           name: formatName(patient),
           latestHr,
           mlRisk,
+          agenticRisk,
+          escalationThreshold,
           openTasks,
           escalationsToday,
           lastActivity,
@@ -146,6 +157,6 @@ export async function GET() {
     return NextResponse.json(summary);
   } catch (error) {
     console.error("failed to compute home summary", error);
-    return NextResponse.json(EMPTY_SUMMARY);
+    return degradedResponse(EMPTY_SUMMARY);
   }
 }

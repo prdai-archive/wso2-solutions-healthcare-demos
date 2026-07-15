@@ -44,11 +44,12 @@ public type QuestionAnswer record {|
 # + patientId - the FHIR Patient id the answers belong to
 # + answers - flattened question/answer pairs from the emergency questionnaire transcript
 # + questionnaireResponseId - the FHIR id of the QuestionnaireResponse these answers were saved as,
-#   so the Task built on escalation can reference it
+#   so the Task built on escalation can reference it; defaulted so pre-existing {patientId, answers}
+#   payloads still bind
 public type EmergencyAnswersRequest record {|
     string patientId;
     QuestionAnswer[] answers;
-    string? questionnaireResponseId;
+    string? questionnaireResponseId = ();
 |};
 
 # + patientId - the FHIR Patient id being assessed

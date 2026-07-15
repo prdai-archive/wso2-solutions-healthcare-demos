@@ -5,6 +5,8 @@ import process from "node:process";
 import { Client } from "fhir-kit-client";
 import { NextResponse } from "next/server";
 
+import { degradedResponse } from "@/lib/api-degraded";
+
 export const runtime = "nodejs";
 
 export interface OpsPatient {
@@ -50,6 +52,6 @@ export async function GET() {
     return NextResponse.json({ patients });
   } catch (error) {
     console.error("failed to fetch patients from care-loop-fhir-server", error);
-    return NextResponse.json({ patients: [] });
+    return degradedResponse({ patients: [] });
   }
 }

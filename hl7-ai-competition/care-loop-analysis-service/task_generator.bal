@@ -62,7 +62,7 @@ isolated function buildTimeoutEscalationTask(string patientId, float mlProbabili
         string? riskAssessmentId, string[] observationRefs) returns international401:Task {
     int mlProbabilityPercent = <int>(mlProbability * 100);
     string description = string `Patient ${display.patientName} (${display.ageSexSummary}) flagged for review.
-Questionnaire timed out with no patient response. Fail-safe escalation on ML probability ${mlProbabilityPercent}% alone (no agentic probability available).`;
+Questionnaire timed out with no patient response. Fail-safe escalation on ML probability ${mlProbabilityPercent}% (${mlProbability}) alone (no agentic probability available).`;
 
     international401:Task task = {
         status: international401:CODE_STATUS_REQUESTED,

@@ -109,35 +109,53 @@
 
   <!-- ===================== ML SERVICE ===================== -->
   <g>
-    <rect class="box" x="1058" y="212" width="256" height="110" rx="8"/>
-    <text class="grplabel" x="1074" y="238">ML Service</text>
-    <text class="sub" x="1074" y="262">Heart-risk &#183; XGBoost &#8594; ONNX</text>
-    <text class="sub" x="1074" y="280">scores age, max heart rate, sex</text>
-    <text class="sub" x="1074" y="298">returns a risk score (0&#8211;1)</text>
+    <rect class="box" x="1058" y="204" width="272" height="126" rx="8"/>
+    <text class="grplabel" x="1074" y="230">ML Service</text>
+    <text class="sub" x="1074" y="254">Heart-risk &#183; CatBoost &#8594; ONNX</text>
+    <text class="sub" x="1074" y="272">nine clinical features from FHIR</text>
+    <text class="sub" x="1074" y="290">ROC-AUC 0.93 &#183; risk score (0&#8211;1)</text>
+    <text class="sub" x="1074" y="308">reject-incomplete (all nine)</text>
   </g>
 
   <!-- ===================== AI SERVICE / AGENT MANAGER ===================== -->
-  <rect class="grp" x="1058" y="372" width="474" height="336" rx="9"/>
-  <text class="grplabel" x="1074" y="398">AI Service &#183; WSO2 Agent Manager gateway (OTel traced)</text>
+  <rect class="grp" x="1058" y="360" width="474" height="470" rx="9"/>
+  <text class="grplabel" x="1074" y="385">AI Service &#183; OpenAI or Anthropic via WSO2 Agent Manager (OTel)</text>
   <g>
-    <rect class="box" x="1076" y="414" width="300" height="62" rx="7"/>
-    <text class="title" x="1090" y="440">Questionnaire agent</text>
-    <text class="sub" x="1090" y="460">gpt-4.1-nano &#183; drafts the check-in</text>
+    <rect class="box" x="1076" y="398" width="440" height="52" rx="7"/>
+    <text class="title" x="1090" y="420">Questionnaire agent</text>
+    <text class="sub" x="1090" y="438">nano &#183; drafts the FHIR Questionnaire</text>
   </g>
   <g>
-    <rect class="box" x="1076" y="486" width="300" height="62" rx="7"/>
-    <text class="title" x="1090" y="512">Risk-assessment agent</text>
-    <text class="sub" x="1090" y="532">gpt-4.1 &#183; assesses, cites resources</text>
+    <rect class="box" x="1076" y="458" width="440" height="52" rx="7"/>
+    <text class="title" x="1090" y="480">Adaptive check-in agent</text>
+    <text class="sub" x="1090" y="498">nano &#183; interview one turn at a time, fills feature slots</text>
   </g>
   <g>
-    <rect class="box" x="1076" y="558" width="300" height="62" rx="7"/>
-    <text class="title" x="1090" y="584">Task-description agent</text>
-    <text class="sub" x="1090" y="604">gpt-4.1-nano &#183; writes the case</text>
+    <rect class="box" x="1076" y="518" width="440" height="52" rx="7"/>
+    <text class="title" x="1090" y="540">Risk-assessment agent</text>
+    <text class="sub" x="1090" y="558">full &#183; grounds in guidelines, cites sections + resources</text>
   </g>
   <g>
-    <rect class="box" x="1076" y="630" width="300" height="60" rx="7"/>
-    <text class="title" x="1090" y="656">FHIR MCP &#183; read-only</text>
-    <text class="sub" x="1090" y="675">GET/HEAD proxy over the store</text>
+    <rect class="box" x="1076" y="578" width="440" height="52" rx="7"/>
+    <text class="title" x="1090" y="600">Task-description agent</text>
+    <text class="sub" x="1090" y="618">nano &#183; writes the case narrative</text>
+  </g>
+  <!-- Tools row: three read-only MCP sources -->
+  <text class="sub" x="1090" y="654" font-weight="600" fill="#16161a">Tools &#183; read-only MCP</text>
+  <g>
+    <rect class="box" x="1076" y="664" width="140" height="54" rx="7"/>
+    <text class="title" x="1088" y="686" font-size="12.5px">FHIR MCP</text>
+    <text class="sub" x="1088" y="704" font-size="10.5px">GET/HEAD proxy</text>
+  </g>
+  <g>
+    <rect class="box" x="1226" y="664" width="150" height="54" rx="7"/>
+    <text class="title" x="1238" y="686" font-size="12.5px">Knowledge (RAG)</text>
+    <text class="sub" x="1238" y="704" font-size="10.5px">HFrEF guidelines</text>
+  </g>
+  <g>
+    <rect class="box" x="1386" y="664" width="130" height="54" rx="7"/>
+    <text class="title" x="1398" y="686" font-size="12.5px">PubMed</text>
+    <text class="sub" x="1398" y="704" font-size="10.5px">literature</text>
   </g>
 
   <!-- ===================== FHIR LAYER ===================== -->
@@ -182,36 +200,36 @@
   <path class="edge" marker-end="url(#arw)" d="M1120,322 L1120,352 L900,352 L862,352"/>
   <text class="flowlabel" x="1000" y="345">get prediction</text>
   <!-- diamond1 over threshold -> Questionnaire agent (generate) -->
-  <path class="edge-o" marker-end="url(#arwo)" d="M912,388 L1030,388 L1030,440 L1072,440"/>
+  <path class="edge-o" marker-end="url(#arwo)" d="M912,388 L1030,388 L1030,424 L1072,424"/>
   <text class="flowlabel-o" x="916" y="380">over &#8594; generate check-in</text>
-  <!-- Questionnaire agent -> WhatsApp (send) -->
-  <path class="edge-o" marker-end="url(#arwo)" d="M1076,458 L1040,458 L1040,140 L210,140 L210,212"/>
-  <text class="flowlabel-o" x="470" y="132">send questionnaire</text>
+  <!-- Adaptive check-in agent -> WhatsApp -->
+  <path class="edge-o" marker-end="url(#arwo)" d="M1076,484 L1044,484 L1044,140 L210,140 L210,212"/>
+  <text class="flowlabel-o" x="470" y="132">adaptive check-in</text>
   <!-- WhatsApp -> WhatsApp handler (answers) -->
   <path class="edge-o" marker-end="url(#arwo)" d="M308,546 L346,546 L346,360 L386,360"/>
   <text class="flowlabel-o" x="316" y="536">answers</text>
   <!-- WhatsApp handler -> Handle questionnaire answers -->
   <path class="edge" marker-end="url(#arw)" d="M606,378 L636,378 L636,478 L676,478"/>
   <!-- Handle answers -> Risk agent -->
-  <path class="edge-o" marker-end="url(#arwo)" d="M1000,486 L1030,486 L1030,510 L1072,510"/>
+  <path class="edge-o" marker-end="url(#arwo)" d="M1000,486 L1030,486 L1030,544 L1072,544"/>
   <text class="flowlabel-o" x="1006" y="478">assess</text>
   <!-- Risk agent -> diamond2 (agentic result) -->
-  <path class="edge" marker-end="url(#arw)" d="M1072,530 L1010,530 L1010,598 L972,598"/>
-  <text class="flowlabel" x="1012" y="560">result</text>
+  <path class="edge" marker-end="url(#arw)" d="M1072,552 L1024,552 L1024,598 L972,598"/>
+  <text class="flowlabel" x="1026" y="580">result</text>
   <!-- Handle answers -> diamond2 (ml result) -->
   <path class="edge" marker-end="url(#arw)" d="M840,512 L840,538"/>
   <!-- diamond2 both over -> Write Task -->
   <path class="edge-o" marker-end="url(#arwo)" d="M840,654 L840,698"/>
   <text class="flowlabel-o" x="852" y="682">both over</text>
   <!-- Task-description agent -> Write Task (narrative) -->
-  <path class="edge-d" marker-end="url(#arwd)" d="M1076,600 L1040,600 L1040,732 L1004,732"/>
-  <text class="flowlabel" x="1010" y="628">narrative</text>
+  <path class="edge-d" marker-end="url(#arwd)" d="M1076,604 L1046,604 L1046,732 L1004,732"/>
+  <text class="flowlabel" x="1014" y="628">narrative</text>
   <!-- Write Task -> EHR FHIR server -->
   <path class="edge-o" marker-end="url(#arwo)" d="M840,762 L840,848"/>
   <text class="flowlabel-o" x="852" y="808">Task</text>
   <!-- Agents read FHIR via MCP -> Care Loop store -->
-  <path class="edge-d" marker-end="url(#arwd)" d="M1226,690 L1226,848"/>
-  <text class="flowlabel" x="1234" y="775">read</text>
+  <path class="edge-d" marker-end="url(#arwd)" d="M1146,718 L1146,848"/>
+  <text class="flowlabel" x="1154" y="800">read</text>
   <!-- EHR -> Care Loop store (sync) -->
   <path class="edge-d" marker-end="url(#arwd)" d="M1000,896 L1072,896"/>
   <text class="flowlabel" x="1006" y="962">hourly FHIR sync</text>

@@ -10,10 +10,15 @@ CHROME="${CHROME:-google-chrome}"
 OUT="out"
 mkdir -p "$OUT"
 
+# Fresh profile per build so Chrome never serves a cached stylesheet.
+UDD="$(mktemp -d)"
+trap 'rm -rf "$UDD"' EXIT
+
 render() {
   local src="$1" pdf="$2"
   echo "rendering $src -> $OUT/$pdf"
   "$CHROME" --headless=new --no-sandbox --disable-gpu \
+    --user-data-dir="$UDD" \
     --no-pdf-header-footer \
     --print-to-pdf="$OUT/$pdf" \
     --virtual-time-budget=10000 \

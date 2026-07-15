@@ -25,7 +25,7 @@
 html, body {
   font-family: var(--body);
   font-size: 10.2pt;
-  line-height: 1.57;
+  line-height: 1.54;
   color: var(--soft);
   background: var(--paper);
   -webkit-print-color-adjust: exact;
@@ -200,7 +200,7 @@ html, body {
 
 /* ── Sections ──────────────────────────────── */
 .section {
-  margin-bottom: 19px;
+  margin-bottom: 14px;
   page-break-inside: auto;
   break-inside: auto;
 }
@@ -244,7 +244,7 @@ html, body {
 
 .subsection > h3 .sec-num { color: var(--accent); letter-spacing: 0.04em; min-width: 30px; font-weight: 700; }
 
-.doc p { font-size: 10.2pt; line-height: 1.57; color: var(--soft); margin-bottom: 8px; }
+.doc p { font-size: 10.2pt; line-height: 1.54; color: var(--soft); margin-bottom: 8px; }
 
 .doc p.lead { color: var(--ink); font-weight: 500; }
 
@@ -255,7 +255,7 @@ html, body {
 /* ── Lists ─────────────────────────────────── */
 .doc ul, .doc ol { padding-left: 20px; margin: 8px 0 12px 0; }
 
-.doc li { font-size: 10.2pt; line-height: 1.6; margin-bottom: 5px; color: var(--soft); }
+.doc li { font-size: 10.2pt; line-height: 1.5; margin-bottom: 4px; color: var(--soft); }
 
 .doc li strong { color: var(--ink); }
 

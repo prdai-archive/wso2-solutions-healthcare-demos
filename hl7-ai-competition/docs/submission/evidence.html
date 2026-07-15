@@ -127,36 +127,39 @@
   <!-- ── C. AI ───────────────────────────────────────────── -->
   <section class="section" id="c">
     <h2><span class="sec-num">C</span> The AI: agents, model, and gateway</h2>
-    <p>The agents are built with Ballerina's native AI support (<code>ai:Agent</code> with an <code>ai:McpToolKit</code>). Three purpose-built agents split the work, each reaching the patient's live FHIR record through the shared FHIR MCP tool.</p>
+    <p>The agents are built with Ballerina's native AI support (<code>ai:Agent</code> with <code>ai:McpToolKit</code>). Four purpose-built agents split the work, each wired only to the tools it needs: the patient's live FHIR record, a self-hosted HFrEF knowledge base (RAG), and PubMed. "Nano" is GPT-4.1-nano or Claude Haiku 4.5; "full" is GPT-4.1 or Claude Sonnet 4.5, per the configured provider.</p>
     <table class="tbl">
-      <thead><tr><th style="width:22%;">Agent</th><th style="width:20%;">Model</th><th>Role and guardrails</th></tr></thead>
+      <thead><tr><th style="width:19%;">Agent</th><th style="width:11%;">Model</th><th style="width:24%;">Tools</th><th>Role and guardrails</th></tr></thead>
       <tbody>
-        <tr><th class="kv-key">Questionnaire</th><td>GPT-4.1 nano</td><td>Drafts 4&ndash;6 plain-language symptom questions matched to the recent vitals trend as a FHIR Questionnaire (no answers), delivered as chat; only the patient's QuestionnaireResponse is persisted.</td></tr>
-        <tr><th class="kv-key">Risk assessment</th><td>GPT-4.1</td><td>Reasons over vitals, active conditions, medications, and history; excludes resolved conditions; cites at most five resources by real id; assesses and reports only, never decides to escalate.</td></tr>
-        <tr><th class="kv-key">Task description</th><td>GPT-4.1 nano</td><td>Writes the case narrative for the front desk and clinician from what it was given; invents nothing.</td></tr>
+        <tr><th class="kv-key">Questionnaire</th><td>nano</td><td>FHIR, knowledge base</td><td>Drafts the symptom check-in as a FHIR Questionnaire (no answers), delivered as chat; only the patient's QuestionnaireResponse is persisted.</td></tr>
+        <tr><th class="kv-key">Adaptive check-in</th><td>nano</td><td>Knowledge base</td><td>Runs the interview one turn at a time: extracts feature slots from each answer, asks only what is still missing under a hard question budget, keeps language plain from the patient-education corpus. Patient facts arrive prefilled per turn, so it never touches FHIR (low latency).</td></tr>
+        <tr><th class="kv-key">Risk assessment</th><td>full</td><td>FHIR, knowledge base, PubMed</td><td>Reasons over vitals, conditions, medications, and history; grounds thresholds in HFrEF guidelines and recent literature; cites guideline sections and FHIR resources by real id; assesses and reports only. Up to 32 tool-call rounds.</td></tr>
+        <tr><th class="kv-key">Task description</th><td>nano</td><td>FHIR</td><td>Writes the case narrative for the front desk and clinician from what it was given; invents nothing.</td></tr>
       </tbody>
     </table>
-    <div class="callout"><span class="callout-label">The decision is not the agent's</span>The escalation decision is a deterministic rule outside the agents: a case is raised only if the ML probability and the agentic probability both clear their thresholds (each 0.5 in the reference build). Task priority is then set by the worse of the two probabilities: &ge;0.85 STAT, &ge;0.65 URGENT, otherwise ROUTINE. The AI narrows and explains; the rule decides.</div>
-    <p>Every LLM call is routed through the <strong>WSO2 Agent Manager AI gateway</strong> (AMP), so the model provider is a configuration choice and each call is authenticated, rate-limited, and traced. The agents read FHIR through the MCP bridge directly; they never call the gateway to reach clinical data, and they never write it.</p>
+    <div class="callout"><span class="callout-label">The decision is not the agent's</span>The escalation decision is a deterministic rule outside the agents: a case is raised only if the ML probability and the agentic probability both clear their thresholds (each 0.5 in the reference build). Task priority is then set by the worse of the two probabilities: &ge;0.85 STAT, &ge;0.65 URGENT, otherwise ROUTINE. The AI gathers, grounds, and explains; the rule decides.</div>
+    <p>The agents run on OpenAI or Anthropic. The <code>openai</code> provider routes through the <strong>WSO2 Agent Manager AI gateway</strong> (AMP), as does <code>anthropic-amp</code>; <code>anthropic</code> calls the Anthropic API directly. Either way the provider is a configuration choice, and gateway-routed calls are authenticated, rate-limited, and traced. Clinical data, the knowledge base, and PubMed are all reached read-only through MCP; nothing is written through them.</p>
   </section>
 
   <!-- ── D. Model card ───────────────────────────────────── -->
   <section class="section" id="d">
     <h2><span class="sec-num">D</span> Machine-learning model card</h2>
-    <p>The hourly risk score comes from a small, honest model over the few signals a watch and a health profile can actually supply. It is deliberately not a black box promising more than its inputs support.</p>
+    <p>The risk score comes from a gradient-boosted model over a nine-feature clinical profile, assembled from the patient's FHIR record and the adaptive check-in. It is deliberately not a black box promising more than its inputs support.</p>
     <table class="tbl">
       <tbody>
-        <tr><th class="kv-key">Task</th><td>Produce an hourly risk score from a patient's profile and heart-rate signal. The label is a risk proxy learned from a public diagnostic dataset, not a validated predictor of a heart-failure exacerbation event.</td></tr>
-        <tr><th class="kv-key">Model</th><td>Gradient-boosted trees (XGBoost), selected by cross-validated ROC-AUC from a 10-model search, exported to ONNX.</td></tr>
-        <tr><th class="kv-key">Inputs</th><td>Age, maximum heart rate, sex &mdash; the three signals a watch plus a HealthKit profile can supply. The other collected vitals (SpO&#8322;, respiratory rate, BP) are stored as FHIR but are not model inputs. Preprocessing (scaling, encoding) is baked into the ONNX graph.</td></tr>
+        <tr><th class="kv-key">Task</th><td>Score heart-failure risk from a nine-feature clinical profile. The label is a risk proxy learned from a public diagnostic dataset, not a validated predictor of a heart-failure exacerbation event.</td></tr>
+        <tr><th class="kv-key">Model</th><td>CatBoost (depth 4, 200 iterations, learning rate 0.03), selected by cross-validated ROC-AUC from a search over logistic regression, SVC, decision tree, random forest, LightGBM, and CatBoost (best tuned CV ROC-AUC 0.93), exported to ONNX.</td></tr>
+        <tr><th class="kv-key">Inputs (9)</th><td>Age, sex, maximum heart rate (from the wearable and health profile); chest pain type, cholesterol, fasting blood sugar, exercise-induced angina, ST-depression (Oldpeak), and ST-slope (prefilled from FHIR, gathered by the adaptive check-in when absent). Reject-incomplete: all nine are required.</td></tr>
+        <tr><th class="kv-key">Feature sourcing</th><td>Cholesterol from LOINC 2093-3, fasting blood sugar derived from fasting glucose LOINC 1558-6 (&gt; 120 mg/dL). The stress-test categoricals (chest pain type, exercise angina, ST-depression, ST-slope) have no clean standard LOINC in this categorical form, so a project-local code system carries them on Observations.</td></tr>
+        <tr><th class="kv-key">Preprocessing</th><td>LabelEncoder on categoricals; StandardScaler on Age/Cholesterol/MaxHR; MinMaxScaler on Oldpeak; zero cholesterol median-imputed. Applied from a saved artifact before the ONNX graph.</td></tr>
         <tr><th class="kv-key">Output</th><td>A score in [0,1] for the positive class, plus a thresholded label (default 0.5).</td></tr>
-        <tr><th class="kv-key">Training data</th><td>A public heart dataset (734 train / 184 test).</td></tr>
-        <tr><th class="kv-key">Held-out performance</th><td>ROC-AUC 0.80, accuracy 0.76, precision 0.80, recall 0.75, F1 0.78. This measures the scoring capability on the dataset's own target, not deterioration-prediction performance.</td></tr>
+        <tr><th class="kv-key">Training data</th><td>A public heart-disease dataset (734 train / 184 test).</td></tr>
+        <tr><th class="kv-key">Held-out performance</th><td>ROC-AUC 0.93, accuracy 0.87, precision 0.85, recall 0.91, F1 0.88. This measures the dataset's own diagnostic target, not deterioration-prediction performance.</td></tr>
         <tr><th class="kv-key">Runtime</th><td>ONNX Runtime (CPU), no training stack or GPU required; portable across CPU and GPU.</td></tr>
-        <tr><th class="kv-key">Honest limits</th><td>Trained on a public dataset, not a purpose-built HFrEF cohort; a fielded model would need prospective validation and regulatory work. See solution document, Section 9.</td></tr>
+        <tr><th class="kv-key">Honest limits</th><td>Trained on a public diagnostic dataset, not a purpose-built HFrEF-deterioration cohort; a fielded model would need prospective validation and regulatory work. See solution document, Section 9.</td></tr>
       </tbody>
     </table>
-    <p class="note">The model is intentionally the cheap, constant layer: it runs every hour so a full day of hourly scores already exists to reason over, and it never calls an LLM. The expensive agentic reasoning is reserved for the hours it escalates.</p>
+    <p class="note">The model is the cheap, constant layer: it scores each vitals cycle and never calls an LLM. The expensive agentic reasoning, grounded in the knowledge base and PubMed, is reserved for the cases it escalates.</p>
   </section>
 
   <!-- ── E. Security ─────────────────────────────────────── -->
@@ -167,7 +170,7 @@
       <li><strong>Two independent signals to escalate.</strong> A statistical model and a reasoning agent must both cross their thresholds before any case reaches a person, guarding against a single noisy reading or an over-confident agent.</li>
       <li><strong>Fail safe, not silent.</strong> If an urgent check-in goes unanswered within the timeout window (4 hours in the reference build), the case escalates on the model's signal alone rather than being dropped &mdash; silence on an emergency question is treated as a bad sign. The counterpart risk, a deterioration that never crosses the model threshold and so is never checked in on, is why the platform is positioned as a prioritisation aid and not a substitute for a patient seeking care.</li>
       <li><strong>Grounded, auditable reasoning.</strong> The risk agent must cite the specific FHIR resources supporting its conclusion by real id and may never invent one, so a clinician can check the evidence rather than trust the model.</li>
-      <li><strong>The LLM boundary is explicit.</strong> The reasoning agents send clinical data to an LLM, so PHI leaves the provider boundary when a hosted model is used. The AI gateway makes the provider a configuration choice, so a provider can run a self-hosted or in-jurisdiction model to keep PHI inside their boundary; a hosted provider requires a business-associate / data-processing agreement and minimum-necessary data. This is how the self-hostable claim holds against HIPAA / GDPR rather than contradicting it.</li>
+      <li><strong>The LLM boundary is explicit.</strong> The reasoning agents send clinical data to an LLM (OpenAI or Anthropic), so PHI leaves the provider boundary when a hosted model is used. The AI gateway makes the provider a configuration choice, so a provider can run a self-hosted or in-jurisdiction model to keep PHI inside their boundary; a hosted provider requires a business-associate / data-processing agreement and minimum-necessary data. The two grounding sources add no exposure: the HFrEF knowledge base is self-hosted, and PubMed receives only literature queries, never patient data. This is how the self-hostable claim holds against HIPAA / GDPR rather than contradicting it.</li>
       <li><strong>Observable AI, and access to be audited.</strong> Every LLM call is traced through the AI gateway; spans are exported over OpenTelemetry and scoped to the registered agent, giving a provider a record of what the AI saw and did. Human access to the dashboards sits behind the provider's authentication, with AuditEvent-style logging of PHI access as the expected, not-yet-built, control.</li>
     </ul>
   </section>
@@ -181,10 +184,12 @@
       <tbody>
         <tr><th class="kv-key">Apple HealthKit simulator</th><td>Python / FastAPI</td><td>Produces hourly vitals as FHIR Observation bundles.</td></tr>
         <tr><th class="kv-key">Messaging simulator</th><td>TypeScript / Next.js</td><td>Delivers the questionnaire and captures the patient's answers.</td></tr>
-        <tr><th class="kv-key">Collector service</th><td>Ballerina</td><td>Ingests vitals, opens check-ins, builds QuestionnaireResponses.</td></tr>
-        <tr><th class="kv-key">Heart-risk service</th><td>Python / ONNX Runtime</td><td>Serves the ML probability from the vitals.</td></tr>
-        <tr><th class="kv-key">Analysis service</th><td>Ballerina</td><td>Holds the decision logic: thresholds, escalation, the Task write-back, the timeout fail-safe.</td></tr>
-        <tr><th class="kv-key">AI service</th><td>Ballerina AI</td><td>The three agents, routed through the AMP AI gateway.</td></tr>
+        <tr><th class="kv-key">Collector service</th><td>Ballerina</td><td>Ingests vitals, drives the adaptive check-in conversation, builds QuestionnaireResponses.</td></tr>
+        <tr><th class="kv-key">Heart-risk service</th><td>Python / ONNX Runtime</td><td>Serves the nine-feature CatBoost risk score.</td></tr>
+        <tr><th class="kv-key">Analysis service</th><td>Ballerina</td><td>Holds the decision logic: feature prefill, thresholds, escalation, the Task write-back, the timeout fail-safe.</td></tr>
+        <tr><th class="kv-key">AI service</th><td>Ballerina AI</td><td>The four agents (OpenAI or Anthropic), routed through the AMP AI gateway.</td></tr>
+        <tr><th class="kv-key">Knowledge service</th><td>Python / FastMCP + Chroma</td><td>Self-hosted HFrEF knowledge base (guidelines + patient-education) as read-only MCP tools (RAG).</td></tr>
+        <tr><th class="kv-key">PubMed MCP</th><td>Third-party MCP</td><td>Live PubMed literature lookups for the risk agent.</td></tr>
         <tr><th class="kv-key">FHIR servers (&times;2)</th><td>WSO2 FHIR R4</td><td>The EHR source of truth and the Care Loop's synced internal store.</td></tr>
         <tr><th class="kv-key">FHIR MCP bridge + proxy</th><td>WSO2 / Nginx</td><td>Read-only FHIR-to-MCP access for the agents.</td></tr>
         <tr><th class="kv-key">Front-desk &amp; clinician dashboards</th><td>TypeScript / Next.js</td><td>Triage and review of the raised cases.</td></tr>

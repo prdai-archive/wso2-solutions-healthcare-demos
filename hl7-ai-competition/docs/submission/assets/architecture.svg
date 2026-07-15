@@ -1,0 +1,224 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2000 1200" font-family="Inter, sans-serif">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&amp;family=Inter:wght@400;500;600&amp;display=swap');
+      .zone { fill:#f6f6f7; stroke:#e2e2e4; stroke-width:1; }
+      .careloop { fill:none; stroke:#c9560a; stroke-width:1.6; stroke-dasharray:8 5; }
+      .grp { fill:#ffffff; stroke:#d3d3d6; stroke-width:1.2; }
+      .zonelabel { font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:15px; letter-spacing:0.14em; text-transform:uppercase; fill:#ff7300; }
+      .grplabel { font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:12.5px; letter-spacing:0.06em; fill:#16161a; }
+      .cltitle { font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:22px; letter-spacing:0.02em; fill:#16161a; }
+      .box { fill:#ffffff; stroke:#16161a; stroke-width:1.3; }
+      .boxc { fill:#16161a; stroke:#16161a; }
+      .diamond { fill:#fff4ea; stroke:#ff7300; stroke-width:1.4; }
+      .title { font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:13.5px; fill:#16161a; }
+      .titlew { font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:13.5px; fill:#ffffff; }
+      .sub { font-family:'Inter',sans-serif; font-weight:400; font-size:11.5px; fill:#5a5a60; }
+      .subw { font-family:'Inter',sans-serif; font-weight:400; font-size:11px; fill:#c7c7cc; }
+      .dtxt { font-family:'Inter',sans-serif; font-weight:500; font-size:11px; fill:#16161a; }
+      .actor { fill:none; stroke:#16161a; stroke-width:1.6; }
+      .actorlbl { font-family:'Inter',sans-serif; font-weight:600; font-size:12px; fill:#16161a; }
+      .flowlabel { font-family:'Inter',sans-serif; font-weight:500; font-size:11px; fill:#3a3a40; }
+      .flowlabel-o { font-family:'Inter',sans-serif; font-weight:600; font-size:11px; fill:#ff7300; }
+      .edge { stroke:#16161a; stroke-width:1.5; fill:none; }
+      .edge-o { stroke:#ff7300; stroke-width:1.7; fill:none; }
+      .edge-d { stroke:#9a9aa0; stroke-width:1.3; fill:none; stroke-dasharray:5 4; }
+    </style>
+    <marker id="arw" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#16161a"/></marker>
+    <marker id="arwo" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#ff7300"/></marker>
+    <marker id="arwd" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#9a9aa0"/></marker>
+  </defs>
+
+  <!-- ===================== ZONES ===================== -->
+  <rect class="zone" x="20" y="150" width="300" height="640" rx="10"/>
+  <text class="zonelabel" x="40" y="182">Patient (simulated)</text>
+
+  <rect class="careloop" x="344" y="70" width="1300" height="1092" rx="14"/>
+  <text class="cltitle" x="900" y="118" text-anchor="middle">WSO2 CARE LOOP</text>
+
+  <rect class="zone" x="1668" y="150" width="312" height="470" rx="10"/>
+  <text class="zonelabel" x="1688" y="182">Clinic</text>
+
+  <!-- ===================== PATIENT ===================== -->
+  <!-- actor -->
+  <circle class="actor" cx="60" cy="430" r="13"/>
+  <path class="actor" d="M60,443 L60,483 M40,458 L80,458 M60,483 L45,508 M60,483 L75,508"/>
+  <text class="actorlbl" x="60" y="528" text-anchor="middle">Patient</text>
+
+  <g>
+    <rect class="box" x="112" y="215" width="196" height="92" rx="8"/>
+    <text class="title" x="128" y="245">Apple Health</text>
+    <text class="sub" x="128" y="266">Wearable vitals: heart rate,</text>
+    <text class="sub" x="128" y="283">SpO&#8322;, respiratory rate, BP</text>
+  </g>
+  <g>
+    <rect class="box" x="112" y="500" width="196" height="92" rx="8"/>
+    <text class="title" x="128" y="530">WhatsApp</text>
+    <text class="sub" x="128" y="551">Symptom check-in</text>
+    <text class="sub" x="128" y="568">questionnaire and reply</text>
+  </g>
+
+  <!-- ===================== COLLECTOR SERVICE ===================== -->
+  <rect class="grp" x="372" y="170" width="252" height="470" rx="9"/>
+  <text class="grplabel" x="388" y="196">Collector Service</text>
+  <g>
+    <rect class="box" x="390" y="212" width="216" height="80" rx="7"/>
+    <text class="title" x="404" y="240">Vitals webhook</text>
+    <text class="sub" x="404" y="260">converts readings into</text>
+    <text class="sub" x="404" y="277">FHIR Observations</text>
+  </g>
+  <g>
+    <rect class="box" x="390" y="322" width="216" height="94" rx="7"/>
+    <text class="title" x="404" y="350">WhatsApp handler</text>
+    <text class="sub" x="404" y="370">asks the questions, builds a</text>
+    <text class="sub" x="404" y="387">FHIR QuestionnaireResponse</text>
+    <text class="sub" x="404" y="404">from the answers</text>
+  </g>
+  <g>
+    <rect class="box" x="390" y="446" width="216" height="70" rx="7"/>
+    <text class="title" x="404" y="474">Daily cron trigger</text>
+    <text class="sub" x="404" y="494">baseline check-in (planned)</text>
+  </g>
+
+  <!-- ===================== ANALYSIS SERVICE ===================== -->
+  <rect class="grp" x="660" y="170" width="360" height="640" rx="9"/>
+  <text class="grplabel" x="676" y="196">Analysis Service &#183; decision logic</text>
+  <g>
+    <rect class="box" x="680" y="212" width="320" height="58" rx="7"/>
+    <text class="title" x="694" y="238">Request ML prediction</text>
+    <text class="sub" x="694" y="257">on the latest vitals</text>
+  </g>
+  <!-- diamond 1 -->
+  <polygon class="diamond" points="840,300 960,352 840,404 720,352"/>
+  <text class="dtxt" x="840" y="348" text-anchor="middle">ML score</text>
+  <text class="dtxt" x="840" y="364" text-anchor="middle">over threshold?</text>
+  <g>
+    <rect class="box" x="680" y="452" width="320" height="60" rx="7"/>
+    <text class="title" x="694" y="479">Handle questionnaire answers</text>
+    <text class="sub" x="694" y="498">run the agentic assessment</text>
+  </g>
+  <!-- diamond 2 -->
+  <polygon class="diamond" points="840,542 968,598 840,654 712,598"/>
+  <text class="dtxt" x="840" y="594" text-anchor="middle">ML and agentic</text>
+  <text class="dtxt" x="840" y="610" text-anchor="middle">both over?</text>
+  <g>
+    <rect class="box" x="680" y="702" width="320" height="60" rx="7"/>
+    <text class="title" x="694" y="729">Write escalation Task</text>
+    <text class="sub" x="694" y="748">priority by worse probability</text>
+  </g>
+
+  <!-- ===================== ML SERVICE ===================== -->
+  <g>
+    <rect class="box" x="1058" y="212" width="256" height="110" rx="8"/>
+    <text class="grplabel" x="1074" y="238">ML Service</text>
+    <text class="sub" x="1074" y="262">Heart-risk &#183; XGBoost &#8594; ONNX</text>
+    <text class="sub" x="1074" y="280">scores age, max heart rate, sex</text>
+    <text class="sub" x="1074" y="298">returns a risk score (0&#8211;1)</text>
+  </g>
+
+  <!-- ===================== AI SERVICE / AGENT MANAGER ===================== -->
+  <rect class="grp" x="1058" y="372" width="474" height="336" rx="9"/>
+  <text class="grplabel" x="1074" y="398">AI Service &#183; WSO2 Agent Manager gateway (OTel traced)</text>
+  <g>
+    <rect class="box" x="1076" y="414" width="300" height="62" rx="7"/>
+    <text class="title" x="1090" y="440">Questionnaire agent</text>
+    <text class="sub" x="1090" y="460">gpt-4.1-nano &#183; drafts the check-in</text>
+  </g>
+  <g>
+    <rect class="box" x="1076" y="486" width="300" height="62" rx="7"/>
+    <text class="title" x="1090" y="512">Risk-assessment agent</text>
+    <text class="sub" x="1090" y="532">gpt-4.1 &#183; assesses, cites resources</text>
+  </g>
+  <g>
+    <rect class="box" x="1076" y="558" width="300" height="62" rx="7"/>
+    <text class="title" x="1090" y="584">Task-description agent</text>
+    <text class="sub" x="1090" y="604">gpt-4.1-nano &#183; writes the case</text>
+  </g>
+  <g>
+    <rect class="box" x="1076" y="630" width="300" height="60" rx="7"/>
+    <text class="title" x="1090" y="656">FHIR MCP &#183; read-only</text>
+    <text class="sub" x="1090" y="675">GET/HEAD proxy over the store</text>
+  </g>
+
+  <!-- ===================== FHIR LAYER ===================== -->
+  <g>
+    <rect class="boxc" x="680" y="852" width="320" height="88" rx="8"/>
+    <text class="titlew" x="696" y="882">EHR FHIR server</text>
+    <text class="subw" x="696" y="903">WSO2 FHIR R4 &#183; source of truth</text>
+    <text class="subw" x="696" y="921">Tasks are written here</text>
+  </g>
+  <g>
+    <rect class="boxc" x="1076" y="852" width="300" height="88" rx="8"/>
+    <text class="titlew" x="1092" y="882">Care Loop FHIR store</text>
+    <text class="subw" x="1092" y="903">WSO2 FHIR R4 &#183; internal</text>
+    <text class="subw" x="1092" y="921">synced hourly from the EHR</text>
+  </g>
+
+  <!-- ===================== CLINIC ===================== -->
+  <circle class="actor" cx="1824" cy="222" r="12"/>
+  <path class="actor" d="M1824,234 L1824,270 M1806,248 L1842,248 M1824,270 L1810,292 M1824,270 L1838,292"/>
+  <text class="actorlbl" x="1824" y="312" text-anchor="middle">Front desk</text>
+  <g>
+    <rect class="box" x="1688" y="352" width="272" height="86" rx="8"/>
+    <text class="title" x="1704" y="382">Front-desk dashboard</text>
+    <text class="sub" x="1704" y="403">triage flagged Tasks,</text>
+    <text class="sub" x="1704" y="420">assign to a doctor</text>
+  </g>
+  <circle class="actor" cx="1824" cy="492" r="12"/>
+  <path class="actor" d="M1824,504 L1824,540 M1806,518 L1842,518 M1824,540 L1810,562 M1824,540 L1838,562"/>
+  <text class="actorlbl" x="1824" y="582" text-anchor="middle">Doctor</text>
+
+  <!-- ===================== EDGES ===================== -->
+  <!-- Apple Health -> Vitals webhook (hourly) -->
+  <path class="edge-o" marker-end="url(#arwo)" d="M308,258 L344,258 L344,252 L386,252"/>
+  <text class="flowlabel-o" x="316" y="246">hourly vitals</text>
+  <!-- Vitals webhook -> Request ML prediction -->
+  <path class="edge" marker-end="url(#arw)" d="M606,240 L676,240"/>
+  <!-- Request ML prediction -> diamond1 -->
+  <path class="edge" marker-end="url(#arw)" d="M840,270 L840,298"/>
+  <!-- diamond1 <-> ML service (request/get) -->
+  <path class="edge" marker-end="url(#arw)" d="M960,342 L1054,270"/>
+  <text class="flowlabel" x="972" y="300">request</text>
+  <path class="edge" marker-end="url(#arw)" d="M1120,322 L1120,352 L900,352 L862,352"/>
+  <text class="flowlabel" x="1000" y="345">get prediction</text>
+  <!-- diamond1 over threshold -> Questionnaire agent (generate) -->
+  <path class="edge-o" marker-end="url(#arwo)" d="M912,388 L1030,388 L1030,440 L1072,440"/>
+  <text class="flowlabel-o" x="916" y="380">over &#8594; generate check-in</text>
+  <!-- Questionnaire agent -> WhatsApp (send) -->
+  <path class="edge-o" marker-end="url(#arwo)" d="M1076,458 L1040,458 L1040,140 L210,140 L210,212"/>
+  <text class="flowlabel-o" x="470" y="132">send questionnaire</text>
+  <!-- WhatsApp -> WhatsApp handler (answers) -->
+  <path class="edge-o" marker-end="url(#arwo)" d="M308,546 L346,546 L346,360 L386,360"/>
+  <text class="flowlabel-o" x="316" y="536">answers</text>
+  <!-- WhatsApp handler -> Handle questionnaire answers -->
+  <path class="edge" marker-end="url(#arw)" d="M606,378 L636,378 L636,478 L676,478"/>
+  <!-- Handle answers -> Risk agent -->
+  <path class="edge-o" marker-end="url(#arwo)" d="M1000,486 L1030,486 L1030,510 L1072,510"/>
+  <text class="flowlabel-o" x="1006" y="478">assess</text>
+  <!-- Risk agent -> diamond2 (agentic result) -->
+  <path class="edge" marker-end="url(#arw)" d="M1072,530 L1010,530 L1010,598 L972,598"/>
+  <text class="flowlabel" x="1012" y="560">result</text>
+  <!-- Handle answers -> diamond2 (ml result) -->
+  <path class="edge" marker-end="url(#arw)" d="M840,512 L840,538"/>
+  <!-- diamond2 both over -> Write Task -->
+  <path class="edge-o" marker-end="url(#arwo)" d="M840,654 L840,698"/>
+  <text class="flowlabel-o" x="852" y="682">both over</text>
+  <!-- Task-description agent -> Write Task (narrative) -->
+  <path class="edge-d" marker-end="url(#arwd)" d="M1076,600 L1040,600 L1040,732 L1004,732"/>
+  <text class="flowlabel" x="1010" y="628">narrative</text>
+  <!-- Write Task -> EHR FHIR server -->
+  <path class="edge-o" marker-end="url(#arwo)" d="M840,762 L840,848"/>
+  <text class="flowlabel-o" x="852" y="808">Task</text>
+  <!-- Agents read FHIR via MCP -> Care Loop store -->
+  <path class="edge-d" marker-end="url(#arwd)" d="M1226,690 L1226,848"/>
+  <text class="flowlabel" x="1234" y="775">read</text>
+  <!-- EHR -> Care Loop store (sync) -->
+  <path class="edge-d" marker-end="url(#arwd)" d="M1000,896 L1072,896"/>
+  <text class="flowlabel" x="1006" y="962">hourly FHIR sync</text>
+  <!-- EHR -> Front-desk dashboard (Task notify), routed below the FHIR row -->
+  <path class="edge-o" marker-end="url(#arwo)" d="M840,940 L840,1010 L1600,1010 L1600,395 L1684,395"/>
+  <text class="flowlabel-o" x="1120" y="1002">Task to clinic (front desk polls the EHR)</text>
+  <!-- Front-desk -> Doctor (assign / review) -->
+  <path class="edge" marker-end="url(#arw)" d="M1824,438 L1824,478"/>
+  <text class="flowlabel" x="1834" y="462">assign</text>
+</svg>

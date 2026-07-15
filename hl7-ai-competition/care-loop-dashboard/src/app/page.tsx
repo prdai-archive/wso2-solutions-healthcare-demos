@@ -120,7 +120,6 @@ export default function DashboardPage() {
   );
   const responses = responsesPoll.data?.responses ?? [];
 
-  // Mock's global Cmd/Ctrl+K shortcut for the search palette.
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
@@ -192,13 +191,17 @@ export default function DashboardPage() {
       .map((ref) => ref.slice("RiskAssessment/".length)),
   );
 
-  // Mock's focus filter narrows only the vitals and ML tabs (fVitals/fMl in the mock script); questionnaires and agent reasoning stay unfiltered.
+  // Focusing an alert narrows every evidence tab to that Task's basedOn, so a single alert shows its own one questionnaire, ML prediction and agent reasoning.
   const visibleObservations = focusedRefs ? filterObservationsByFocus(observations, focusedRefs) : observations;
-  const visibleResponses = responses;
+  const visibleResponses = focusedRefs
+    ? responses.filter((response) => focusedRefs.has(`QuestionnaireResponse/${response.id}`))
+    : responses;
   const visibleMlPredictions = focusedRefs
     ? mlPredictions.filter((assessment) => focusedRefs.has(`RiskAssessment/${assessment.id}`))
     : mlPredictions;
-  const visibleAgenticPredictions = agenticPredictions;
+  const visibleAgenticPredictions = focusedRefs
+    ? agenticPredictions.filter((assessment) => focusedRefs.has(`RiskAssessment/${assessment.id}`))
+    : agenticPredictions;
 
   const tabDefs: { id: TabId; label: string; count: number }[] = [
     { id: "vitals", label: "Vitals", count: displayableRows(visibleObservations).length },

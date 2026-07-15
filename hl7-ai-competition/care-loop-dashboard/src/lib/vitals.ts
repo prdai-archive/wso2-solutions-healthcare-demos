@@ -80,7 +80,7 @@ export function cellValue(observation: ObservationDto | null): string {
   if (!observation || observation.value === null) return "—";
   if (!observation.unit) return observation.value;
   const unit = compactUnit(observation.unit);
-  // Mock renders SpO2 as "95.7%" - percent hugs the value, other units get a space.
+  // Percent hugs the value ("95.7%"); other units get a space.
   return unit === "%" ? `${observation.value}%` : `${observation.value} ${unit}`;
 }
 
@@ -89,7 +89,7 @@ export function bloodPressureValue(row: VitalsRow): string {
   return `${row.systolic.value}/${row.diastolic.value} mmHg`;
 }
 
-// Rows with at least one renderable value - a lone systolic can't render a BP pair, and the mock never shows a value-less row. Shared by the vitals table and the tab count so the badge always equals the rendered row count.
+// Rows with at least one renderable value - a lone systolic can't render a BP pair. Shared by the vitals table and the tab count so the badge equals the rendered row count.
 export function displayableRows(observations: ObservationDto[]): VitalsRow[] {
   return groupIntoRows(observations).filter(
     (row) => row.hr !== null || row.spo2 !== null || row.rr !== null || (row.systolic !== null && row.diastolic !== null),

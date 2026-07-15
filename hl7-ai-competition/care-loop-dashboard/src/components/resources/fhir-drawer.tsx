@@ -101,7 +101,7 @@ export function FhirDrawerProvider({ children }: { children: React.ReactNode }) 
   );
 }
 
-// Drawer subtitle carries the mock's server-name prefix. The mapping mirrors which server each dashboard API route actually fetches the type from; Observation exists on both servers (live vitals on care-loop, EHR intake baselines), so those call sites pass an explicit server override.
+// The server-name prefix mirrors which server each dashboard API route fetches the type from; Observation exists on both (live vitals on care-loop, EHR intake baselines), so those call sites pass an explicit server override.
 const SERVER_PREFIXES = {
   "care-loop": "care-loop-fhir-server /fhir",
   ehr: "ehr-fhir-server /fhir/r4",

@@ -25,7 +25,7 @@ function modelInput(riskAssessment: MlRiskAssessmentDto): string {
   return riskAssessment.basis.join(", ");
 }
 
-// Long UUID ref lists overflow the mock's compact mono cell; middle-truncate so both the resource type and the trailing id stay readable. Full value in title.
+// Long UUID ref lists overflow the compact mono cell; middle-truncate so the type and trailing id stay readable. Full value in title.
 function middleTruncate(text: string, max = 44): string {
   if (text.length <= max) return text;
   const half = Math.floor((max - 1) / 2);

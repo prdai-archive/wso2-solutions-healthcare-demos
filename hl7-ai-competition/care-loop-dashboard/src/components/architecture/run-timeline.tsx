@@ -33,7 +33,7 @@ const STAGE_ICONS: Record<string, React.ComponentType<{ size?: number; strokeWid
   clinician: Stethoscope,
 };
 
-// Display-only: a settled run renders everything after its last done stage as "ended" (mock's dashed terminal state) instead of perpetual Pending.
+// A settled run renders its unreached tail as ended, not perpetual Pending.
 type DisplayStatus = RunStage["status"] | "ended";
 
 const STATUS_LABEL: Record<DisplayStatus, string> = {
@@ -293,7 +293,7 @@ export function RunTimeline({ run }: { run: Run }) {
             const pos = rpos(i);
             const isSelected = selected === i;
             const showMethod = (status === "done" || status === "active") && def.method !== "—";
-            // Mock only recolors the selected border on done/active nodes; pending/ended keep their own border.
+            // Only done/active nodes recolor their selected border; pending/ended keep their own.
             const border =
               isSelected && (status === "done" || status === "active")
                 ? `1.5px solid ${status === "active" ? "#FF7300" : "rgba(0,0,0,0.45)"}`

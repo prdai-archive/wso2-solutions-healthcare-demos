@@ -101,17 +101,17 @@
   <section class="section" id="s3">
     <h2><span class="sec-num">3</span> How a case moves through the loop</h2>
 
-    <p>Meet Margaret Silva, 68. Three weeks ago she was admitted with an acute decompensation of HFrEF, stabilised, and discharged home on adjusted medication. She already wears a smartwatch, so her vitals flow in without her doing anything, and her check-ins arrive over a messaging app she uses every day. At discharge her clinic enrolled her, with her consent, in the Care Loop. From that point the platform watches passively in the background.</p>
+    <p>Meet Dorothy Silva, 68. Three weeks ago she was admitted with an acute decompensation of HFrEF, stabilised, and discharged home on adjusted medication. She already wears a smartwatch, so her vitals flow in without her doing anything, and her check-ins arrive over a messaging app she uses every day. At discharge her clinic enrolled her, with her consent, in the Care Loop. From that point the platform watches passively in the background.</p>
 
     <p>Broadly, a flagged case follows the same path regardless of what triggered it:</p>
 
     <ol class="flow">
       <li><strong>Vitals arrive and are scored.</strong> Each hour, the patient's latest vitals are converted to FHIR, and a machine-learning model scores the heart-rate signal against the patient's age and sex to produce a risk score. Most hours this is unremarkable and nothing else happens.</li>
       <li><strong>A concerning trend triggers a check-in.</strong> When the score crosses the escalation threshold, the platform asks an AI agent to draft a short, targeted symptom questionnaire and sends it to the patient, gathering the subjective context the numbers alone cannot give.</li>
-      <li><strong>The patient replies with almost no effort.</strong> Margaret answers a handful of plain-language questions on her phone. Low friction here is what makes remote monitoring actually work in practice.</li>
+      <li><strong>The patient replies with almost no effort.</strong> Dorothy answers a handful of plain-language questions on her phone. Low friction here is what makes remote monitoring actually work in practice.</li>
       <li><strong>An agent weighs everything together.</strong> An agentic assessment combines the vitals trend, the questionnaire answers, and the patient's own record, pulled live from FHIR, into a reasoned judgement of risk with a clear "why".</li>
       <li><strong>A prioritised case reaches the clinic.</strong> If both the model and the agent agree the concern is real, the platform writes a FHIR <span class="mono-tag">Task</span> into the clinic's records system, prioritised by severity, with the supporting evidence linked.</li>
-      <li><strong>The clinic decides and acts.</strong> Front-desk staff triage the case and assign it to a doctor; the doctor reviews the consolidated summary and decides on next steps, whether a phone call, a medication change, a clinic visit, or a telehealth session, in time to keep Margaret out of hospital.</li>
+      <li><strong>The clinic decides and acts.</strong> Front-desk staff triage the case and assign it to a doctor; the doctor reviews the consolidated summary and decides on next steps, whether a phone call, a medication change, a clinic visit, or a telehealth session, in time to keep Dorothy out of hospital.</li>
     </ol>
 
     <p>There are really two triggers behind this single path. The <strong>hourly vitals trigger</strong> always runs the model and only escalates when the numbers look off; this is the path the reference build implements today. A <strong>daily check-in</strong> is planned as the "nothing is on fire" baseline touchpoint for stable patients (see Section 9). Both converge on the same agentic assessment and the same decision to notify, so the clinic sees one consistent kind of case however it arose. The point throughout is that the platform's job is to notice and prioritise; the clinician's job is to decide and act.</p>

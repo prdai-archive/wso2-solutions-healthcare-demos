@@ -58,6 +58,17 @@ final ai:Agent taskDescriptionAgent = check new (
 
 listener http:Listener sharedListener = new (listenPort);
 
+isolated function draftedItemCount(json questionnaire) returns int? {
+    if questionnaire !is map<json> {
+        return ();
+    }
+    json items = questionnaire["item"] ?: ();
+    if items !is json[] {
+        return ();
+    }
+    return items.length();
+}
+
 service /questionnaires on sharedListener {
 
     resource function post .(QuestionnaireRequest request) returns QuestionnaireResponse|http:InternalServerError {
@@ -73,15 +84,9 @@ service /questionnaires on sharedListener {
             return <http:InternalServerError>{body: {message: "agent did not return valid JSON: " + questionnaire.message()}};
         }
 
-        string? itemCountDetail = ();
-        map<string>? itemCountPayload = ();
-        if questionnaire is map<json> {
-            json items = questionnaire["item"] ?: ();
-            if items is json[] {
-                itemCountDetail = string `${items.length()} item(s) drafted`;
-                itemCountPayload = {channel: "whatsapp", itemCount: items.length().toString()};
-            }
-        }
+        int? itemCount = draftedItemCount(questionnaire);
+        string? itemCountDetail = itemCount is int ? string `${itemCount} item(s) drafted` : ();
+        map<string>? itemCountPayload = itemCount is int ? {channel: "whatsapp", itemCount: itemCount.toString()} : ();
         future<()> _ = start reportDashboardEvent(request.patientId, common:QUESTIONNAIRE_DRAFTED, itemCountDetail, itemCountPayload);
 
         return {questionnaire};

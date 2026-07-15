@@ -21,12 +21,13 @@ import { MlPredictionsList } from "@/components/resources/ml-predictions-list";
 import { ObservationsList } from "@/components/resources/observations-list";
 import { PatientHistory } from "@/components/resources/patient-history";
 import { QuestionnaireResponsesList } from "@/components/resources/questionnaire-responses-list";
+import { usePolledResource } from "@/hooks/use-polled-resource";
 import { parseEscalationThreshold } from "@/lib/ml-rationale";
 import { statusBandFor } from "@/lib/status-band";
 import { cn } from "@/lib/utils";
 import { displayableRows } from "@/lib/vitals";
 
-const POLL_INTERVAL_MS = 4_000;
+const POLL_INTERVAL_MS = 1_000;
 const PATIENTS_POLL_INTERVAL_MS = 15_000;
 
 const ML_METHOD_MARKER = "heart-risk-service";
@@ -62,8 +63,7 @@ function highestTaskPriority(tasks: TaskSummary[]): string | null {
   return ranked[0] ?? null;
 }
 
-// Vitals render as per-minute rows (displayableRows) while Task.basedOn lists
-// individual Observations - keep whole rows that contain a linked observation.
+// Vitals render as per-minute rows (displayableRows) while Task.basedOn lists individual Observations - keep whole rows that contain a linked observation.
 function filterObservationsByFocus(observations: ObservationDto[], focusedRefs: Set<string>): ObservationDto[] {
   const linkedBuckets = new Set<string>();
   for (const observation of observations) {
@@ -80,30 +80,46 @@ function filterObservationsByFocus(observations: ObservationDto[], focusedRefs: 
 export default function DashboardPage() {
   const [selected, setSelected] = useState<OpsPatient | undefined>(undefined);
 
-  const [patients, setPatients] = useState<OpsPatient[]>([]);
-  const [patientsLoaded, setPatientsLoaded] = useState(false);
-  const [patientsError, setPatientsError] = useState(false);
-  const [homeSummary, setHomeSummary] = useState<HomeSummary>(EMPTY_HOME_SUMMARY);
-  const [homeSummaryLoaded, setHomeSummaryLoaded] = useState(false);
-  const [homeSummaryError, setHomeSummaryError] = useState(false);
-
   const [runs, setRuns] = useState<Run[]>([]);
   const [runsLoaded, setRunsLoaded] = useState(false);
   const [focusedTask, setFocusedTask] = useState<TaskSummary | null>(null);
   // Live open tasks from AlertsList's own poll - the KPI tile derives from the same array the alerts badge renders, so the two can never disagree.
   const [liveOpenTasks, setLiveOpenTasks] = useState<TaskSummary[] | null>(null);
   const [lastPollAt, setLastPollAt] = useState<number | null>(null);
-  const [riskAssessments, setRiskAssessments] = useState<RiskAssessmentSummary[]>([]);
-  const [riskAssessmentsLoaded, setRiskAssessmentsLoaded] = useState(false);
-  const [riskAssessmentsError, setRiskAssessmentsError] = useState(false);
-  const [observations, setObservations] = useState<ObservationDto[]>([]);
-  const [observationsLoaded, setObservationsLoaded] = useState(false);
-  const [observationsError, setObservationsError] = useState(false);
-  const [responses, setResponses] = useState<QuestionnaireResponseSummary[]>([]);
-  const [responsesLoaded, setResponsesLoaded] = useState(false);
-  const [responsesError, setResponsesError] = useState(false);
   const [tab, setTab] = useState<TabId>("vitals");
   const [paletteOpen, setPaletteOpen] = useState(false);
+
+  // Home screen: patient list + aggregate/per-patient rollups. keepAcrossUrls so both survive a patient visit (CommandPalette and the open-tasks fallback read them while a patient is selected).
+  const patientsPoll = usePolledResource<{ patients: OpsPatient[]; error?: boolean }>(
+    selected ? null : "/api/patients",
+    PATIENTS_POLL_INTERVAL_MS,
+    true,
+  );
+  const patients = patientsPoll.data?.patients ?? [];
+  const homeSummaryPoll = usePolledResource<HomeSummary>(
+    selected ? null : "/api/home-summary",
+    POLL_INTERVAL_MS,
+    true,
+  );
+  const homeSummary = homeSummaryPoll.data ?? EMPTY_HOME_SUMMARY;
+
+  // Patient screen: risk assessments (shared by ML tab, agentic tab, and the alerts ML/Agent columns), observations (KPI tiles + vitals tab) and questionnaire responses all poll per patient.
+  const patientUrl = selected ? `/api/patients/${selected.id}` : null;
+  const riskAssessmentsPoll = usePolledResource<{ riskAssessments: RiskAssessmentSummary[]; error?: boolean }>(
+    patientUrl && `${patientUrl}/risk-assessments`,
+    POLL_INTERVAL_MS,
+  );
+  const riskAssessments = riskAssessmentsPoll.data?.riskAssessments ?? [];
+  const observationsPoll = usePolledResource<{ observations: ObservationDto[]; error?: boolean }>(
+    patientUrl && `${patientUrl}/observations`,
+    POLL_INTERVAL_MS,
+  );
+  const observations = observationsPoll.data?.observations ?? [];
+  const responsesPoll = usePolledResource<{ responses: QuestionnaireResponseSummary[]; error?: boolean }>(
+    patientUrl && `${patientUrl}/questionnaire-responses`,
+    POLL_INTERVAL_MS,
+  );
+  const responses = responsesPoll.data?.responses ?? [];
 
   // Mock's global Cmd/Ctrl+K shortcut for the search palette.
   useEffect(() => {
@@ -117,67 +133,7 @@ export default function DashboardPage() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  // Home screen: patient list + aggregate/per-patient rollups.
-  useEffect(() => {
-    if (selected) return;
-    let cancelled = false;
-
-    async function poll() {
-      try {
-        const response = await fetch("/api/patients");
-        const data = (await response.json()) as { patients: OpsPatient[]; error?: boolean };
-        if (!cancelled) {
-          // A degraded response keeps the last good list rather than replacing it with fabricated emptiness.
-          setPatientsError(data.error === true);
-          if (!data.error) setPatients(data.patients);
-        }
-      } catch (error) {
-        console.error("failed to poll patients", error);
-        if (!cancelled) setPatientsError(true);
-      } finally {
-        if (!cancelled) setPatientsLoaded(true);
-      }
-    }
-
-    poll();
-    const interval = setInterval(poll, PATIENTS_POLL_INTERVAL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, [selected]);
-
-  useEffect(() => {
-    if (selected) return;
-    let cancelled = false;
-
-    async function poll() {
-      try {
-        const response = await fetch("/api/home-summary");
-        const data = (await response.json()) as HomeSummary;
-        if (!cancelled) {
-          setHomeSummaryError(data.error === true);
-          if (!data.error) setHomeSummary(data);
-        }
-      } catch (error) {
-        console.error("failed to poll home summary", error);
-        if (!cancelled) setHomeSummaryError(true);
-      } finally {
-        if (!cancelled) setHomeSummaryLoaded(true);
-      }
-    }
-
-    poll();
-    const interval = setInterval(poll, POLL_INTERVAL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, [selected]);
-
-  // Patient screen: runs (for the timeline), risk assessments (shared by ML
-  // tab, agentic tab, and the alerts ML/Agent columns), observations (KPI
-  // tiles + vitals tab) and questionnaire responses all poll per patient.
+  // Runs stay a hand-rolled poll: no degraded-error flag in the payload, and each success also stamps lastPollAt for the header's live indicator.
   useEffect(() => {
     if (!selected) return;
     let cancelled = false;
@@ -204,105 +160,12 @@ export default function DashboardPage() {
     };
   }, [selected]);
 
-  useEffect(() => {
-    if (!selected) return;
-    let cancelled = false;
-    setRiskAssessmentsLoaded(false);
-
-    async function poll() {
-      try {
-        const response = await fetch(`/api/patients/${selected!.id}/risk-assessments`);
-        const data = (await response.json()) as { riskAssessments: RiskAssessmentSummary[]; error?: boolean };
-        if (!cancelled) {
-          setRiskAssessmentsError(data.error === true);
-          if (!data.error) setRiskAssessments(data.riskAssessments);
-        }
-      } catch (error) {
-        console.error("failed to poll risk assessments", error);
-        if (!cancelled) setRiskAssessmentsError(true);
-      } finally {
-        if (!cancelled) setRiskAssessmentsLoaded(true);
-      }
-    }
-
-    poll();
-    const interval = setInterval(poll, POLL_INTERVAL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, [selected]);
-
-  useEffect(() => {
-    if (!selected) return;
-    let cancelled = false;
-    setObservationsLoaded(false);
-
-    async function poll() {
-      try {
-        const response = await fetch(`/api/patients/${selected!.id}/observations`);
-        const data = (await response.json()) as { observations: ObservationDto[]; error?: boolean };
-        if (!cancelled) {
-          setObservationsError(data.error === true);
-          if (!data.error) setObservations(data.observations);
-        }
-      } catch (error) {
-        console.error("failed to poll observations", error);
-        if (!cancelled) setObservationsError(true);
-      } finally {
-        if (!cancelled) setObservationsLoaded(true);
-      }
-    }
-
-    poll();
-    const interval = setInterval(poll, POLL_INTERVAL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, [selected]);
-
-  useEffect(() => {
-    if (!selected) return;
-    let cancelled = false;
-    setResponsesLoaded(false);
-
-    async function poll() {
-      try {
-        const response = await fetch(`/api/patients/${selected!.id}/questionnaire-responses`);
-        const data = (await response.json()) as { responses: QuestionnaireResponseSummary[]; error?: boolean };
-        if (!cancelled) {
-          setResponsesError(data.error === true);
-          if (!data.error) setResponses(data.responses);
-        }
-      } catch (error) {
-        console.error("failed to poll questionnaire responses", error);
-        if (!cancelled) setResponsesError(true);
-      } finally {
-        if (!cancelled) setResponsesLoaded(true);
-      }
-    }
-
-    poll();
-    const interval = setInterval(poll, POLL_INTERVAL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, [selected]);
-
   const latestRun = runs[0];
 
   function selectPatient(patient: OpsPatient) {
     setSelected(patient);
     setRuns([]);
     setRunsLoaded(false);
-    setRiskAssessments([]);
-    setRiskAssessmentsLoaded(false);
-    setObservations([]);
-    setObservationsLoaded(false);
-    setResponses([]);
-    setResponsesLoaded(false);
     setFocusedTask(null);
     setLiveOpenTasks(null);
     setTab("vitals");
@@ -326,8 +189,7 @@ export default function DashboardPage() {
       )
     : null;
 
-  // Mock's focus filter narrows only the vitals and ML tabs (fVitals/fMl in
-  // the mock script); questionnaires and agent reasoning stay unfiltered.
+  // Mock's focus filter narrows only the vitals and ML tabs (fVitals/fMl in the mock script); questionnaires and agent reasoning stay unfiltered.
   const visibleObservations = focusedRefs ? filterObservationsByFocus(observations, focusedRefs) : observations;
   const visibleResponses = responses;
   const visibleMlPredictions = focusedRefs
@@ -350,11 +212,11 @@ export default function DashboardPage() {
       <div className="animate-canvas-fade-up flex flex-1 flex-col" style={selected ? { display: "none" } : undefined}>
         <HomeView
           patients={patients}
-          patientsLoaded={patientsLoaded}
-          patientsError={patientsError}
+          patientsLoaded={patientsPoll.loaded}
+          patientsError={patientsPoll.error}
           summary={homeSummary}
-          summaryLoaded={homeSummaryLoaded}
-          summaryError={homeSummaryError}
+          summaryLoaded={homeSummaryPoll.loaded}
+          summaryError={homeSummaryPoll.error}
           onSelect={selectPatient}
         />
       </div>
@@ -479,24 +341,24 @@ export default function DashboardPage() {
                 {tab === "vitals" ? (
                   <ObservationsList
                     observations={visibleObservations}
-                    loaded={observationsLoaded}
-                    error={observationsError}
+                    loaded={observationsPoll.loaded}
+                    error={observationsPoll.error}
                     focusedRefs={focusedRefs}
                   />
                 ) : null}
                 {tab === "questionnaires" ? (
                   <QuestionnaireResponsesList
                     responses={visibleResponses}
-                    loaded={responsesLoaded}
-                    error={responsesError}
+                    loaded={responsesPoll.loaded}
+                    error={responsesPoll.error}
                     focusedRefs={focusedRefs}
                   />
                 ) : null}
                 {tab === "ml" ? (
                   <MlPredictionsList
                     riskAssessments={visibleMlPredictions}
-                    loaded={riskAssessmentsLoaded}
-                    error={riskAssessmentsError}
+                    loaded={riskAssessmentsPoll.loaded}
+                    error={riskAssessmentsPoll.error}
                     focusedRefs={focusedRefs}
                   />
                 ) : null}
@@ -504,8 +366,8 @@ export default function DashboardPage() {
                   <AgenticPredictionsList
                     riskAssessments={visibleAgenticPredictions}
                     latestMlProbability={latestMlProbability}
-                    loaded={riskAssessmentsLoaded}
-                    error={riskAssessmentsError}
+                    loaded={riskAssessmentsPoll.loaded}
+                    error={riskAssessmentsPoll.error}
                     focusedRefs={focusedRefs}
                   />
                 ) : null}

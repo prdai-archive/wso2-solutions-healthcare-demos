@@ -1,17 +1,15 @@
+import type { Client } from "fhir-kit-client";
 import type {
-  Bundle,
   Questionnaire,
   QuestionnaireItem,
   QuestionnaireResponse,
   QuestionnaireResponseItem,
 } from "fhir/r4";
 
-import process from "node:process";
-
-import { Client } from "fhir-kit-client";
 import { NextResponse } from "next/server";
 
 import { degradedResponse } from "@/lib/api-degraded";
+import { careLoopClient, searchResources } from "@/lib/fhir";
 
 export const runtime = "nodejs";
 
@@ -65,9 +63,7 @@ function stringifyAnswer(
   return undefined;
 }
 
-// care-loop-collector-service populates item.text from the bot's question message; when it's missing, join
-// on linkId against the referenced Questionnaire's item text, then fall back to a short slice of linkId
-// (still a real FHIR field) for any legacy record saved before either was wired through.
+// care-loop-collector-service populates item.text from the bot's question message; when it's missing, join on linkId against the referenced Questionnaire's item text, then fall back to a short slice of linkId (still a real FHIR field) for any legacy record saved before either was wired through.
 function questionLabel(
   item: QuestionnaireResponseItem,
   questionTexts: Map<string, string>,
@@ -155,26 +151,14 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const baseUrl =
-    process.env.CARE_LOOP_FHIR_SERVER_URL ?? "http://localhost:9091/fhir";
 
   try {
-    const client = new Client({ baseUrl });
-    const bundle = (await client.resourceSearch({
-      resourceType: "QuestionnaireResponse",
-      searchParams: {
-        subject: `Patient/${id}`,
-        _sort: "-_lastUpdated",
-        _count: 50,
-      },
-    })) as unknown as Bundle<QuestionnaireResponse>;
-
-    const resources = (bundle.entry ?? [])
-      .map((entry) => entry.resource)
-      .filter(
-        (resource): resource is QuestionnaireResponse =>
-          resource !== undefined,
-      );
+    const client = careLoopClient();
+    const resources = await searchResources<QuestionnaireResponse>(
+      client,
+      "QuestionnaireResponse",
+      { subject: `Patient/${id}`, _sort: "-_lastUpdated", _count: 50 },
+    );
 
     const questionnaires = await fetchQuestionnaires(client, resources);
     const responses = resources.map((resource) =>

@@ -5,9 +5,7 @@ import ballerina/log;
 const DEFAULT_MAX_RETRIES = 3;
 const decimal DEFAULT_RETRY_DELAY_SECONDS = 0.5;
 
-# Retries a POST call on http:ClientError. Defense-in-depth for startup-ordering races
-# (DNS/connection-refused) between services in the same docker-compose stack, not a substitute
-# for fixing a genuinely misconfigured client (e.g. an HTTP version mismatch).
+# Retries a POST call on http:ClientError. Defense-in-depth for startup-ordering races (DNS/connection-refused) between services in the same docker-compose stack, not a substitute for fixing a genuinely misconfigured client (e.g. an HTTP version mismatch).
 #
 # + 'client - the http:Client to call
 # + path - request path

@@ -22,10 +22,7 @@ export function loincCode(observation: ObservationDto): string | undefined {
   return observation.raw.code?.coding?.[0]?.code;
 }
 
-// The simulator posts each vital sign (HR/SpO2/RR/systolic/diastolic) as its own
-// Observation with its own effectiveDateTime, not a single shared batch timestamp,
-// and doesn't guarantee all five are present every cycle. Bucketing to the minute
-// groups same-cycle readings into one row without inventing a shared timestamp field.
+// The simulator posts each vital sign (HR/SpO2/RR/systolic/diastolic) as its own Observation with its own effectiveDateTime, not a single shared batch timestamp, and doesn't guarantee all five are present every cycle. Bucketing to the minute groups same-cycle readings into one row without inventing a shared timestamp field.
 export function groupIntoRows(observations: ObservationDto[]): VitalsRow[] {
   const buckets = new Map<string, VitalsRow>();
 
@@ -72,8 +69,7 @@ export function groupIntoRows(observations: ObservationDto[]): VitalsRow[] {
   return [...buckets.values()].sort((a, b) => (a.time < b.time ? 1 : -1));
 }
 
-// Display-only mapping of the FHIR unit strings the simulator actually posts
-// to the mock's compact forms ("88 bpm", "14 /min"); unmapped units pass through.
+// Display-only mapping of the FHIR unit strings the simulator actually posts to the mock's compact forms ("88 bpm", "14 /min"); unmapped units pass through.
 const COMPACT_UNITS: Record<string, string> = {
   "beats/minute": "bpm",
   "breaths/minute": "/min",
@@ -96,9 +92,7 @@ export function bloodPressureValue(row: VitalsRow): string {
   return `${row.systolic.value}/${row.diastolic.value} mmHg`;
 }
 
-// Rows with at least one renderable value - a lone systolic can't render a BP
-// pair, and the mock never shows a value-less row. Shared by the vitals table
-// and the tab count so the badge always equals the rendered row count.
+// Rows with at least one renderable value - a lone systolic can't render a BP pair, and the mock never shows a value-less row. Shared by the vitals table and the tab count so the badge always equals the rendered row count.
 export function displayableRows(observations: ObservationDto[]): VitalsRow[] {
   return groupIntoRows(observations).filter(
     (row) => row.hr !== null || row.spo2 !== null || row.rr !== null || (row.systolic !== null && row.diastolic !== null),

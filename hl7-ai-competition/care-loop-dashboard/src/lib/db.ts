@@ -3,12 +3,12 @@ import { dirname } from "node:path";
 import process from "node:process";
 
 import { Database } from "bun:sqlite";
-import { count, desc, eq, gte, max } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 
-import { events, requestLog } from "@/lib/schema";
+import { events } from "@/lib/schema";
 
-// Two independent tables share this file (schema in src/lib/schema.ts); this module never runs DDL - migrations run once via scripts/migrate.ts so the several Next.js worker processes that import it concurrently can't race each other.
+// Schema lives in src/lib/schema.ts; this module never runs DDL - migrations run once via scripts/migrate.ts so the several Next.js worker processes that import it concurrently can't race each other.
 const dbPath = process.env.REQUEST_LOG_DB_PATH ?? "./data/request-log.sqlite";
 mkdirSync(dirname(dbPath), { recursive: true });
 
@@ -30,31 +30,6 @@ function openWithRetry(path: string, attempts = 5): Database {
 
 const sqlite = openWithRetry(dbPath);
 const db = drizzle(sqlite);
-
-export function insertRequestLog(patientId: string, endpoint: string): number {
-  const [row] = db
-    .insert(requestLog)
-    .values({
-      patientId,
-      endpoint,
-      triggeredAt: new Date().toISOString(),
-      status: "sent",
-    })
-    .returning({ id: requestLog.id })
-    .all();
-  return row!.id;
-}
-
-export function updateRequestLog(
-  id: number,
-  status: "ok" | "error",
-  responseSummary: string,
-): void {
-  db.update(requestLog)
-    .set({ status, responseSummary })
-    .where(eq(requestLog.id, id))
-    .run();
-}
 
 export interface CareLoopEvent {
   id: number;
@@ -110,23 +85,4 @@ export function listEvents(patientId: string, limit = 500): CareLoopEvent[] {
 export function listRecentEvents(limit = 30): CareLoopEvent[] {
   const rows = db.select().from(events).orderBy(desc(events.receivedAt)).limit(limit).all();
   return rows.map(toCareLoopEvent);
-}
-
-export interface EventStats {
-  hitsToday: number;
-  lastHitAt: string | null;
-}
-
-export function getEventStats(): EventStats {
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-
-  const [countRow] = db
-    .select({ value: count() })
-    .from(events)
-    .where(gte(events.receivedAt, todayStart.toISOString()))
-    .all();
-  const [lastRow] = db.select({ value: max(events.receivedAt) }).from(events).all();
-
-  return { hitsToday: countRow!.value, lastHitAt: lastRow!.value ?? null };
 }

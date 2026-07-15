@@ -14,7 +14,7 @@ import { useEffect, useState } from "react";
 import { FhirButton } from "@/components/resources/fhir-drawer";
 import { Skeleton } from "@/components/ui/skeleton";
 
-const HISTORY_POLL_INTERVAL_MS = 4_000;
+const HISTORY_POLL_INTERVAL_MS = 1_000;
 
 interface HistoryData {
   conditions: ConditionSummary[];

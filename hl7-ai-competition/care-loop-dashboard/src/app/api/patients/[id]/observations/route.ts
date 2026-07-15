@@ -1,11 +1,9 @@
-import type { Bundle, Observation } from "fhir/r4";
+import type { Observation } from "fhir/r4";
 
-import process from "node:process";
-
-import { Client } from "fhir-kit-client";
 import { NextResponse } from "next/server";
 
 import { degradedResponse } from "@/lib/api-degraded";
+import { careLoopClient, searchResources } from "@/lib/fhir";
 
 export const runtime = "nodejs";
 
@@ -38,24 +36,15 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const baseUrl =
-    process.env.CARE_LOOP_FHIR_SERVER_URL ?? "http://localhost:9091/fhir";
 
   try {
-    const client = new Client({ baseUrl });
-    const bundle = (await client.resourceSearch({
-      resourceType: "Observation",
-      searchParams: {
+    const observations = (
+      await searchResources<Observation>(careLoopClient(), "Observation", {
         subject: `Patient/${id}`,
         _sort: "-date",
         _count: 100,
-      },
-    })) as unknown as Bundle<Observation>;
-
-    const observations = (bundle.entry ?? [])
-      .map((entry) => entry.resource)
-      .filter((resource): resource is Observation => resource !== undefined)
-      .map(toObservationSummary);
+      })
+    ).map(toObservationSummary);
 
     return NextResponse.json({ observations });
   } catch (error) {

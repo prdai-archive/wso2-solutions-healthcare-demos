@@ -3,10 +3,7 @@ import type { CSSProperties } from "react";
 // Mirrors care-loop-analysis-service/config.bal's default mlEscalationThreshold/agenticEscalationThreshold (0.5).
 const DEFAULT_ESCALATION_THRESHOLD = 0.5;
 
-// Band from the worst of the latest ML and agentic probabilities, against the real
-// escalation threshold (from the newest ML RiskAssessment's rationale when available,
-// the config.bal default otherwise) - the same comparison the backend actually escalates on.
-// Pill styles are the mock's bandStyle() values.
+// Band from the worst of the latest ML and agentic probabilities, against the real escalation threshold (from the newest ML RiskAssessment's rationale when available, the config.bal default otherwise) - the same comparison the backend actually escalates on. Pill styles are the mock's bandStyle() values.
 export function statusBandFor(
   mlProbability: number | null,
   agenticProbability: number | null,

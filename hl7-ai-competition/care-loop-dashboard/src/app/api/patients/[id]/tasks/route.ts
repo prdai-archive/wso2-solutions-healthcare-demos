@@ -1,11 +1,9 @@
-import type { Bundle, Task } from "fhir/r4";
+import type { Task } from "fhir/r4";
 
-import process from "node:process";
-
-import { Client } from "fhir-kit-client";
 import { NextResponse } from "next/server";
 
 import { degradedResponse } from "@/lib/api-degraded";
+import { ehrClient, searchResources } from "@/lib/fhir";
 
 export const runtime = "nodejs";
 
@@ -19,8 +17,7 @@ export interface TaskSummary {
   raw: Task;
 }
 
-// Reference strings can be relative ("Observation/123") or absolute (server URL + "/RiskAssessment/123") —
-// evidence-linking only cares about the resourceType/id suffix, so normalize to that.
+// Reference strings can be relative ("Observation/123") or absolute (server URL + "/RiskAssessment/123") — evidence-linking only cares about the resourceType/id suffix, so normalize to that.
 function referenceSuffix(reference: string | undefined): string | null {
   if (!reference) return null;
   const match = reference.match(/([A-Z]+\/[^/]+)$/i);
@@ -56,24 +53,15 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const baseUrl =
-    process.env.EHR_FHIR_SERVER_URL ?? "http://localhost:9090/fhir/r4";
 
   try {
-    const client = new Client({ baseUrl });
-    const bundle = (await client.resourceSearch({
-      resourceType: "Task",
-      searchParams: {
+    const tasks = (
+      await searchResources<Task>(ehrClient(), "Task", {
         patient: `Patient/${id}`,
         _sort: "-_lastUpdated",
         _count: 50,
-      },
-    })) as unknown as Bundle<Task>;
-
-    const tasks = (bundle.entry ?? [])
-      .map((entry) => entry.resource)
-      .filter((resource): resource is Task => resource !== undefined)
-      .map(toTaskSummary);
+      })
+    ).map(toTaskSummary);
 
     return NextResponse.json({ tasks });
   } catch (error) {

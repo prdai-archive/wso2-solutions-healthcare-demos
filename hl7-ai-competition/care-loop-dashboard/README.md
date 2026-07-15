@@ -44,12 +44,8 @@ FHIR field is genuinely absent the UI shows an em-dash, and if a FHIR
 server is unreachable the affected views say so instead of rendering
 empty-looking zeros.
 
-Everything polls every 4s. If a patient has no events yet, the run canvas
-says so plainly.
-
-`POST /api/questionnaires` (proxied to care-loop-ai-service) is kept as an
-API-only demo trigger for firing a questionnaire draft at a patient; it has
-no UI button.
+Everything polls every second (the patient roster refreshes every 15s). If
+a patient has no events yet, the run canvas says so plainly.
 
 ## Event ingestion contract
 
@@ -83,14 +79,11 @@ Events for a patient are read back via `GET /api/patients/{id}/events`
 A local SQLite file (via bun's built-in `bun:sqlite`, chosen over
 better-sqlite3 since this app already runs on bun and needs no native
 module install step), queried through Drizzle (`src/lib/schema.ts`,
-`src/lib/db.ts`), holds two independent tables:
+`src/lib/db.ts`), holds one table:
 
 - `events` - the per-patient event feed described above.
-- `request_log` - every request this dashboard itself fires (currently just
-  the `POST /api/questionnaires` proxy): patient id, endpoint, timestamp,
-  and status/response summary once it resolves.
 
-Neither table is a cache of FHIR data. Schema changes go through
+It is never a cache of FHIR data. Schema changes go through
 `bun run db:generate` (drizzle-kit, writes a new file under `drizzle/`);
 `bun run db:migrate` applies pending migrations and runs once, before
 `build`/`dev`/`start` (see `scripts/migrate.ts`) - the app itself never runs
@@ -119,14 +112,13 @@ Copy `.env.example` to `.env` (gitignored):
 - `EHR_FHIR_SERVER_URL` - ehr-fhir-server, host port `9090`. Tasks (the
   alerts table) and patient history (Condition, MedicationRequest,
   AllergyIntolerance, Encounter, baseline Observations).
-- `CARE_LOOP_AI_SERVICE_URL` - care-loop-ai-service, host port `8003`, used
-  by the `POST /api/questionnaires` demo trigger.
-- `REQUEST_LOG_DB_PATH` - where the local SQLite file lives (`events` and
-  `request_log` tables).
+- `REQUEST_LOG_DB_PATH` - where the local SQLite file lives (the `events`
+  table; the name and default path predate the removal of the request_log
+  table and are kept so existing volumes keep their event history).
 
 ## docker-compose
 
 Wired into the main stack as `care-loop-dashboard`, port `3003:3003`, with
-the three URLs above pointed at the compose service names and a
+the two FHIR URLs above pointed at the compose service names and a
 `care-loop-dashboard-data` volume for the SQLite file. Comes up with
 `docker compose up -d` / `make up` alongside everything else.

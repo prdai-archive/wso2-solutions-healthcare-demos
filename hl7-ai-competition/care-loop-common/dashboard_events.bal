@@ -14,13 +14,11 @@ public type DashboardEvent record {|
     map<string> payload?;
 |};
 
-# Bun's dashboard HTTP server resets the connection on http:Client's default HTTP_2_0 h2c upgrade probe;
-# pinning HTTP_1_1 avoids it (verified 0/50 failures vs 50/50 before, across every service that calls it).
+# Bun's dashboard HTTP server resets the connection on http:Client's default HTTP_2_0 h2c upgrade probe; pinning HTTP_1_1 avoids it (verified 0/50 failures vs 50/50 before, across every service that calls it).
 public isolated function newDashboardEventsClient(string dashboardEventsUrl) returns http:Client|error =>
     new (dashboardEventsUrl, httpVersion = http:HTTP_1_1);
 
-# Fire-and-forget notification to the ops dashboard's live feed. Never allowed to affect the caller's
-# real work, so failures are only logged, never surfaced or retried.
+# Fire-and-forget notification to the ops dashboard's live feed. Never allowed to affect the caller's real work, so failures are only logged, never surfaced or retried.
 #
 # + dashboardEventsClient - client constructed via newDashboardEventsClient, owned by the caller
 # + patientId - FHIR Patient id the event is about

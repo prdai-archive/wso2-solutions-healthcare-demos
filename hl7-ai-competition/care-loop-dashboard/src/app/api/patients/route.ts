@@ -1,11 +1,9 @@
-import type { Bundle, Patient as FhirPatient } from "fhir/r4";
+import type { Patient as FhirPatient } from "fhir/r4";
 
-import process from "node:process";
-
-import { Client } from "fhir-kit-client";
 import { NextResponse } from "next/server";
 
 import { degradedResponse } from "@/lib/api-degraded";
+import { careLoopClient, formatPatientName, searchResources } from "@/lib/fhir";
 
 export const runtime = "nodejs";
 
@@ -17,16 +15,10 @@ export interface OpsPatient {
   raw: FhirPatient;
 }
 
-function formatName(patient: FhirPatient): string {
-  const name = patient.name?.[0];
-  if (!name) return "Unknown patient";
-  return [...(name.given ?? []), name.family].filter(Boolean).join(" ");
-}
-
 function toOpsPatient(patient: FhirPatient): OpsPatient {
   return {
     id: patient.id ?? "",
-    name: formatName(patient),
+    name: formatPatientName(patient),
     birthDate: patient.birthDate,
     gender: patient.gender,
     raw: patient,
@@ -34,20 +26,12 @@ function toOpsPatient(patient: FhirPatient): OpsPatient {
 }
 
 export async function GET() {
-  const baseUrl =
-    process.env.CARE_LOOP_FHIR_SERVER_URL ?? "http://localhost:9091/fhir";
-
   try {
-    const client = new Client({ baseUrl });
-    const bundle = (await client.resourceSearch({
-      resourceType: "Patient",
-      searchParams: { _count: 200 },
-    })) as unknown as Bundle<FhirPatient>;
-
-    const patients = (bundle.entry ?? [])
-      .map((entry) => entry.resource)
-      .filter((resource): resource is FhirPatient => resource !== undefined)
-      .map(toOpsPatient);
+    const patients = (
+      await searchResources<FhirPatient>(careLoopClient(), "Patient", {
+        _count: 200,
+      })
+    ).map(toOpsPatient);
 
     return NextResponse.json({ patients });
   } catch (error) {

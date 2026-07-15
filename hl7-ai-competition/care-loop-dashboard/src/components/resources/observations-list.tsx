@@ -13,8 +13,7 @@ import { bloodPressureValue, cellValue, displayableRows } from "@/lib/vitals";
 const GRID_COLUMNS = "96px 1fr 1fr 1fr 1fr 76px";
 const PAGE_SIZE = 8;
 
-// Observations are fetched once at the page level (shared with PatientMetrics
-// and the tab counts) rather than polled again here.
+// Observations are fetched once at the page level (shared with PatientMetrics and the tab counts) rather than polled again here.
 export function ObservationsList({
   observations,
   loaded,
@@ -31,8 +30,7 @@ export function ObservationsList({
   const pager = usePagination(rows.length, PAGE_SIZE);
   const { reset } = pager;
 
-  // focusedRefs is rebuilt per render upstream, so key the reset on its stable
-  // content; !loaded covers a patient switch (page-level poll clears the list).
+  // focusedRefs is rebuilt per render upstream, so key the reset on its stable content; !loaded covers a patient switch (page-level poll clears the list).
   const focusKey = focusedRefs ? [...focusedRefs].sort().join(",") : "";
   useEffect(() => {
     if (!loaded) reset();

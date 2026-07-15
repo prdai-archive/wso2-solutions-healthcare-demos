@@ -4,8 +4,7 @@ import type { Run } from "@/lib/runs";
 import { StageDetailPanel } from "@/components/pipeline/stage-detail-panel";
 import { STAGE_DEFS } from "@/lib/stages";
 
-// Actors carry no real events - they're context boxes from the diagram, so
-// there's nothing backing them to show.
+// Actors carry no real events - they're context boxes from the diagram, so there's nothing backing them to show.
 export function ArchitectureDetailPanel({ box, run }: { box: ArchitectureBoxDef; run: Run }) {
   if (box.isActor || box.stageKeys.length === 0) {
     return (

@@ -4,8 +4,7 @@ import care_loop/care_loop_common as common;
 
 final http:Client dashboardEventsClient = check common:newDashboardEventsClient(dashboardEventsUrl);
 
-# Fire-and-forget notification to the ops dashboard's live feed. Never allowed to
-# affect this service's real work, so failures are only logged, never surfaced.
+# Fire-and-forget notification to the ops dashboard's live feed. Never allowed to affect this service's real work, so failures are only logged, never surfaced.
 #
 # + patientId - FHIR Patient id the event is about
 # + label - short milestone label shown in the live feed

@@ -24,8 +24,7 @@ function initials(name: string): string {
   return ((parts[0]?.[0] ?? "") + (parts.at(-1)?.[0] ?? "")).toUpperCase();
 }
 
-// The home-summary API exposes lastActivity as a bare timestamp (no event
-// descriptor), so render the mock's absolute HH:MM without fabricating a label.
+// The home-summary API exposes lastActivity as a bare timestamp (no event descriptor), so render the mock's absolute HH:MM without fabricating a label.
 function formatActivityTime(iso: string | null): string {
   if (!iso) return "—";
   const date = new Date(iso);

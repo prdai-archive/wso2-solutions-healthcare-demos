@@ -373,13 +373,11 @@ services:
     environment:
       NODE_ENV: production
       CARE_LOOP_FHIR_SERVER_URL: "http://care-loop-fhir-server:9090/fhir/r4"
-      CARE_LOOP_AI_SERVICE_URL: "http://care-loop-ai-service:8003"
       EHR_FHIR_SERVER_URL: "http://ehr-fhir-server:9090/fhir/r4"
     volumes:
       - care-loop-dashboard-data:/app/data
     depends_on:
       - care-loop-fhir-server
-      - care-loop-ai-service
       - ehr-fhir-server
     healthcheck:
       test:

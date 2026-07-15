@@ -28,8 +28,7 @@ public type EmergencyContext record {|
     float mlProbability;
 |};
 
-# + emergencyContext - present when this generation was triggered by an ML escalation, so
-#   the resulting GeneratedSession can be looked up by /transcripts later
+# + emergencyContext - present when this generation was triggered by an ML escalation, so the resulting GeneratedSession can be looked up by /transcripts later
 public type GenerateRequest record {|
     EmergencyContext emergencyContext?;
 |};
@@ -43,9 +42,7 @@ public type QuestionAnswer record {|
 
 # + patientId - the FHIR Patient id the answers belong to
 # + answers - flattened question/answer pairs from the emergency questionnaire transcript
-# + questionnaireResponseId - the FHIR id of the QuestionnaireResponse these answers were saved as,
-#   so the Task built on escalation can reference it; defaulted so pre-existing {patientId, answers}
-#   payloads still bind
+# + questionnaireResponseId - the FHIR id of the QuestionnaireResponse these answers were saved as, so the Task built on escalation can reference it; defaulted so pre-existing {patientId, answers} payloads still bind
 public type EmergencyAnswersRequest record {|
     string patientId;
     QuestionAnswer[] answers;
@@ -92,8 +89,7 @@ public type TaskDescriptionResponse record {|
 
 # + heartRisk - the heart-risk-service response that triggered escalation
 # + observationRefs - "Observation/{id}" references for the vitals used to compute max_hr
-# + display - the patient's name/age/sex, fetched once at escalation time so the Task built
-#   later doesn't need to re-fetch the Patient resource
+# + display - the patient's name/age/sex, fetched once at escalation time so the Task built later doesn't need to re-fetch the Patient resource
 public type PendingCase record {|
     HeartRiskResponse heartRisk;
     string[] observationRefs;

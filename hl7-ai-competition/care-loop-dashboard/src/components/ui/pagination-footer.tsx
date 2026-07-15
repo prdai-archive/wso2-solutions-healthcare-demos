@@ -2,8 +2,7 @@
 
 import { useCallback, useState } from "react";
 
-// Same pager treatment as the home patients table (mock footer: page info
-// left, Prev/Next right, solid accent hover, muted disabled state).
+// Same pager treatment as the home patients table (mock footer: page info left, Prev/Next right, accent hover, muted disabled).
 const PAGER_BUTTON =
   "cursor-pointer rounded-[7px] border border-[rgba(0,0,0,0.14)] bg-white px-3 py-[5px] text-[11px] font-semibold text-[#16161a] hover:border-accent-brand hover:bg-accent-brand hover:text-white disabled:pointer-events-none disabled:text-[rgba(0,0,0,0.25)]";
 
@@ -17,8 +16,7 @@ export interface Pager {
   reset: () => void;
 }
 
-// Clamping (rather than resetting) keeps the user on their page when the 4s
-// poll grows or shrinks the list underneath them.
+// Clamping (rather than resetting) keeps the user on their page when the poll grows or shrinks the list underneath them.
 export function usePagination(total: number, pageSize: number): Pager {
   const [page, setPage] = useState(0);
   const reset = useCallback(() => setPage(0), []);

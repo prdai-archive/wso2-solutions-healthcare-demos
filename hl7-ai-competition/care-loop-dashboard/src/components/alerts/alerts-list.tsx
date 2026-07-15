@@ -10,17 +10,14 @@ import { PaginationFooter, usePagination } from "@/components/ui/pagination-foot
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-const TASKS_POLL_INTERVAL_MS = 4_000;
+const TASKS_POLL_INTERVAL_MS = 1_000;
 const PAGE_SIZE = 5;
 
 const GRID_COLUMNS = "84px 76px 1fr 170px 52px 52px 76px";
 
 const CLOSED_STATUSES = new Set(["completed", "cancelled", "entered-in-error"]);
 
-// A Task's basedOn carries normalized "RiskAssessment/{id}" reference
-// suffixes - match those ids against whichever prediction array (ML or
-// agentic) actually contains that RiskAssessment, so the column shows a real
-// probability or a dash, never a guess.
+// A Task's basedOn carries normalized "RiskAssessment/{id}" reference suffixes - match those ids against whichever prediction array (ML or agentic) actually contains that RiskAssessment, so the column shows a real probability or a dash, never a guess.
 function matchProbability(task: TaskSummary, predictions: RiskAssessmentSummary[]): number | null {
   const match = predictions.find((prediction) => task.basedOn.includes(`RiskAssessment/${prediction.id}`));
   return match?.predictions[0]?.probability ?? null;
@@ -30,8 +27,7 @@ function formatProbability(value: number | null): string {
   return value === null ? "—" : value.toFixed(2);
 }
 
-// Real evidence chips derived from basedOn's own resource types (e.g. "2x Observation"),
-// never a fabricated label.
+// Real evidence chips derived from basedOn's own resource types (e.g. "2x Observation"), never a fabricated label.
 function evidenceChips(task: TaskSummary): string[] {
   const counts = new Map<string, number>();
   for (const ref of task.basedOn) {
@@ -41,8 +37,7 @@ function evidenceChips(task: TaskSummary): string[] {
   return [...counts.entries()].map(([type, count]) => (count > 1 ? `${count}x ${type}` : type));
 }
 
-// Date prefix only once history spans days - real alert history spans days
-// and time-only reads as a sort bug (same rule as the vitals table).
+// Date prefix only once history spans days - real alert history spans days and time-only reads as a sort bug (same rule as the vitals table).
 function formatAuthored(authoredOn: string | null, spansMultipleDays: boolean): string {
   if (!authoredOn) return "—";
   const date = new Date(authoredOn);
@@ -64,8 +59,7 @@ export function AlertsList({
   focusedTaskId: string | null;
   onFocus: (task: TaskSummary | null) => void;
   onLoaded?: (loadedAt: number) => void;
-  // Reports the open (non-closed) tasks so the page can derive KPI-tile data
-  // from the same poll this panel renders from.
+  // Reports the open (non-closed) tasks so the page can derive KPI-tile data from the same poll this panel renders from.
   onOpenTasks?: (openTasks: TaskSummary[]) => void;
   mlPredictions: RiskAssessmentSummary[];
   agenticPredictions: RiskAssessmentSummary[];

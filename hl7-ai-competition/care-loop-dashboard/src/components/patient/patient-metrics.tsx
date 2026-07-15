@@ -33,8 +33,7 @@ export function PatientMetrics({
   mlPredictions: RiskAssessmentSummary[];
   agenticPredictions: RiskAssessmentSummary[];
   openTaskCount: number;
-  // Highest-priority open Task's FHIR priority code ("stat", "urgent", ...); optional
-  // so the page can wire it in without breaking existing call sites.
+  // Highest-priority open Task's FHIR priority code ("stat", "urgent", ...); optional so the page can wire it in without breaking existing call sites.
   openTaskPriority?: string | null;
 }) {
   const latestRow = groupIntoRows(observations)[0] ?? null;

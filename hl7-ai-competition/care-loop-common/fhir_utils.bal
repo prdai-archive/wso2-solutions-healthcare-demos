@@ -1,7 +1,6 @@
 import ballerinax/health.clients.fhir;
 
-# Capability-statement validation would GET /metadata at construction time, racing the caller's own
-# startup against the FHIR server's - disabled for every connector built this way.
+# Capability-statement validation would GET /metadata at construction time, racing the caller's own startup against the FHIR server's - disabled for every connector built this way.
 public isolated function newFhirConnector(string baseUrl) returns fhir:FHIRConnector|error =>
     new ({baseURL: baseUrl}, enableCapabilityStatementValidation = false);
 

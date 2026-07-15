@@ -1,11 +1,9 @@
-import type { Bundle, RiskAssessment } from "fhir/r4";
+import type { RiskAssessment } from "fhir/r4";
 
-import process from "node:process";
-
-import { Client } from "fhir-kit-client";
 import { NextResponse } from "next/server";
 
 import { degradedResponse } from "@/lib/api-degraded";
+import { careLoopClient, searchResources } from "@/lib/fhir";
 
 export const runtime = "nodejs";
 
@@ -60,24 +58,15 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const baseUrl =
-    process.env.CARE_LOOP_FHIR_SERVER_URL ?? "http://localhost:9091/fhir";
 
   try {
-    const client = new Client({ baseUrl });
-    const bundle = (await client.resourceSearch({
-      resourceType: "RiskAssessment",
-      searchParams: {
+    const riskAssessments = (
+      await searchResources<RiskAssessment>(careLoopClient(), "RiskAssessment", {
         subject: `Patient/${id}`,
         _sort: "-_lastUpdated",
         _count: 50,
-      },
-    })) as unknown as Bundle<RiskAssessment>;
-
-    const riskAssessments = (bundle.entry ?? [])
-      .map((entry) => entry.resource)
-      .filter((resource): resource is RiskAssessment => resource !== undefined)
-      .map(toRiskAssessmentSummary);
+      })
+    ).map(toRiskAssessmentSummary);
 
     return NextResponse.json({ riskAssessments });
   } catch (error) {

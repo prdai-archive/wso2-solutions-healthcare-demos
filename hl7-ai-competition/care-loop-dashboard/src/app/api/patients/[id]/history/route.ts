@@ -1,18 +1,15 @@
 import type {
   AllergyIntolerance,
-  Bundle,
   Condition,
   Encounter,
   MedicationRequest,
   Observation,
 } from "fhir/r4";
 
-import process from "node:process";
-
-import { Client } from "fhir-kit-client";
 import { NextResponse } from "next/server";
 
 import { degradedResponse } from "@/lib/api-degraded";
+import { ehrClient, searchResources } from "@/lib/fhir";
 
 export const runtime = "nodejs";
 
@@ -144,74 +141,29 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const baseUrl =
-    process.env.EHR_FHIR_SERVER_URL ?? "http://localhost:9090/fhir/r4";
 
   try {
-    const client = new Client({ baseUrl });
+    const client = ehrClient();
+    const patientParams = { patient: `Patient/${id}`, _count: 50 };
 
-    const [
-      conditionBundle,
-      medicationBundle,
-      allergyBundle,
-      encounterBundle,
-      baselineBundle,
-    ] = await Promise.all([
-      client.resourceSearch({
-        resourceType: "Condition",
-        searchParams: { patient: `Patient/${id}`, _count: 50 },
-      }) as unknown as Promise<Bundle<Condition>>,
-      client.resourceSearch({
-        resourceType: "MedicationRequest",
-        searchParams: { patient: `Patient/${id}`, _count: 50 },
-      }) as unknown as Promise<Bundle<MedicationRequest>>,
-      client.resourceSearch({
-        resourceType: "AllergyIntolerance",
-        searchParams: { patient: `Patient/${id}`, _count: 50 },
-      }) as unknown as Promise<Bundle<AllergyIntolerance>>,
-      client.resourceSearch({
-        resourceType: "Encounter",
-        searchParams: { patient: `Patient/${id}`, _count: 50 },
-      }) as unknown as Promise<Bundle<Encounter>>,
+    const [conditions, medications, allergies, encounters, baselineObservations] = await Promise.all([
+      searchResources<Condition>(client, "Condition", patientParams).then((resources) =>
+        resources.map(toConditionSummary),
+      ),
+      searchResources<MedicationRequest>(client, "MedicationRequest", patientParams).then((resources) =>
+        resources.map(toMedicationSummary),
+      ),
+      searchResources<AllergyIntolerance>(client, "AllergyIntolerance", patientParams).then((resources) =>
+        resources.map(toAllergySummary),
+      ),
+      searchResources<Encounter>(client, "Encounter", patientParams).then((resources) =>
+        resources.map(toEncounterSummary),
+      ),
       // The EHR server holds only intake baselines (category vital-signs); live loop vitals live on care-loop-fhir-server.
-      client.resourceSearch({
-        resourceType: "Observation",
-        searchParams: {
-          patient: `Patient/${id}`,
-          category: "vital-signs",
-          _count: 50,
-        },
-      }) as unknown as Promise<Bundle<Observation>>,
+      searchResources<Observation>(client, "Observation", { ...patientParams, category: "vital-signs" }).then(
+        (resources) => resources.map(toBaselineObservationSummary),
+      ),
     ]);
-
-    const conditions = (conditionBundle.entry ?? [])
-      .map((entry) => entry.resource)
-      .filter((resource): resource is Condition => resource !== undefined)
-      .map(toConditionSummary);
-
-    const medications = (medicationBundle.entry ?? [])
-      .map((entry) => entry.resource)
-      .filter(
-        (resource): resource is MedicationRequest => resource !== undefined,
-      )
-      .map(toMedicationSummary);
-
-    const allergies = (allergyBundle.entry ?? [])
-      .map((entry) => entry.resource)
-      .filter(
-        (resource): resource is AllergyIntolerance => resource !== undefined,
-      )
-      .map(toAllergySummary);
-
-    const encounters = (encounterBundle.entry ?? [])
-      .map((entry) => entry.resource)
-      .filter((resource): resource is Encounter => resource !== undefined)
-      .map(toEncounterSummary);
-
-    const baselineObservations = (baselineBundle.entry ?? [])
-      .map((entry) => entry.resource)
-      .filter((resource): resource is Observation => resource !== undefined)
-      .map(toBaselineObservationSummary);
 
     return NextResponse.json({
       conditions,

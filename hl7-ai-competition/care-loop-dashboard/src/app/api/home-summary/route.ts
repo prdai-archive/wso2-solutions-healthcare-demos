@@ -1,12 +1,10 @@
-import type { Bundle, Patient as FhirPatient, Observation, RiskAssessment, Task } from "fhir/r4";
+import type { Patient as FhirPatient, Observation, RiskAssessment, Task } from "fhir/r4";
 
-import process from "node:process";
-
-import { Client } from "fhir-kit-client";
 import { NextResponse } from "next/server";
 
 import { degradedResponse } from "@/lib/api-degraded";
 import { listEvents, listRecentEvents } from "@/lib/db";
+import { careLoopClient, ehrClient, formatPatientName, searchResources } from "@/lib/fhir";
 import { parseEscalationThreshold } from "@/lib/ml-rationale";
 import { HEART_RATE_LOINC } from "@/lib/vitals";
 
@@ -37,12 +35,6 @@ export interface HomeSummary {
   error?: boolean;
 }
 
-function formatName(patient: FhirPatient): string {
-  const name = patient.name?.[0];
-  if (!name) return "Unknown patient";
-  return [...(name.given ?? []), name.family].filter(Boolean).join(" ");
-}
-
 function isToday(dateStr: string | null | undefined): boolean {
   if (!dateStr) return false;
   const date = new Date(dateStr);
@@ -60,50 +52,33 @@ const EMPTY_SUMMARY: HomeSummary = {
 };
 
 export async function GET() {
-  const careLoopBaseUrl = process.env.CARE_LOOP_FHIR_SERVER_URL ?? "http://localhost:9091/fhir";
-  const ehrBaseUrl = process.env.EHR_FHIR_SERVER_URL ?? "http://localhost:9090/fhir/r4";
-
   try {
-    const careLoopClient = new Client({ baseUrl: careLoopBaseUrl });
-    const ehrClient = new Client({ baseUrl: ehrBaseUrl });
+    const careLoop = careLoopClient();
+    const ehr = ehrClient();
 
-    const patientBundle = (await careLoopClient.resourceSearch({
-      resourceType: "Patient",
-      searchParams: { _count: 200 },
-    })) as unknown as Bundle<FhirPatient>;
-
-    const patients = (patientBundle.entry ?? [])
-      .map((entry) => entry.resource)
-      .filter((resource): resource is FhirPatient => resource !== undefined);
+    const patients = await searchResources<FhirPatient>(careLoop, "Patient", { _count: 200 });
 
     const rows = await Promise.all(
       patients.map(async (patient) => {
         const id = patient.id ?? "";
 
-        const [taskBundle, riskBundle, obsBundle] = await Promise.all([
-          ehrClient.resourceSearch({
-            resourceType: "Task",
-            searchParams: { patient: `Patient/${id}`, _sort: "-_lastUpdated", _count: 50 },
-          }) as unknown as Promise<Bundle<Task>>,
-          careLoopClient.resourceSearch({
-            resourceType: "RiskAssessment",
-            searchParams: { subject: `Patient/${id}`, _sort: "-_lastUpdated", _count: 50 },
-          }) as unknown as Promise<Bundle<RiskAssessment>>,
-          careLoopClient.resourceSearch({
-            resourceType: "Observation",
-            searchParams: { subject: `Patient/${id}`, _sort: "-date", _count: 50 },
-          }) as unknown as Promise<Bundle<Observation>>,
+        const [tasks, riskAssessments, observations] = await Promise.all([
+          searchResources<Task>(ehr, "Task", { patient: `Patient/${id}`, _sort: "-_lastUpdated", _count: 50 }),
+          searchResources<RiskAssessment>(careLoop, "RiskAssessment", {
+            subject: `Patient/${id}`,
+            _sort: "-_lastUpdated",
+            _count: 50,
+          }),
+          searchResources<Observation>(careLoop, "Observation", {
+            subject: `Patient/${id}`,
+            _sort: "-date",
+            _count: 50,
+          }),
         ]);
 
-        const tasks = (taskBundle.entry ?? [])
-          .map((entry) => entry.resource)
-          .filter((resource): resource is Task => resource !== undefined);
         const openTasks = tasks.filter((task) => !CLOSED_STATUSES.has(task.status.toLowerCase())).length;
         const escalationsToday = tasks.filter((task) => isToday(task.authoredOn ?? task.meta?.lastUpdated)).length;
 
-        const riskAssessments = (riskBundle.entry ?? [])
-          .map((entry) => entry.resource)
-          .filter((resource): resource is RiskAssessment => resource !== undefined);
         const mlAssessment = riskAssessments.find((assessment) =>
           assessment.method?.text?.toLowerCase().includes(ML_METHOD_MARKER),
         );
@@ -114,9 +89,6 @@ export async function GET() {
         );
         const agenticRisk = agenticAssessment?.prediction?.[0]?.probabilityDecimal ?? null;
 
-        const observations = (obsBundle.entry ?? [])
-          .map((entry) => entry.resource)
-          .filter((resource): resource is Observation => resource !== undefined);
         const hrObservation = observations.find(
           (observation) => observation.code.coding?.[0]?.code === HEART_RATE_LOINC,
         );
@@ -126,7 +98,7 @@ export async function GET() {
 
         return {
           id,
-          name: formatName(patient),
+          name: formatPatientName(patient),
           latestHr,
           mlRisk,
           agenticRisk,

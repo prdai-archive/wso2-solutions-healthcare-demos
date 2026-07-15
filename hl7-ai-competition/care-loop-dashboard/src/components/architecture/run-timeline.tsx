@@ -50,10 +50,7 @@ const BADGE_LABEL: Record<DisplayStatus, string> = {
   ended: "Run ended",
 };
 
-// One real value per completed stage, pulled straight from that stage's own
-// event.payload (see CareLoopEvent in lib/db.ts) - never a value invented for
-// display. Stages whose payload has no single salient short value return null
-// and simply render no chip.
+// One real value per completed stage, pulled straight from that stage's own event.payload (see CareLoopEvent in lib/db.ts) - never a value invented for display. Stages whose payload has no single salient short value return null and simply render no chip.
 function roundedNumber(raw: string): string {
   const n = Number(raw);
   return Number.isFinite(n) ? n.toFixed(2) : raw;
@@ -80,8 +77,7 @@ function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour12: false, hour: "2-digit", minute: "2-digit" });
 }
 
-// Mock's exact serpentine geometry: 88px nodes, 4 per row, 290px column
-// pitch, 200px row pitch, rows alternating direction.
+// Mock's exact serpentine geometry: 88px nodes, 4 per row, 290px column pitch, 200px row pitch, rows alternating direction.
 const RW = 88;
 const RH = 88;
 const PX = 290;
@@ -206,9 +202,7 @@ function inspectorBadgeStyle(status: DisplayStatus): React.CSSProperties {
   return { background: "transparent", color: "rgba(0,0,0,0.4)", border: "1px solid rgba(0,0,0,0.14)" };
 }
 
-// Mock's "Latest run" canvas: absolutely-positioned serpentine node grid with
-// animated connector tracks and a hover inspector, bound to the run's real
-// RunStage/CareLoopEvent data.
+// Mock's "Latest run" canvas: absolutely-positioned serpentine node grid with animated connector tracks and a hover inspector, bound to the run's real RunStage/CareLoopEvent data.
 export function RunTimeline({ run }: { run: Run }) {
   const [selected, setSelected] = useState<number | null>(null);
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);

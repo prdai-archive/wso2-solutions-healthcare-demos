@@ -20,26 +20,20 @@ function formatTime(occurrenceDateTime: string | null): string {
   return new Date(occurrenceDateTime).toLocaleTimeString([], { hour12: false, hour: "2-digit", minute: "2-digit" });
 }
 
-// The RiskAssessment resource never persists the ML model's input triple
-// ({age, sex, max_hr}) — that only exists as an in-memory request to
-// heart-risk-service. Show the real `basis` Observation references instead of
-// inventing a value for this column.
+// The RiskAssessment resource never persists the ML model's input triple ({age, sex, max_hr}) — that only exists as an in-memory request to heart-risk-service. Show the real `basis` Observation references instead of inventing a value for this column.
 function modelInput(riskAssessment: MlRiskAssessmentDto): string {
   if (riskAssessment.basis.length === 0) return "—";
   return riskAssessment.basis.join(", ");
 }
 
-// Long UUID ref lists overflow the mock's compact mono cell; middle-truncate so
-// both the resource type and the trailing id stay readable. Full value in title.
+// Long UUID ref lists overflow the mock's compact mono cell; middle-truncate so both the resource type and the trailing id stay readable. Full value in title.
 function middleTruncate(text: string, max = 44): string {
   if (text.length <= max) return text;
   const half = Math.floor((max - 1) / 2);
   return `${text.slice(0, half)}…${text.slice(text.length - half)}`;
 }
 
-// Data is fetched once at the page level (shared with AgenticPredictionsList
-// and AlertsList's ML/Agent columns) rather than each consumer polling the
-// same /risk-assessments route independently.
+// Data is fetched once at the page level (shared with AgenticPredictionsList and AlertsList's ML/Agent columns) rather than each consumer polling the same /risk-assessments route independently.
 export function MlPredictionsList({
   riskAssessments,
   loaded,
@@ -54,8 +48,7 @@ export function MlPredictionsList({
   const pager = usePagination(riskAssessments.length, PAGE_SIZE);
   const { reset } = pager;
 
-  // focusedRefs is rebuilt per render upstream, so key the reset on its stable
-  // content; !loaded covers a patient switch (page-level poll clears the list).
+  // focusedRefs is rebuilt per render upstream, so key the reset on its stable content; !loaded covers a patient switch (page-level poll clears the list).
   const focusKey = focusedRefs ? [...focusedRefs].sort().join(",") : "";
   useEffect(() => {
     if (!loaded) reset();

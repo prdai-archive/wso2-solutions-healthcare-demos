@@ -55,8 +55,7 @@ function statusOf(box: ArchitectureBoxDef, run: Run | undefined): BoxStatus {
   return "pending";
 }
 
-// Fixed world canvas per the mock (2320x1160, 96px tiles), populated with the
-// real Care Loop boxes from src/lib/architecture.ts.
+// Fixed world canvas per the mock (2320x1160, 96px tiles), populated with the real Care Loop boxes from src/lib/architecture.ts.
 const NW = 96;
 const NH = 96;
 const WORLD_W = 2320;
@@ -216,8 +215,7 @@ export function ArchitectureView({
   selectedBoxKey,
   onSelectBox,
 }: {
-  // Omitting run renders the structural, patient-agnostic diagram (home
-  // screen) - no per-stage received/pending status, no click-to-inspect.
+  // Omitting run renders the structural, patient-agnostic diagram (home screen) - no per-stage received/pending status, no click-to-inspect.
   run?: Run;
   selectedBoxKey?: string | null;
   onSelectBox?: (key: string) => void;
@@ -266,8 +264,7 @@ export function ArchitectureView({
     return () => clearTimeout(t);
   }, [centerCanvas]);
 
-  // Native non-passive listener: React's synthetic onWheel cannot
-  // preventDefault, so ctrl+scroll would zoom the whole page instead.
+  // Native non-passive listener: React's synthetic onWheel cannot preventDefault, so ctrl+scroll would zoom the whole page instead.
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;

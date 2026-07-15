@@ -49,9 +49,7 @@ function ProbabilityCard({
   );
 }
 
-// Data is fetched once at the page level (shared with MlPredictionsList and
-// AlertsList's ML/Agent columns) rather than each consumer polling the same
-// /risk-assessments route independently.
+// Data is fetched once at the page level (shared with MlPredictionsList and AlertsList's ML/Agent columns) rather than each consumer polling the same /risk-assessments route independently.
 export function AgenticPredictionsList({
   riskAssessments,
   latestMlProbability,

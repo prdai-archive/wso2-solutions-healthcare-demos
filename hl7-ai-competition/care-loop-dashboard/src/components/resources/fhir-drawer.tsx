@@ -59,9 +59,7 @@ function highlightJson(value: unknown): React.ReactNode[] {
   return out;
 }
 
-// Shared slide-in drawer so every "{ } FHIR" button across alerts, vitals,
-// questionnaires, predictions, and patient-record rows opens the same raw
-// resource viewer instead of each list keeping its own inline toggle.
+// Shared slide-in drawer so every "{ } FHIR" button across alerts, vitals, questionnaires, predictions, and patient-record rows opens the same raw resource viewer instead of each list keeping its own inline toggle.
 export function FhirDrawerProvider({ children }: { children: React.ReactNode }) {
   const [target, setTarget] = useState<FhirDrawerTarget | null>(null);
 
@@ -105,10 +103,7 @@ export function FhirDrawerProvider({ children }: { children: React.ReactNode }) 
   );
 }
 
-// Drawer subtitle carries the mock's server-name prefix. The mapping mirrors which
-// server each dashboard API route actually fetches the type from; Observation exists on
-// both servers (live vitals on care-loop, EHR intake baselines), so those call sites
-// pass an explicit server override.
+// Drawer subtitle carries the mock's server-name prefix. The mapping mirrors which server each dashboard API route actually fetches the type from; Observation exists on both servers (live vitals on care-loop, EHR intake baselines), so those call sites pass an explicit server override.
 const SERVER_PREFIXES = {
   "care-loop": "care-loop-fhir-server /fhir",
   ehr: "ehr-fhir-server /fhir/r4",
@@ -129,8 +124,7 @@ function fhirDrawerPath(resourcePath: string, server?: keyof typeof SERVER_PREFI
   return `${prefix}/${resourcePath}`;
 }
 
-// Mock's exact "{ } FHIR" button: mono 10px, rgba surfaces, orange fill on hover.
-// size "sm" is the table-row variant (3px 8px, r5), "md" the card variant (5px 10px, r6).
+// Mock's exact "{ } FHIR" button: mono 10px, rgba surfaces, orange fill on hover. size "sm" is the table-row variant (3px 8px, r5), "md" the card variant (5px 10px, r6).
 export function FhirButton({
   resourcePath,
   raw,

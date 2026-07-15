@@ -23,9 +23,7 @@ function patientMeta(patient: OpsPatient): string {
   return patient.birthDate ? `${sex} · ${patient.birthDate}` : sex;
 }
 
-// Mock's Cmd/Ctrl+K search palette: overlay + centered panel with keyboard
-// navigation. Rows come from the same real /api/patients + /api/home-summary
-// data the home table renders.
+// Mock's Cmd/Ctrl+K search palette: overlay + centered panel with keyboard navigation. Rows come from the same real /api/patients + /api/home-summary data the home table renders.
 export function CommandPalette({
   patients,
   summaryRows,

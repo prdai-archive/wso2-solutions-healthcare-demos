@@ -95,6 +95,7 @@ export async function GET() {
       patientName: session.patientName,
       title: session.questionnaire.title,
       status: session.status,
+      mode: session.mode,
       createdAt: session.createdAt,
       path: `/q/${session.id}`,
     }));

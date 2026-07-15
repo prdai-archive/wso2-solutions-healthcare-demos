@@ -180,6 +180,13 @@ isolated function runEmergencyAnswersCycle(EmergencyAnswersRequest request, Pend
     };
     AiRiskAssessmentResponse|http:ClientError aiResponse = aiClient->post("/risk-assessment", aiRequest, targetType = AiRiskAssessmentResponse);
     if aiResponse is http:ClientError {
+        // One retry: the agentic loop is nondeterministic and a single malformed answer or
+        // exceeded iteration cap otherwise kills the whole run with no Task and no dashboard trace.
+        log:printWarn("emergency-answers: risk-assessment call failed, retrying once",
+                patientId = request.patientId, 'error = aiResponse);
+        aiResponse = aiClient->post("/risk-assessment", aiRequest, targetType = AiRiskAssessmentResponse);
+    }
+    if aiResponse is http:ClientError {
         log:printError("emergency-answers: risk-assessment call failed", patientId = request.patientId, 'error = aiResponse);
         return;
     }

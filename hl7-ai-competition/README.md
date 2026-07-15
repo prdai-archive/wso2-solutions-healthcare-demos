@@ -64,11 +64,12 @@ Earlier stages: [v1](assets/architecture-diagram-v1.png),
   answer and choosing the next question under a hard question budget);
   `POST /risk-assessment` scores risk, grounding thresholds in the knowledge
   base and citing guideline sections; `POST /task-description` narrates the
-  Task. The `openai` provider can route through the WSO2 Agent Manager AI
-  gateway (`AmpModelProvider`, see the WSO2 Agent Manager section below)
-  instead of calling OpenAI directly; `anthropic` always calls the Anthropic
-  API directly, since AMP's gateway only speaks OpenAI's chat-completions
-  shape. Needs a `Config.toml` (copy `Config.toml.example`); gitignored, never
+  Task. The `openai` provider always routes through the WSO2 Agent Manager AI
+  gateway (`AmpModelProvider`; see the WSO2 Agent Manager section below);
+  `anthropic` always calls the Anthropic API directly; `anthropic-amp` routes
+  Anthropic through the AMP gateway instead (`AmpAnthropicModelProvider`), since
+  AMP has a native `anthropic` provider template alongside its OpenAI-shaped
+  one. Needs a `Config.toml` (copy `Config.toml.example`); gitignored, never
   commit it.
 - [care-loop-dashboard](care-loop-dashboard/) — Next.js internal ops view of
   the demo pipeline (port 3003), backed by its own Drizzle-managed database.
@@ -145,15 +146,26 @@ service (plus `amp-init`, `otel-collector`, `amp-thunder-fwd`, `amp-obs-fwd`), a
 docker-in-docker quick-start cluster whose state persists across restarts and
 whose own healthcheck has a 45-minute start_period. **care-loop-ai-service is
 not routed through it by default** in this compose file — it boots directly
-against OpenAI/Anthropic via the gitignored `Config.toml`, so `make up` doesn't
-depend on AMP finishing its bootstrap. To opt in instead: set `OPENAI_API_KEY`
-in a gitignored `hl7-ai-competition/.env` so `amp-init` can register the
-`careloop-openai` LLM provider and mint a gateway key into the shared
-`amp-shared` volume, then point care-loop-ai-service's `Config.toml` at
-`openAiServiceUrl = "http://amp:22893/careloop-openai"` with the gateway key as
-`openAiApiKey` (see `AmpModelProvider` in `care-loop-ai-service/service.bal`).
-Only the `openai` provider can go through AMP; `anthropic` always calls the
-Anthropic API directly.
+against Anthropic via the gitignored `Config.toml`, so `make up` doesn't
+depend on AMP finishing its bootstrap.
+
+To opt in instead, set `OPENAI_API_KEY` and/or `ANTHROPIC_API_KEY` in a
+gitignored `hl7-ai-competition/.env` (at least one is required); `amp-init`
+registers an LLM provider per key present (`careloop-openai` and/or
+`careloop-anthropic`), deploys and publishes each to the catalog, and mints a
+gateway key per provider into the shared `amp-shared` volume
+(`openai-gateway.key` / `anthropic-gateway.key`). Then point
+care-loop-ai-service's `Config.toml` at the gateway:
+- `openai`: `openAiServiceUrl = "http://amp:22893/careloop-openai"`,
+  `openAiApiKey` = the contents of `openai-gateway.key` (see `AmpModelProvider`
+  in `care-loop-ai-service/service.bal`).
+- `anthropic-amp`: `anthropicServiceUrl = "http://amp:22893/careloop-anthropic"`
+  (no `/v1` suffix), `anthropicApiKey` = the contents of
+  `anthropic-gateway.key` (see `AmpAnthropicModelProvider` in
+  `care-loop-ai-service/amp_anthropic_model_provider.bal`).
+
+`modelProvider = "anthropic"` always calls the Anthropic API directly and never
+touches AMP.
 
 To use the console at http://localhost:13000 (admin/admin), add
 `127.0.0.1 thunder.amp.localhost` to `/etc/hosts` (the login redirect needs it).

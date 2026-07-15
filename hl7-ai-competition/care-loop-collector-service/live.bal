@@ -1,3 +1,4 @@
+import care_loop/care_loop_common as common;
 import ballerina/http;
 import ballerina/log;
 import ballerina/uuid;
@@ -40,6 +41,8 @@ isolated function startLiveConversation(Patient patient, EmergencyContext emerge
         notifyEmergencyAnswers(patient.id, [], slots);
         return result;
     }
+
+    notifyDashboard(patient.id, common:QUESTIONNAIRE_DRAFTED, "Live check-in opened for " + patient.name);
 
     string questionId = uuid:createType4AsString();
     AskedQuestion firstAsked = {id: questionId, text: firstQuestion, target: turn.next_question_target ?: ""};
@@ -178,6 +181,7 @@ isolated function handleClinicalTurn(TurnCallback callback, GeneratedSession ses
         session.pendingQuestionId = ();
         session.checkInComplete = true;
         persistSession(callback.sessionId, session);
+        notifyDashboard(session.patientId, common:PATIENT_RESPONDED_VIA_WHATSAPP, "Check-in ended early for " + session.patientName);
         finalizeIfUnclaimed(callback.sessionId);
         return {done: false, botMessages: [{text: EARLY_CLOSE_MESSAGE}]};
     }
@@ -207,6 +211,8 @@ isolated function handleClinicalTurn(TurnCallback callback, GeneratedSession ses
     persistSession(callback.sessionId, session);
     string closing = turn.closing_message ?: DEFAULT_CLOSE_MESSAGE;
     messages.push({text: closing});
+    notifyDashboard(session.patientId, common:PATIENT_RESPONDED_VIA_WHATSAPP,
+            questionsAsked.toString() + " question(s) answered for " + session.patientName);
     finalizeIfUnclaimed(callback.sessionId);
     return {done: false, botMessages: messages};
 }

@@ -30,15 +30,23 @@ isolated function createFhirToolkit() returns ai:McpToolKit|ai:Error {
 }
 
 // modelName picks the OpenAI model (routed through AMP's gateway-authenticated AmpModelProvider)
-// when modelProvider = "openai"; anthropic goes straight to the Anthropic API instead, since AMP's
-// gateway only speaks OpenAI's chat-completions shape.
+// when modelProvider = "openai"; "anthropic" goes straight to the Anthropic API, and
+// "anthropic-amp" routes through AMP's gateway instead via AmpAnthropicModelProvider (AMP has a
+// native "anthropic" provider template, unlike OpenAI's, so this speaks Anthropic's own wire shape
+// rather than being funneled through the OpenAI-compatible one).
 isolated function createModelProvider(string modelName, boolean fullModelTier) returns ai:ModelProvider|ai:Error {
-    if modelProvider == "anthropic" {
+    if modelProvider == "anthropic" || modelProvider == "anthropic-amp" {
         // claude-sonnet-4-20250514 and claude-3-5-haiku-20241022 have been retired by Anthropic;
         // these are the current-generation snapshots available in this module version (1.3.3).
         anthropic:ANTHROPIC_MODEL_NAMES model = fullModelTier ? anthropic:CLAUDE_SONNET_4_5_20250929 :
             anthropic:CLAUDE_HAIKU_4_5_20251001;
-        return check new anthropic:ModelProvider(anthropicApiKey, model, serviceUrl = anthropicServiceUrl);
+        if modelProvider == "anthropic-amp" {
+            return new AmpAnthropicModelProvider(anthropicApiKey, model, serviceUrl = anthropicServiceUrl);
+        }
+        // The module defaults maxTokens to 512, which hard-truncates the risk-assessment agent's
+        // final answer before it reaches the required JSON; 8192 covers the longest observed answer.
+        return check new anthropic:ModelProvider(anthropicApiKey, model, serviceUrl = anthropicServiceUrl,
+                maxTokens = 8192);
     }
     if modelProvider == "openai" {
         openai:OPEN_AI_MODEL_NAMES|error modelType = modelName.ensureType();
@@ -47,7 +55,7 @@ isolated function createModelProvider(string modelName, boolean fullModelTier) r
         }
         return new AmpModelProvider(openAiApiKey, modelType, serviceUrl = openAiServiceUrl);
     }
-    return error(string `unsupported modelProvider '${modelProvider}'; expected 'openai' or 'anthropic'`);
+    return error(string `unsupported modelProvider '${modelProvider}'; expected 'openai', 'anthropic', or 'anthropic-amp'`);
 }
 
 final ai:Agent questionnaireAgent = check new (
@@ -79,6 +87,9 @@ final ai:Agent riskAssessmentAgent = check new (
     },
     model = fullModelProvider,
     tools = [fhirToolkit, knowledgeToolkit, pubmedToolkit],
+    // The default cap (tool count + 1) is too tight for this agent's FHIR/knowledge/PubMed
+    // research loop, which has been observed needing 15+ tool-call rounds before answering.
+    maxIter = 32,
     verbose = true
 );
 

@@ -66,11 +66,13 @@ services:
     image: whatsapp-simulator:latest
     container_name: whatsapp-simulator
     ports:
-      - "3000:3000"
+      # Host port 3001, not 3000: a standalone AMP console (run outside this compose file) commonly
+      # takes 3000 on the host, and this is otherwise just an arbitrary container-facing port pick.
+      - "3001:3000"
     environment:
       NODE_ENV: production
-      HEALTHKIT_SIMULATOR_URL: "http://apple-healthkit-simulator:8000"
       DASHBOARD_EVENTS_URL: "http://care-loop-dashboard:3003"
+      HEALTHKIT_SIMULATOR_URL: "http://apple-healthkit-simulator:8000"
     healthcheck:
       test:
         - "CMD"
@@ -318,6 +320,7 @@ services:
     entrypoint: ["sh", "-c", "apk add -q --no-cache curl jq && exec sh /scripts/register.sh"]
     environment:
       OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
+      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
     volumes:
       - ./scripts/amp/register.sh:/scripts/register.sh:ro
       - amp-shared:/amp-shared

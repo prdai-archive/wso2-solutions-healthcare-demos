@@ -58,7 +58,7 @@ public type FeatureSlots record {|
 # + questionsAsked - how many questions have been asked so far
 # + questionsRemaining - authoritative remaining budget; 0 means the agent must finish
 # + checkInComplete - true once the clinical check-in has already finished; the agent must not
-#   ask any more clinical questions and should only reply to currentAnswer, if anything
+# ask any more clinical questions and should only reply to currentAnswer, if anything
 public type ConversationTurnRequest record {|
     string patientId;
     string patientName;
@@ -93,7 +93,7 @@ public type SlotUpdates record {|
 # + next_question_target - which slot/topic the next question addresses, informational
 # + closing_message - the warm closing line to show the patient, set only when done
 # + reply - a short free-form answer or acknowledgement to currentAnswer, shown before
-#   next_question/closing_message; () when there is nothing to say beyond the next question
+# next_question/closing_message; () when there is nothing to say beyond the next question
 public type ConversationTurnResponse record {|
     SlotUpdates updated_slots = {};
     string? answer_assessment = ();
@@ -115,7 +115,7 @@ public type PatientDisplay record {|
 # + mlProbability - probability of a cardiac event from care-loop-heart-risk-service
 # + answers - the patient's questionnaire answers
 # + slots - the structured feature set the ML model scored, if available; some values come from
-#   the patient's record and some from the check-in chat
+# the patient's record and some from the check-in chat
 public type RiskAssessmentRequest record {|
     string patientId;
     float mlProbability;

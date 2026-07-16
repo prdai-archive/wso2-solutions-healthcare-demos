@@ -17,7 +17,7 @@ public type QuestionAnswer record {|
     string answer;
 |};
 
-# The 11 Kaggle heart-failure features care-loop-heart-risk-service scores. age/sex/maxHr are
+# The 11 Kaggle heart-failure feature slots; care-loop-heart-risk-service scores nine of them (restingBp/restingEcg are accepted but not scored). age/sex/maxHr are
 # always known; the rest are prefilled from the patient's FHIR record or gathered in the check-in
 # chat, and left nil (missing) otherwise. A non-nil value is authoritative.
 #

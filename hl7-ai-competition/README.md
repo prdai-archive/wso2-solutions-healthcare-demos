@@ -104,8 +104,9 @@ and http://localhost:9091 (Care Loop), both under `/fhir/r4`.
   answer and choosing the next question under a hard question budget);
   `POST /risk-assessment` scores risk, grounding thresholds in the knowledge
   base and citing guideline sections; `POST /task-description` narrates the
-  Task. The `openai` provider always routes through the WSO2 Agent Manager AI
-  gateway (`AmpModelProvider`; see the WSO2 Agent Manager section below);
+  Task. The `openai` provider calls the OpenAI API directly by default (point
+  `openAiServiceUrl` at the AMP gateway to route through AMP, via
+  `AmpModelProvider`; see the WSO2 Agent Manager section below);
   `anthropic` always calls the Anthropic API directly; `anthropic-amp` routes
   Anthropic through the AMP gateway instead (`AmpAnthropicModelProvider`), since
   AMP has a native `anthropic` provider template alongside its OpenAI-shaped
@@ -181,13 +182,14 @@ front-desk-dashboard's `/api/tasks` route only logs failures, via a plain
 
 ## WSO2 Agent Manager
 
-`docker compose up` brings up WSO2 Agent Manager (AMP v0.18.0) as the `amp`
-service (plus `amp-init`, `otel-collector`, `amp-thunder-fwd`, `amp-obs-fwd`), a
-docker-in-docker quick-start cluster whose state persists across restarts and
-whose own healthcheck has a 45-minute start_period. **care-loop-ai-service is
-not routed through it by default** in this compose file — it boots directly
-against Anthropic via the gitignored `Config.toml`, so `make up` doesn't
-depend on AMP finishing its bootstrap.
+WSO2 Agent Manager (AMP v0.18.0) is opt-in behind the `amp` compose profile:
+`docker compose up` and `make up` skip it; run `docker compose --profile amp up`
+to include the `amp`, `amp-init`, `otel-collector`, `amp-thunder-fwd`, and
+`amp-obs-fwd` services (a docker-in-docker quick-start cluster whose state
+persists across restarts, with a 45-minute healthcheck start_period).
+**care-loop-ai-service is not routed through it by default** — it boots directly
+against the configured provider (OpenAI by default) via the gitignored
+`Config.toml`, so `make up` doesn't depend on AMP finishing its bootstrap.
 
 To opt in instead, set `OPENAI_API_KEY` and/or `ANTHROPIC_API_KEY` in a
 gitignored `hl7-ai-competition/.env` (at least one is required); `amp-init`

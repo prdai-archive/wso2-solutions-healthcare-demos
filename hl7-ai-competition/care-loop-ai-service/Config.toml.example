@@ -3,10 +3,10 @@ knowledgeMcpUrl = "http://care-loop-knowledge-service:8000/mcp"
 pubmedMcpUrl = "http://pubmed-mcp-server:3010/mcp"
 listenPort = 8003
 
-# Choose "openai" (AMP gateway only), "anthropic" (direct), or "anthropic-amp" (AMP gateway).
+# Choose "openai" (direct to OpenAI), "openai-amp" (AMP gateway), "anthropic" (direct), or "anthropic-amp" (AMP gateway).
 modelProvider = "openai"
 
-# openAiServiceUrl/openAiApiKey default to direct OpenAI. To route through the AMP gateway instead, set openAiServiceUrl to the AMP invoke URL (e.g. "http://amp:22893/careloop-openai") and openAiApiKey to the AMP gateway key; nanoModel/fullModel then select the underlying OpenAI model.
+# openAiServiceUrl/openAiApiKey default to direct OpenAI, used by "openai". For "openai-amp", set openAiServiceUrl to the AMP invoke URL (e.g. "http://amp:22893/careloop-openai") and openAiApiKey to the AMP gateway key; nanoModel/fullModel then select the underlying OpenAI model.
 openAiApiKey = "your-openai-api-key"
 openAiServiceUrl = "https://api.openai.com/v1"
 nanoModel = "gpt-4.1-nano"

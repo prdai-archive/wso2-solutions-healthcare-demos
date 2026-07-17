@@ -25,7 +25,7 @@ isolated function createFhirToolkit() returns ai:McpToolKit|ai:Error {
     return new (fhirMcpUrl, auth = mcpAuth, httpVersion = http:HTTP_1_1);
 }
 
-// modelName picks the OpenAI model, sent through AMP's gateway-authenticated AmpModelProvider when modelProvider = "openai". "anthropic" and "anthropic-amp" both use the stock anthropic:ModelProvider: "anthropic" points anthropicServiceUrl/anthropicApiKey at the Anthropic API directly, "anthropic-amp" points them at the AMP gateway (http://amp:22893/careloop-anthropic/v1 plus the minted gateway key), whose careloop-anthropic provider is registered to accept the stock provider's native x-api-key header. OpenAI keeps its wrapper because the stock OpenAI provider's Authorization: Bearer can't satisfy the gateway's api-key header.
+// modelName picks the OpenAI model. "openai" uses the stock openai:ModelProvider straight to OpenAI (Authorization: Bearer); "openai-amp" routes through AMP's gateway via AmpModelProvider (API-Key header). "anthropic" and "anthropic-amp" both use the stock anthropic:ModelProvider: "anthropic" points anthropicServiceUrl/anthropicApiKey at the Anthropic API directly, "anthropic-amp" points them at the AMP gateway (http://amp:22893/careloop-anthropic/v1 plus the minted gateway key), whose careloop-anthropic provider is registered to accept the stock provider's native x-api-key header. OpenAI still needs AmpModelProvider for its gateway path because the stock OpenAI provider's Authorization: Bearer can't satisfy the gateway's api-key header.
 isolated function createModelProvider(string modelName, boolean fullModelTier) returns ai:ModelProvider|ai:Error {
     if modelProvider == "anthropic" || modelProvider == "anthropic-amp" {
         // claude-sonnet-4-20250514 and claude-3-5-haiku-20241022 have been retired by Anthropic; these are the current-generation snapshots available in this module version (1.3.3).
@@ -36,14 +36,18 @@ isolated function createModelProvider(string modelName, boolean fullModelTier) r
             maxTokens = 8192
         );
     }
-    if modelProvider == "openai" {
+    if modelProvider == "openai" || modelProvider == "openai-amp" {
         openai:OPEN_AI_MODEL_NAMES|error modelType = modelName.ensureType();
         if modelType is error {
             return error ai:Error(string `'${modelName}' is not a supported ballerinax/ai.openai model`);
         }
-        return new AmpModelProvider(openAiApiKey, modelType, serviceUrl = openAiServiceUrl);
+        // "openai-amp" goes through the AMP gateway via AmpModelProvider (API-Key header); "openai" uses the stock provider straight to OpenAI with Authorization: Bearer, which the gateway's api-key scheme cannot accept.
+        if modelProvider == "openai-amp" {
+            return new AmpModelProvider(openAiApiKey, modelType, serviceUrl = openAiServiceUrl, maxTokens = 8192);
+        }
+        return check new openai:ModelProvider(openAiApiKey, modelType, serviceUrl = openAiServiceUrl, maxTokens = 8192);
     }
-    return error(string `unsupported modelProvider '${modelProvider}'; expected 'openai', 'anthropic', or 'anthropic-amp'`);
+    return error(string `unsupported modelProvider '${modelProvider}'; expected 'openai', 'openai-amp', 'anthropic', or 'anthropic-amp'`);
 }
 
 final ai:Agent questionnaireAgent = check new (

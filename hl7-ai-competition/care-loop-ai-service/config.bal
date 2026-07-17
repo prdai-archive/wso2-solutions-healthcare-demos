@@ -4,18 +4,17 @@ configurable string knowledgeMcpUrl = "http://localhost:8006/mcp";
 configurable string pubmedMcpUrl = "http://localhost:8007/mcp";
 configurable int listenPort = 8003;
 
-# modelProvider: "openai" (stock provider, direct to OpenAI), "openai-amp" (AMP gateway via AmpModelProvider), "anthropic" (direct), or "anthropic-amp" (stock provider pointed at the AMP gateway, e.g. http://amp:22893/careloop-anthropic/v1).
+# modelProvider: "openai" or "anthropic". Both route only through the AMP AI gateway; there is no direct-to-provider mode.
 configurable string modelProvider = "openai";
 
+# openAiApiKey is the minted careloop-openai gateway key; openAiServiceUrl is the gateway invoke URL, never api.openai.com.
 configurable string openAiApiKey = "";
-configurable string openAiServiceUrl = "https://api.openai.com/v1";
+configurable string openAiServiceUrl = "http://amp:22893/careloop-openai";
 configurable string nanoModel = "gpt-4.1-nano";
 configurable string fullModel = "gpt-4.1";
 
-# anthropicServiceUrl/anthropicApiKey are shared by "anthropic" and "anthropic-amp": point them at
-# the real Anthropic API and your Anthropic key for "anthropic", or at the AMP gateway
-# (e.g. http://amp:22893/careloop-anthropic) and the minted gateway key for "anthropic-amp".
+# anthropicApiKey is the minted careloop-anthropic gateway key; anthropicServiceUrl is the gateway invoke URL (with the /v1 suffix, since the stock provider appends /messages), never api.anthropic.com.
 configurable string anthropicApiKey = "";
-configurable string anthropicServiceUrl = "https://api.anthropic.com/v1";
+configurable string anthropicServiceUrl = "http://amp:22893/careloop-anthropic/v1";
 
 configurable string dashboardEventsUrl = "http://localhost:3003";

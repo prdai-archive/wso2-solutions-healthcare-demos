@@ -10,26 +10,29 @@ Earlier stages: [v1](assets/architecture-diagram-v1.png), [whiteboard sketch](as
 
 ## Quickstart
 
-Prerequisites: Docker with Compose v2, [Bun](https://bun.sh) (the seed and sync scripts run on it), and `make`. The agent service needs one LLM key — an Anthropic or an OpenAI key.
+Prerequisites: Docker with Compose v2, [Bun](https://bun.sh) (the seed and sync scripts run on it), and `make`. All LLM calls route through the WSO2 Agent Manager AI gateway (there is no direct-provider mode), so you need one LLM key — an OpenAI or an Anthropic key — which `amp-init` registers with the gateway.
 
-1. Create each Ballerina service's `Config.toml` from its example. The examples are wired for the compose network, so nothing needs editing beyond the key:
+1. Put the LLM key in a gitignored `hl7-ai-competition/.env` so `amp-init` can register the provider and mint a gateway key:
 
    ```sh
    cd hl7-ai-competition
-   cp care-loop-ai-service/Config.toml.example       care-loop-ai-service/Config.toml
+   cp .env.example .env   # then set OPENAI_API_KEY (and/or ANTHROPIC_API_KEY)
+   ```
+
+   The provider is chosen by `modelProvider` in `care-loop-ai-service/Config.compose.toml` (default `openai`); the ai-service reads the minted gateway key from the shared volume automatically. The collector and analysis services still take their own `Config.toml` (no LLM key needed):
+
+   ```sh
    cp care-loop-collector-service/Config.toml.example care-loop-collector-service/Config.toml
    cp care-loop-analysis-service/Config.toml.example  care-loop-analysis-service/Config.toml
    ```
 
-2. Set the LLM key in `care-loop-ai-service/Config.toml`. The example ships with `modelProvider = "openai"`; set `openAiApiKey`, or switch `modelProvider` to `"anthropic"` and set `anthropicApiKey`. Both call the provider API directly, so `make up` doesn't wait on the AMP gateway. The knowledge base embeds locally by default, so it needs no OpenAI key; see the WSO2 Agent Manager section to route the agent through the gateway instead.
-
-3. Build, start, and seed the stack:
+2. Build, start, and seed the stack:
 
    ```sh
    make up
    ```
 
-   `make up` builds the images, starts every service, and seeds the three demo patients (see Seeding demo data). `make watch` runs it in the foreground and rebuilds on change; `make down` stops it; `make clean` also drops volumes. On resource-limited Docker where parallel builds time out, use `make up-serial`.
+   `make up` builds the images, brings up AMP (a required dependency now — the ai-service refuses to boot without a gateway key), starts every service, and seeds the three demo patients (see Seeding demo data). Because AMP is a docker-in-docker Kubernetes cluster with a 45-minute healthcheck start_period, the first `make up` is slow and memory-hungry; the ai-service and its dependents wait on AMP finishing its bootstrap. `make watch` runs it in the foreground; `make down` stops it; `make clean` also drops volumes. On resource-limited Docker where parallel builds time out, use `make up-serial`.
 
 Once it's up, the main surfaces are the patient chat (whatsapp-simulator, http://localhost:3001), the clinician task list (front-desk-dashboard, http://localhost:3002), and the internal pipeline view (care-loop-dashboard, http://localhost:3003). The two FHIR stores are at http://localhost:9090 (EHR) and http://localhost:9091 (Care Loop), both under `/fhir/r4`.
 
@@ -43,7 +46,7 @@ Once it's up, the main surfaces are the patient chat (whatsapp-simulator, http:/
 - fhir-mcp-server — WSO2 FHIR R4 to MCP bridge (`wso2/fhir-mcp-server`) in front of care-loop-fhir-server, exposing the FHIR API as MCP tools on port 8001. Reaches it through care-loop-fhir-server-readonly-proxy (nginx), which 403s anything but GET/HEAD, so the bridge can only read.
 - [care-loop-knowledge-service](care-loop-knowledge-service/) — FastAPI/FastMCP RAG server (port 8006) exposing a curated HFrEF knowledge base (open-access guidelines + patient-education corpus, embedded Chroma) as MCP tools: `search_guidelines`, `search_patient_education`, `get_feature_definition`. Embeddings default to `local`. Speaks streamable-HTTP at `/mcp`, matching fhir-mcp-server so the Ballerina `ai:McpToolKit` consumes it. Build the vector store with `make ingest`.
 - pubmed-mcp-server — third-party live PubMed MCP (`ghcr.io/cyanheads/pubmed-mcp-server`, host port 8007, container 3010) giving the risk agent recent-literature lookups over NCBI E-utilities.
-- [care-loop-ai-service](care-loop-ai-service/) — Ballerina agent service (port 8003) using either OpenAI (`GPT-4.1` / `GPT-4.1-nano`) or Anthropic (`Claude Sonnet 4.5` / `Claude Haiku 4.5`) via `ai:McpToolKit`s for FHIR, the knowledge base, and PubMed. Endpoints: `POST /questionnaires` drafts a FHIR `Questionnaire`; `POST /conversation/turn` drives the live adaptive check-in one turn at a time (extracting feature slots from each answer and choosing the next question under a hard question budget); `POST /risk-assessment` scores risk, grounding thresholds in the knowledge base and citing guideline sections; `POST /task-description` narrates the Task. The `openai` provider calls the OpenAI API directly via the stock provider; `openai-amp` routes through the AMP gateway via `AmpModelProvider` (see the WSO2 Agent Manager section below); `anthropic` always calls the Anthropic API directly; `anthropic-amp` uses the same stock `anthropic:ModelProvider` pointed at the AMP gateway, whose `careloop-anthropic` provider is registered to accept the stock provider's native `x-api-key` header. Needs a `Config.toml` (copy `Config.toml.example`); gitignored, never commit it.
+- [care-loop-ai-service](care-loop-ai-service/) — Ballerina agent service (port 8003) using either OpenAI (`GPT-4.1` / `GPT-4.1-nano`) or Anthropic (`Claude Sonnet 4.5` / `Claude Haiku 4.5`) via `ai:McpToolKit`s for FHIR, the knowledge base, and PubMed. Endpoints: `POST /questionnaires` drafts a FHIR `Questionnaire`; `POST /conversation/turn` drives the live adaptive check-in one turn at a time (extracting feature slots from each answer and choosing the next question under a hard question budget); `POST /risk-assessment` scores risk, grounding thresholds in the knowledge base and citing guideline sections; `POST /task-description` narrates the Task. Both `openai` and `anthropic` route only through the AMP AI gateway — there is no direct-provider mode: `openai` uses `AmpModelProvider` (the gateway's `API-Key` header) and `anthropic` uses the stock `anthropic:ModelProvider` whose native `x-api-key` header `careloop-anthropic` is registered to accept. See the WSO2 Agent Manager section below.
 - [care-loop-dashboard](care-loop-dashboard/) — Next.js internal ops view of the demo pipeline (port 3003), backed by its own Drizzle-managed database. `POST /api/events` receives fire-and-forget milestone notifications (vitals ingested, ML/agentic scoring, Task created, etc.) from the Ballerina services via `care-loop-common`'s `notifyDashboard`, and surfaces them as a live event feed alongside a per-patient history and home summary.
 
 - [care-loop-collector-service](care-loop-collector-service/) — standalone Ballerina bridge (port 8004). `POST /vitals` saves an incoming Observation bundle to care-loop-fhir-server and notifies care-loop-analysis-service on `/vitals-ready`. `POST /patients/{patientId}/generate` asks care-loop-ai-service for the opening question, opens a live chat session, and drives it: `POST /turns` relays each patient message to the interview agent, merges the extracted feature slots (never overwriting a FHIR-prefilled value), enforces the question budget, and finalizes on completion — persisting the `Questionnaire` + `QuestionnaireResponse` and forwarding answers plus the enriched feature set to care-loop-analysis-service. `POST /patients/{id}/conversation/claim` hands a still-pending session to the analysis timeout watcher. `POST /transcripts` remains the scripted-session callback. Needs a `Config.toml` (copy `Config.toml.example`); gitignored.
@@ -65,13 +68,11 @@ apple-healthkit-simulator and care-loop-heart-risk-service log via [loguru](http
 
 ## WSO2 Agent Manager
 
-WSO2 Agent Manager (AMP v0.18.0) is opt-in behind the `amp` compose profile: `docker compose up` and `make up` skip it; run `docker compose --profile amp up` to include the `amp`, `amp-init`, `otel-collector`, `amp-thunder-fwd`, and `amp-obs-fwd` services (a docker-in-docker quick-start cluster whose state persists across restarts, with a 45-minute healthcheck start_period). **care-loop-ai-service is not routed through it by default** — it boots directly against the configured provider (OpenAI by default) via the gitignored `Config.toml`, so `make up` doesn't depend on AMP finishing its bootstrap.
+WSO2 Agent Manager (AMP v0.18.0) is a **required** part of the stack: `make up` brings up the `amp`, `amp-init`, `otel-collector`, `amp-thunder-fwd`, and `amp-obs-fwd` services (a docker-in-docker quick-start cluster whose state persists across restarts, with a 45-minute healthcheck start_period). **All care-loop-ai-service LLM traffic routes through the gateway — there is no direct-provider mode.** `amp-init` registers an LLM provider per key in `.env`, mints a gateway key per provider into the shared `amp-shared` volume, and care-loop-ai-service's `docker-entrypoint.sh` injects those keys at startup, refusing to boot without one. Because AMP is heavy and slow to bootstrap, the ai-service (and everything downstream of it) waits on it; on a memory-constrained host the gateway bootstrap can fail to converge.
 
-To opt in instead, set `OPENAI_API_KEY` and/or `ANTHROPIC_API_KEY` in a gitignored `hl7-ai-competition/.env` (at least one is required); `amp-init` registers an LLM provider per key present (`careloop-openai` and/or `careloop-anthropic`), deploys and publishes each to the catalog, and mints a gateway key per provider into the shared `amp-shared` volume (`openai-gateway.key` / `anthropic-gateway.key`). Then point care-loop-ai-service's `Config.toml` at the gateway:
-- `openai-amp`: `openAiServiceUrl = "http://amp:22893/careloop-openai"`, `openAiApiKey` = the contents of `openai-gateway.key` (see `AmpModelProvider` in `care-loop-ai-service/service.bal`).
-- `anthropic-amp`: `anthropicServiceUrl = "http://amp:22893/careloop-anthropic/v1"` (with the `/v1` suffix, since the stock provider appends `/messages`), `anthropicApiKey` = the contents of `anthropic-gateway.key`. The stock `anthropic:ModelProvider` sends its native `x-api-key` header, which `amp-init` registers `careloop-anthropic` to accept, so no custom provider is needed.
+Set `OPENAI_API_KEY` and/or `ANTHROPIC_API_KEY` in a gitignored `hl7-ai-competition/.env` (at least one is required). `amp-init` registers `careloop-openai` and/or `careloop-anthropic` (one per key present), deploys and publishes each to the catalog, and mints a gateway key per provider into the shared `amp-shared` volume (`careloop-openai-gateway.key` / `careloop-anthropic-gateway.key`). The ai-service's `docker-entrypoint.sh` reads those into `openAiApiKey`/`anthropicApiKey`, and `Config.compose.toml` points `openAiServiceUrl` at `http://amp:22893/careloop-openai` and `anthropicServiceUrl` at `http://amp:22893/careloop-anthropic/v1` (the `/v1` suffix is needed because the stock provider appends `/messages`).
 
-`modelProvider = "anthropic"` always calls the Anthropic API directly and never touches AMP.
+The two providers differ only in how they authenticate to the gateway: `openai` uses `AmpModelProvider`, which sends the gateway's `API-Key` header (the stock OpenAI provider can only send `Authorization: Bearer`, which the gateway's api-key scheme rejects); `anthropic` uses the stock `anthropic:ModelProvider`, whose native `x-api-key` header `amp-init` registers `careloop-anthropic` to accept.
 
 To use the console at http://localhost:13000 (admin/admin), add `127.0.0.1 thunder.amp.localhost` to `/etc/hosts` (the login redirect needs it). The Thunder (8080) and observability (9098) ports it calls are exposed by the `amp-thunder-fwd` / `amp-obs-fwd` services.
 

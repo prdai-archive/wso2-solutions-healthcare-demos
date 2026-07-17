@@ -3,17 +3,17 @@ knowledgeMcpUrl = "http://care-loop-knowledge-service:8000/mcp"
 pubmedMcpUrl = "http://pubmed-mcp-server:3010/mcp"
 listenPort = 8003
 
-# Choose "openai" (direct to OpenAI), "openai-amp" (AMP gateway), "anthropic" (direct), or "anthropic-amp" (AMP gateway).
+# Choose "openai" or "anthropic". Both route only through the AMP AI gateway; there is no direct-to-provider mode.
 modelProvider = "openai"
 
-# openAiServiceUrl/openAiApiKey default to direct OpenAI, used by "openai". For "openai-amp", set openAiServiceUrl to the AMP invoke URL (e.g. "http://amp:22893/careloop-openai") and openAiApiKey to the AMP gateway key; nanoModel/fullModel then select the underlying OpenAI model.
-openAiApiKey = "your-openai-api-key"
-openAiServiceUrl = "https://api.openai.com/v1"
+# openAiApiKey is the minted careloop-openai gateway key (contents of amp-shared/openai-gateway.key); openAiServiceUrl is the AMP invoke URL, never api.openai.com. nanoModel/fullModel select the underlying OpenAI model.
+openAiApiKey = "your-careloop-openai-gateway-key"
+openAiServiceUrl = "http://amp:22893/careloop-openai"
 nanoModel = "gpt-4.1-nano"
 fullModel = "gpt-4.1"
 
-# anthropicServiceUrl/anthropicApiKey are shared by "anthropic" and "anthropic-amp": point them at the real Anthropic API and your Anthropic key for "anthropic", or at the AMP gateway (e.g. "http://amp:22893/careloop-anthropic/v1", with the "/v1" suffix since the stock provider appends "/messages") and the AMP gateway key for "anthropic-amp".
-anthropicApiKey = "your-anthropic-api-key"
-anthropicServiceUrl = "https://api.anthropic.com/v1"
+# anthropicApiKey is the minted careloop-anthropic gateway key (contents of amp-shared/anthropic-gateway.key); anthropicServiceUrl is the AMP invoke URL with the "/v1" suffix (the stock provider appends "/messages"), never api.anthropic.com.
+anthropicApiKey = "your-careloop-anthropic-gateway-key"
+anthropicServiceUrl = "http://amp:22893/careloop-anthropic/v1"
 
 dashboardEventsUrl = "http://care-loop-dashboard:3003"

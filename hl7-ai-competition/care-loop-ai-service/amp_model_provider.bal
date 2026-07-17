@@ -21,7 +21,7 @@ public isolated distinct client class AmpModelProvider {
     private final int maxTokens;
 
     public isolated function init(string apiKey, openai:OPEN_AI_MODEL_NAMES modelType,
-            string serviceUrl = "https://api.openai.com/v1", int maxTokens = DEFAULT_MAX_TOKEN_COUNT,
+            string serviceUrl = "http://amp:22893/careloop-openai", int maxTokens = DEFAULT_MAX_TOKEN_COUNT,
             decimal temperature = DEFAULT_TEMPERATURE) returns ai:Error? {
         http:Client|error gatewayClient = new (serviceUrl);
         if gatewayClient is error {

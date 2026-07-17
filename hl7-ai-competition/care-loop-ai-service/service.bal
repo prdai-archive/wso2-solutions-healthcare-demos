@@ -23,9 +23,9 @@ isolated function createFhirToolkit() returns ai:McpToolKit|ai:Error {
     return new (fhirMcpUrl, auth = mcpAuth, httpVersion = http:HTTP_1_1);
 }
 
-// Both providers route only through the AMP AI gateway (no direct api.openai.com/api.anthropic.com calls) via one uniform client: AmpModelProvider always speaks the OpenAI chat-completions wire format and sends the gateway's API-Key header. "openai" targets the careloop-openai route (OpenAI upstream); "anthropic" targets careloop-anthropic, which AMP registers under the same OpenAI-compatible template pointing at Anthropic's OpenAI-compatible endpoint - so an OpenAI-shaped request reaches Claude and comes back in OpenAI shape. modelName carries the provider's model id (gpt-* or claude-*); serviceUrl/apiKey are the gateway route and the minted gateway key.
+// Both providers use AmpModelProvider through the AMP gateway (see its header for the design); they differ only by serviceUrl (route) and modelName (gpt-* or claude-*).
 isolated function createModelProvider(string modelName) returns ai:ModelProvider|ai:Error {
-    // maxTokens is raised from the module default of 512, which hard-truncates the risk-assessment agent's final answer before it reaches the required JSON; 8192 covers the longest observed answer.
+    // maxTokens is raised from the module default of 512, which truncates the risk agent's JSON answer; 8192 covers the longest observed answer.
     if modelProvider == "openai" {
         return new AmpModelProvider(openAiApiKey, modelName, serviceUrl = openAiServiceUrl, maxTokens = 8192);
     }

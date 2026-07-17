@@ -4,7 +4,7 @@ configurable string knowledgeMcpUrl = "http://localhost:8006/mcp";
 configurable string pubmedMcpUrl = "http://localhost:8007/mcp";
 configurable int listenPort = 8003;
 
-# modelProvider: "openai" (direct by default, AMP gateway only if openAiServiceUrl points at it), "anthropic" (direct), or "anthropic-amp" (AMP gateway via AmpAnthropicModelProvider).
+# modelProvider: "openai" (direct by default, AMP gateway only if openAiServiceUrl points at it), "anthropic" (direct), or "anthropic-amp" (stock provider pointed at the AMP gateway, e.g. http://amp:22893/careloop-anthropic/v1).
 configurable string modelProvider = "openai";
 
 configurable string openAiApiKey = "";

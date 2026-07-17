@@ -1,32 +1,17 @@
-// AmpModelProvider is the single model client the agents use, and it always
-// talks to the WSO2 Agent Manager (AMP) AI gateway - never directly to a
-// provider. It is not OpenAI- or Anthropic-specific: it speaks one wire format
-// (OpenAI chat-completions) with one inbound auth (an `API-Key` header carrying
-// the minted gateway key), and the gateway does the routing and upstream auth.
+// AmpModelProvider is the single, provider-agnostic model client the agents use:
+// it always speaks OpenAI chat-completions to the AMP AI gateway with an `API-Key`
+// header (the minted gateway key). `serviceUrl` picks the route and `modelType`
+// the model - "openai" -> careloop-openai (gpt-*), "anthropic" -> careloop-anthropic
+// (claude-*, registered under the OpenAI-compatible template against Anthropic's
+// OpenAI-compatible endpoint). AMP holds the real provider keys and injects the
+// upstream `Authorization: Bearer` itself, so this client never sends Bearer -
+// which is also why it's hand-written: the stock ballerinax/ai providers hardwire
+// Bearer with no way to send `API-Key`.
 //
-// Routing is by `serviceUrl` (which gateway route) and `modelType` (which model):
-//   - modelProvider "openai"    -> http://amp:22893/careloop-openai   , gpt-*
-//   - modelProvider "anthropic" -> http://amp:22893/careloop-anthropic, claude-*
-// careloop-anthropic is registered in AMP under the same OpenAI-compatible
-// template but pointed upstream at Anthropic's OpenAI-compatible endpoint, so an
-// OpenAI-shaped request reaches Claude and comes back in OpenAI shape. The real
-// provider keys live server-side in AMP (set by scripts/amp/register.sh); the
-// gateway validates our API-Key, strips it, and injects the upstream
-// `Authorization: Bearer <provider key>` itself - this client never sends Bearer.
-//
-// Why a hand-written class and not the stock ballerinax/ai providers: the stock
-// OpenAI provider hardwires `Authorization: Bearer`, which the gateway's api-key
-// scheme rejects, and the ai modules expose no way to override the auth header;
-// so we implement the provider ourselves to send `API-Key`.
-//
-// Why the `generate` method and the vendored libs/ai.openai-native jar exist:
-// ai:Agent only accepts an ai:ModelProvider, which is a `distinct` object type,
-// so we must include `*ai:ModelProvider` - and that mandates both `chat` and
-// `generate`. The agents only ever call `chat`; `generate` is required-but-unused.
-// `generate` is dependently-typed (its return type is the caller's typedesc),
-// which Ballerina permits only as an `external` (Java) function, so it is bound
-// to the SDK's native Generator in libs/ai.openai-native-*.jar. That single
-// binding is the only reason the jar is vendored.
+// `generate` and the vendored libs/ai.openai-native jar are unavoidable overhead:
+// ai:Agent needs an ai:ModelProvider (a `distinct` type, so we must `*ai:ModelProvider`),
+// which mandates `generate`; being dependently-typed it can only be an external Java
+// function, bound to the SDK's native Generator in that jar. The agents only call `chat`.
 
 import ballerina/ai;
 import ballerina/http;

@@ -2,25 +2,28 @@ import ballerina/ai;
 import ballerina/http;
 import ballerina/jballerina.java;
 import ballerina/observe;
-import ballerinax/ai.openai;
 import ballerinax/openai.chat;
 
 const int DEFAULT_MAX_TOKEN_COUNT = 512;
 const decimal DEFAULT_TEMPERATURE = 0.7;
 
-# OpenAI model provider for the AMP egress gateway: `chat` sends an `API-Key`
-# header (not `Authorization: Bearer`) so it goes through the gateway.
+# Uniform model provider for the AMP AI gateway: `chat` sends the OpenAI
+# chat-completions wire format with an `API-Key` header (not `Authorization:
+# Bearer`) to whatever gateway route `serviceUrl` names - careloop-openai for
+# OpenAI, or careloop-anthropic (registered under AMP's OpenAI-compatible
+# template against Anthropic's OpenAI-compatible endpoint) for Claude. modelType
+# is a free-form model id (gpt-* or claude-*).
 public isolated distinct client class AmpModelProvider {
     *ai:ModelProvider;
-    // Native `generate` reads llmClient and modelType; names/types must match ballerinax/ai.openai.
+    // llmClient/modelType are read by the required-but-unused native `generate`; the agents only call `chat`.
     private final chat:Client llmClient;
-    private final openai:OPEN_AI_MODEL_NAMES modelType;
+    private final string modelType;
     private final http:Client gatewayClient;
     private final string apiKey;
     private final decimal temperature;
     private final int maxTokens;
 
-    public isolated function init(string apiKey, openai:OPEN_AI_MODEL_NAMES modelType,
+    public isolated function init(string apiKey, string modelType,
             string serviceUrl = "http://amp:22893/careloop-openai", int maxTokens = DEFAULT_MAX_TOKEN_COUNT,
             decimal temperature = DEFAULT_TEMPERATURE) returns ai:Error? {
         http:Client|error gatewayClient = new (serviceUrl);

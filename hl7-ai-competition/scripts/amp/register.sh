@@ -56,18 +56,17 @@ provider_uuid() {
 # $4 upstream_url   - real upstream base URL AMP calls on your behalf
 # $5 auth_header    - upstream auth header name (from the template's metadata.auth.header)
 # $6 auth_value     - upstream auth header value (e.g. "Bearer $KEY", or just "$KEY")
-# $7 inbound_key    - inbound gateway auth header the client sends (default "API-Key"); set to the header the model provider natively sends (e.g. "x-api-key" for the stock Anthropic provider) so no client-side wrapper is needed
 register_provider() {
-    id=$1 display_name=$2 template=$3 upstream_url=$4 auth_header=$5 auth_value=$6 inbound_key=${7:-API-Key}
+    id=$1 display_name=$2 template=$3 upstream_url=$4 auth_header=$5 auth_value=$6
     key_file="$SHARED_DIR/$id-gateway.key"
 
     provider_body() {
         jq -n --arg id "$id" --arg name "$display_name" --arg template "$template" \
-            --arg url "$upstream_url" --arg header "$auth_header" --arg value "$auth_value" --arg inbound "$inbound_key" '{
+            --arg url "$upstream_url" --arg header "$auth_header" --arg value "$auth_value" '{
             id: $id, name: $name, template: $template,
             context: ("/" + $id), version: "v1",
             accessControl: {mode: "allow_all"},
-            security: {enabled: true, apiKey: {enabled: true, key: $inbound, in: "header"}},
+            security: {enabled: true, apiKey: {enabled: true, key: "API-Key", in: "header"}},
             upstream: {main: {url: $url, auth: {type: "api-key", header: $header, value: $value}}}
         }'
     }
@@ -98,7 +97,7 @@ register_provider() {
         -d '{"inCatalog":true}' >/dev/null
     log "Provider $id published to catalog"
 
-    if key_valid "$key_file" "$id" "$inbound_key"; then
+    if key_valid "$key_file" "$id"; then
         log "Existing gateway key for $id still accepted; keeping it"
     else
         log "Minting gateway API key for $id"
@@ -114,9 +113,9 @@ register_provider() {
 }
 
 key_valid() {
-    key_file=$1 id=$2 inbound_key=${3:-API-Key}
+    key_file=$1 id=$2
     [ -s "$key_file" ] || return 1
-    code=$($CURL -o /dev/null -w '%{http_code}' -H "$inbound_key: $(cat "$key_file")" \
+    code=$($CURL -o /dev/null -w '%{http_code}' -H "API-Key: $(cat "$key_file")" \
         "$GATEWAY/$id/models" || echo 000)
     case "$code" in
         401|403|000) return 1 ;;
@@ -132,8 +131,8 @@ else
 fi
 
 if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
-    register_provider careloop-anthropic "Care Loop Anthropic" anthropic \
-        "https://api.anthropic.com" "x-api-key" "$ANTHROPIC_API_KEY" "x-api-key"
+    register_provider careloop-anthropic "Care Loop Anthropic (OpenAI-compatible)" openai \
+        "https://api.anthropic.com/v1" "Authorization" "Bearer $ANTHROPIC_API_KEY"
 else
     log "ANTHROPIC_API_KEY not set; skipping the careloop-anthropic provider"
 fi

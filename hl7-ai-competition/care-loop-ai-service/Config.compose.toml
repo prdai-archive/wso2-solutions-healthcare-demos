@@ -8,7 +8,7 @@ modelProvider = "openai"
 openAiServiceUrl = "http://amp:22893/careloop-openai"
 nanoModel = "gpt-4.1-nano"
 fullModel = "gpt-4.1"
-anthropicServiceUrl = "http://amp:22893/careloop-anthropic/v1"
+anthropicServiceUrl = "http://amp:22893/careloop-anthropic"
 
 dashboardEventsUrl = "http://care-loop-dashboard:3003"
 

@@ -2,8 +2,6 @@ import ballerina/ai;
 import ballerina/http;
 import ballerina/lang.value;
 import ballerina/log;
-import ballerinax/ai.anthropic;
-import ballerinax/ai.openai;
 // OTLP gRPC span exporter (despite the name); activated via [ballerina.observe] config.
 import ballerinax/jaeger as _;
 
@@ -16,8 +14,8 @@ final ai:McpToolKit fhirToolkit = check createFhirToolkit();
 final ai:McpToolKit knowledgeToolkit = check new (knowledgeMcpUrl, httpVersion = http:HTTP_1_1);
 final ai:McpToolKit pubmedToolkit = check new (pubmedMcpUrl, httpVersion = http:HTTP_1_1);
 
-final ai:ModelProvider nanoModelProvider = check createModelProvider(nanoModel, false);
-final ai:ModelProvider fullModelProvider = check createModelProvider(fullModel, true);
+final ai:ModelProvider nanoModelProvider = check createModelProvider(nanoModel);
+final ai:ModelProvider fullModelProvider = check createModelProvider(fullModel);
 
 isolated function createFhirToolkit() returns ai:McpToolKit|ai:Error {
     // Empty token means the MCP server is reached directly, without gateway auth.
@@ -25,23 +23,14 @@ isolated function createFhirToolkit() returns ai:McpToolKit|ai:Error {
     return new (fhirMcpUrl, auth = mcpAuth, httpVersion = http:HTTP_1_1);
 }
 
-// Both providers route only through the AMP AI gateway; there are no direct calls to api.openai.com or api.anthropic.com. "openai" uses AmpModelProvider, which sends the gateway's API-Key header (the stock OpenAI provider can only send Authorization: Bearer, which the gateway's api-key scheme rejects). "anthropic" uses the stock anthropic:ModelProvider pointed at the gateway, whose careloop-anthropic provider is registered to accept the stock provider's native x-api-key header. openAiServiceUrl/anthropicServiceUrl must be the gateway invoke URLs (http://amp:22893/careloop-openai and .../careloop-anthropic/v1) and the *ApiKey values the minted gateway keys.
-isolated function createModelProvider(string modelName, boolean fullModelTier) returns ai:ModelProvider|ai:Error {
-    if modelProvider == "anthropic" {
-        // claude-sonnet-4-20250514 and claude-3-5-haiku-20241022 have been retired by Anthropic; these are the current-generation snapshots available in this module version (1.3.3).
-        anthropic:ANTHROPIC_MODEL_NAMES model = fullModelTier ? anthropic:CLAUDE_SONNET_4_5_20250929 :
-            anthropic:CLAUDE_HAIKU_4_5_20251001;
-        // The module defaults maxTokens to 512, which hard-truncates the risk-assessment agent's final answer before it reaches the required JSON; 8192 covers the longest observed answer.
-        return check new anthropic:ModelProvider(anthropicApiKey, model, serviceUrl = anthropicServiceUrl,
-            maxTokens = 8192
-        );
-    }
+// Both providers route only through the AMP AI gateway (no direct api.openai.com/api.anthropic.com calls) via one uniform client: AmpModelProvider always speaks the OpenAI chat-completions wire format and sends the gateway's API-Key header. "openai" targets the careloop-openai route (OpenAI upstream); "anthropic" targets careloop-anthropic, which AMP registers under the same OpenAI-compatible template pointing at Anthropic's OpenAI-compatible endpoint - so an OpenAI-shaped request reaches Claude and comes back in OpenAI shape. modelName carries the provider's model id (gpt-* or claude-*); serviceUrl/apiKey are the gateway route and the minted gateway key.
+isolated function createModelProvider(string modelName) returns ai:ModelProvider|ai:Error {
+    // maxTokens is raised from the module default of 512, which hard-truncates the risk-assessment agent's final answer before it reaches the required JSON; 8192 covers the longest observed answer.
     if modelProvider == "openai" {
-        openai:OPEN_AI_MODEL_NAMES|error modelType = modelName.ensureType();
-        if modelType is error {
-            return error ai:Error(string `'${modelName}' is not a supported ballerinax/ai.openai model`);
-        }
-        return new AmpModelProvider(openAiApiKey, modelType, serviceUrl = openAiServiceUrl, maxTokens = 8192);
+        return new AmpModelProvider(openAiApiKey, modelName, serviceUrl = openAiServiceUrl, maxTokens = 8192);
+    }
+    if modelProvider == "anthropic" {
+        return new AmpModelProvider(anthropicApiKey, modelName, serviceUrl = anthropicServiceUrl, maxTokens = 8192);
     }
     return error(string `unsupported modelProvider '${modelProvider}'; expected 'openai' or 'anthropic' (both routed through the AMP AI gateway)`);
 }

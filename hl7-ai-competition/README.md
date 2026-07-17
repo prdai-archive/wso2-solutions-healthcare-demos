@@ -6,7 +6,34 @@ An AI-assisted care loop connecting remote patients with a heart clinic, built f
 
 ![WSO2 Care Loop architecture](assets/architecture-diagram-v2.png)
 
-Earlier stages: [v1](assets/architecture-diagram-v1.png), [whiteboard sketch](assets/whiteboard-sketch.png).
+## Screens
+
+The user-facing surfaces the stack brings up. Click any screen for the full image.
+
+<table>
+  <tr>
+    <td width="50%" align="center">
+      <a href="assets/screens/whatsapp-simulator.png"><img src="assets/screens/whatsapp-simulator.png" alt="whatsapp-simulator patient chat" width="100%"></a>
+      <sub><b>whatsapp-simulator</b> — patient chat check-in (3001)</sub>
+    </td>
+    <td width="50%" align="center">
+      <a href="assets/screens/front-desk-dashboard.png"><img src="assets/screens/front-desk-dashboard.png" alt="front-desk-dashboard clinician task list" width="100%"></a>
+      <sub><b>front-desk-dashboard</b> — clinician task list (3002)</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <a href="assets/screens/care-loop-dashboard.png"><img src="assets/screens/care-loop-dashboard.png" alt="care-loop-dashboard pipeline view" width="100%"></a>
+      <sub><b>care-loop-dashboard</b> — internal pipeline view (3003)</sub>
+    </td>
+    <td width="50%" align="center">
+      <a href="assets/screens/apple-healthkit-simulator.png"><img src="assets/screens/apple-healthkit-simulator.png" alt="apple-healthkit-simulator vitals ingest" width="100%"></a>
+      <sub><b>apple-healthkit-simulator</b> — HealthKit vitals ingest (8000)</sub>
+    </td>
+  </tr>
+</table>
+
+The two FHIR R4 stores have no web UI; they answer under `/fhir/r4` at `http://localhost:9090` (EHR) and `http://localhost:9091` (Care Loop).
 
 ## Quickstart
 

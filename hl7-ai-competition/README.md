@@ -33,8 +33,6 @@ The user-facing surfaces the stack brings up. Click any screen for the full imag
   </tr>
 </table>
 
-The two FHIR R4 stores have no web UI; they answer under `/fhir/r4` at `http://localhost:9090` (EHR) and `http://localhost:9091` (Care Loop).
-
 ## Quickstart
 
 Prerequisites: Docker with Compose v2, [Bun](https://bun.sh) (the seed and sync scripts run on it), and `make`. All LLM calls route through the WSO2 Agent Manager AI gateway (there is no direct-provider mode), so you need one LLM key — an OpenAI or an Anthropic key — which `amp-init` registers with the gateway.

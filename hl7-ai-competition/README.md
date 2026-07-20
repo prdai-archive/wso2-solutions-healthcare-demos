@@ -1,5 +1,7 @@
 # WSO2 Care Loop
 
+![HL7 AI Challenge — WSO2 Care Loop architecture](assets/care-loop-architecture.png)
+
 An AI-assisted care loop connecting remote patients with a heart clinic, built for the HL7 AI competition. Patient-side home monitoring and messaging feed an agent-driven engine that converts incoming data to FHIR, predicts risk, and routes clinical notifications and telehealth back to the care team. Integrations run on Ballerina.
 
 ## Architecture

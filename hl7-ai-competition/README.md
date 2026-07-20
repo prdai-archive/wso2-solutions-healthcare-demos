@@ -4,10 +4,6 @@
 
 An AI-assisted care loop connecting remote patients with a heart clinic, built for the HL7 AI competition. Patient-side home monitoring and messaging feed an agent-driven engine that converts incoming data to FHIR, predicts risk, and routes clinical notifications and telehealth back to the care team. Integrations run on Ballerina.
 
-## Architecture
-
-![WSO2 Care Loop architecture](assets/architecture-diagram-v2.png)
-
 ## Screens
 
 The user-facing surfaces the stack brings up. Click any screen for the full image.

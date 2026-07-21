@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>WSO2 Care Loop — Supporting Evidence</title>
+<link rel="stylesheet" href="assets/careloop.css">
+</head>
+<body>
+
+<!-- ── Cover ─────────────────────────────────────────────── -->
+<div class="cover-page">
+  <div class="cover-bar"></div>
+  <div class="cover-top">
+    <div class="cover-kicker">HL7 AI Competition</div>
+    <div class="cover-org">WSO2</div>
+  </div>
+  <div class="cover-center">
+    <div class="cover-title">Care <span class="accent">Loop</span></div>
+    <div class="cover-subtitle">Supporting evidence for the solution document: the clinical basis, the FHIR and AI implementation, and the security and safety detail behind the claims.</div>
+    <div class="cover-rule"></div>
+    <div class="cover-doctype">Supporting Evidence</div>
+  </div>
+  <div class="cover-bottom">
+    <div class="cover-bottom-rule"></div>
+    <div class="cover-meta">
+      <div class="cm-item"><span class="cm-label">Companion to</span><span class="cm-value">Solution Document</span></div>
+      <div class="cm-item" style="text-align:center;"><span class="cm-label">Standard</span><span class="cm-value">HL7 FHIR R4</span></div>
+      <div class="cm-item" style="text-align:right;"><span class="cm-label">Date</span><span class="cm-value">July 2026</span></div>
+    </div>
+  </div>
+</div>
+
+<main class="doc">
+
+  <div class="doc-lead-block">
+    <div class="doc-lead-label">Supporting Evidence</div>
+    <div class="doc-lead-title">The clinical, technical, and safety evidence behind the Care Loop.</div>
+  </div>
+
+  <p class="lead">This document backs the claims in the solution document with detail: the clinical literature the design rests on, the exact FHIR resources the platform produces and consumes with worked examples, a card for the machine-learning model, the AI agent specification, and the security, observability, and safety posture. It is written for a reader who wants to check the work.</p>
+
+  <div class="toc">
+    <div class="toc-title">Contents</div>
+    <ol class="toc-list">
+      <li><a href="#a"><span class="toc-num">A</span><span class="toc-text">Clinical evidence base</span></a></li>
+      <li><a href="#b"><span class="toc-num">B</span><span class="toc-text">FHIR resource catalogue and examples</span></a></li>
+      <li><a href="#c"><span class="toc-num">C</span><span class="toc-text">The AI: agents, model, and gateway</span></a></li>
+      <li><a href="#d"><span class="toc-num">D</span><span class="toc-text">Machine-learning model card</span></a></li>
+      <li><a href="#e"><span class="toc-num">E</span><span class="toc-text">Security, safety, and observability</span></a></li>
+      <li><a href="#f"><span class="toc-num">F</span><span class="toc-text">Deployment and component inventory</span></a></li>
+    </ol>
+  </div>
+
+  <!-- ── A. Clinical ─────────────────────────────────────── -->
+  <section class="section" id="a">
+    <h2><span class="sec-num">A</span> Clinical evidence base</h2>
+    <p>Each design decision in the Care Loop traces back to the literature. The table maps the evidence to the claim it supports.</p>
+    <table class="tbl">
+      <thead><tr><th style="width:30%;">Finding</th><th style="width:34%;">Source</th><th>What it supports in the Care Loop</th></tr></thead>
+      <tbody>
+        <tr><td>Wearable data flags HF deterioration a median of 7.4 days early; each 10% drop in wearable-derived daily pVO&#8322; carries a 3.62&times; hazard for unplanned events (Pearson 0.85 vs. clinic CPET).</td><td>Remote monitoring of heart failure exacerbations using a smartwatch. <span class="src">Nature Medicine 32:924&ndash;933, 2026.</span></td><td>The core mechanism: a consumer wearable, read continuously, buys days of actionable warning.</td></tr>
+        <tr><td>~64 million people live with HF; ~US$346 billion annual global cost; median survival 1.7 y (men) / 3.2 y (women).</td><td>Global Public Health Burden of Heart Failure review; Nature Medicine 2026 introduction.</td><td>Scale and cost of the problem the platform addresses.</td></tr>
+        <tr><td>HFrEF five-year mortality 43&ndash;75%.</td><td>Burger et al., <span class="src">Eur. J. Heart Failure, 2023.</span></td><td>Why HFrEF specifically is the target population.</td></tr>
+        <tr><td>~25% five-year survival after an HF hospitalisation.</td><td>HFrEF: A Review, <span class="src">JAMA, 2020.</span></td><td>The stakes of each avoidable admission.</td></tr>
+        <tr><td>~1 in 5 readmitted within 30 days; ~1 in 3 within a year.</td><td>Khan et al., <span class="src">Circ. Heart Failure;</span> Global Comparison of Readmission Rates, <span class="src">JACC, 2023.</span></td><td>The revolving-door cost early intervention targets.</td></tr>
+        <tr><td>~2-week silent deterioration window before symptoms appear.</td><td>SCALE-HF 1, <span class="src">J. Cardiac Failure, 2024.</span></td><td>The window the platform acts inside.</td></tr>
+        <tr><td>Remote monitoring lowers mortality and hospitalisation in RCTs.</td><td>De Lathauwer et al., <span class="src">Eur. J. Heart Failure, 2025;</span> TIM-HF2, <span class="src">Lancet, 2018.</span></td><td>Evidence that acting on the signal changes outcomes.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ── B. FHIR ─────────────────────────────────────────── -->
+  <section class="section" id="b">
+    <h2><span class="sec-num">B</span> FHIR resource catalogue and examples</h2>
+    <p>The platform is FHIR R4 end to end, served by a conformant FHIR server at the EHR and a second instance as the Care Loop's own store. The two are kept in step by a sync service that mirrors resources from the EHR into the internal store hourly, walking them in dependency order (Patient, then Encounter / Condition / MedicationRequest / AllergyIntolerance, then Observation) so references resolve. Terminologies used: LOINC (vitals), UCUM (units), SNOMED CT (conditions, allergies), RxNorm (medications), and HL7 code systems for observation category and risk probability. Patient consent is currently a clinic enrolment step; capturing it as a structured, revocable FHIR <span class="mono-tag">Consent</span> resource is design intent, noted here for completeness.</p>
+
+    <div class="subsection">
+      <h3><span class="sec-num">B.1</span> Vitals as an Observation (LOINC + UCUM)</h3>
+      <p>Each hourly reading becomes a vital-signs Observation, delivered inside a transaction Bundle. Heart rate 8867-4, SpO&#8322; 59408-5, respiratory rate 9279-1, systolic BP 8480-6, diastolic BP 8462-4.</p>
+      <pre class="code">{
+  <span class="k">"resourceType"</span>: <span class="s">"Observation"</span>,
+  <span class="k">"status"</span>: <span class="s">"final"</span>,
+  <span class="k">"category"</span>: [{ <span class="k">"coding"</span>: [{ <span class="k">"system"</span>: <span class="s">"http://terminology.hl7.org/CodeSystem/observation-category"</span>,
+    <span class="k">"code"</span>: <span class="s">"vital-signs"</span> }] }],
+  <span class="k">"code"</span>: { <span class="k">"coding"</span>: [{ <span class="k">"system"</span>: <span class="s">"http://loinc.org"</span>, <span class="k">"code"</span>: <span class="s">"8867-4"</span>, <span class="k">"display"</span>: <span class="s">"Heart rate"</span> }] },
+  <span class="k">"subject"</span>: { <span class="k">"reference"</span>: <span class="s">"Patient/patient-123"</span> },
+  <span class="k">"effectiveDateTime"</span>: <span class="s">"2026-07-15T09:00:00Z"</span>,
+  <span class="k">"valueQuantity"</span>: { <span class="k">"value"</span>: 98, <span class="k">"unit"</span>: <span class="s">"beats/minute"</span>,
+    <span class="k">"system"</span>: <span class="s">"http://unitsofmeasure.org"</span>, <span class="k">"code"</span>: <span class="s">"/min"</span> }
+}</pre>
+    </div>
+
+    <div class="subsection">
+      <h3><span class="sec-num">B.2</span> The escalation Task handed to the clinic</h3>
+      <p>When both signals agree, the analysis service writes a Task into the EHR, prioritised STAT / URGENT / ROUTINE by the worse of the two probabilities, with <span class="mono-tag">basedOn</span> references to the evidence so a clinician can trace the "why".</p>
+      <pre class="code">{
+  <span class="k">"resourceType"</span>: <span class="s">"Task"</span>, <span class="k">"status"</span>: <span class="s">"requested"</span>, <span class="k">"intent"</span>: <span class="s">"order"</span>,
+  <span class="k">"priority"</span>: <span class="s">"urgent"</span>,
+  <span class="k">"code"</span>: { <span class="k">"text"</span>: <span class="s">"Review remote monitoring alert"</span> },
+  <span class="k">"for"</span>: { <span class="k">"reference"</span>: <span class="s">"Patient/patient-123"</span> },
+  <span class="k">"authoredOn"</span>: <span class="s">"2026-07-15T09:04:00Z"</span>,
+  <span class="k">"basedOn"</span>: [
+    { <span class="k">"reference"</span>: <span class="s">"RiskAssessment/risk-ml-001"</span> },
+    { <span class="k">"reference"</span>: <span class="s">"RiskAssessment/risk-agentic-001"</span> },
+    { <span class="k">"reference"</span>: <span class="s">"QuestionnaireResponse/symptom-001"</span> }
+  ]
+}</pre>
+      <p class="code-caption">The description text is written by a dedicated agent for two readers at once: a front-desk operator and a clinician.</p>
+    </div>
+
+    <div class="subsection">
+      <h3><span class="sec-num">B.3</span> The agentic RiskAssessment</h3>
+      <p>The reasoning agent's judgement is stored as a RiskAssessment carrying its probability, an HL7-coded qualitative risk level (<span class="mono-tag">.../risk-probability</span>), its short reasoning as a note, and the specific resources it cited as its basis.</p>
+      <table class="tbl">
+        <thead><tr><th style="width:30%;">Field</th><th>Contents</th></tr></thead>
+        <tbody>
+          <tr><th class="kv-key">status</th><td><code>final</code></td></tr>
+          <tr><th class="kv-key">prediction.probabilityDecimal</th><td>The agent's own probability of a cardiac event (0&ndash;1).</td></tr>
+          <tr><th class="kv-key">prediction.qualitativeRisk</th><td>low / moderate / high, coded against the HL7 risk-probability system.</td></tr>
+          <tr><th class="kv-key">note.text</th><td>The agent's 2&ndash;3 sentence reasoning, naming the values it relied on.</td></tr>
+          <tr><th class="kv-key">basis</th><td>References to the Observation / Condition / MedicationRequest resources cited, by real id.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── C. AI ───────────────────────────────────────────── -->
+  <section class="section" id="c">
+    <h2><span class="sec-num">C</span> The AI: agents, model, and gateway</h2>
+    <p>The agents are built with Ballerina's native AI support (<code>ai:Agent</code> with <code>ai:McpToolKit</code>). Four purpose-built agents split the work, each wired only to the tools it needs: the patient's live FHIR record, a self-hosted HFrEF knowledge base (RAG), and PubMed. "Nano" is GPT-4.1-nano or Claude Haiku 4.5; "full" is GPT-4.1 or Claude Sonnet 4.5, per the configured provider.</p>
+    <table class="tbl">
+      <thead><tr><th style="width:19%;">Agent</th><th style="width:11%;">Model</th><th style="width:24%;">Tools</th><th>Role and guardrails</th></tr></thead>
+      <tbody>
+        <tr><th class="kv-key">Questionnaire</th><td>nano</td><td>FHIR, knowledge base</td><td>Drafts the symptom check-in as a FHIR Questionnaire (no answers), delivered as chat; only the patient's QuestionnaireResponse is persisted.</td></tr>
+        <tr><th class="kv-key">Adaptive check-in</th><td>nano</td><td>Knowledge base</td><td>Runs the interview one turn at a time: extracts feature slots from each answer, asks only what is still missing under a hard question budget, keeps language plain from the patient-education corpus. Patient facts arrive prefilled per turn, so it never touches FHIR (low latency).</td></tr>
+        <tr><th class="kv-key">Risk assessment</th><td>full</td><td>FHIR, knowledge base, PubMed</td><td>Reasons over vitals, conditions, medications, and history; grounds thresholds in HFrEF guidelines and recent literature; cites guideline sections and FHIR resources by real id; assesses and reports only. Up to 32 tool-call rounds.</td></tr>
+        <tr><th class="kv-key">Task description</th><td>nano</td><td>FHIR</td><td>Writes the case narrative for the front desk and clinician from what it was given; invents nothing.</td></tr>
+      </tbody>
+    </table>
+    <div class="callout"><span class="callout-label">The decision is not the agent's</span>The escalation decision is a deterministic rule outside the agents: a case is raised only if the ML probability and the agentic probability both clear their thresholds (each 0.5 in the reference build). Task priority is then set by the worse of the two probabilities: &ge;0.85 STAT, &ge;0.65 URGENT, otherwise ROUTINE. The AI gathers, grounds, and explains; the rule decides.</div>
+    <p>The agents run on OpenAI or Anthropic. The <code>openai</code> provider routes through the <strong>WSO2 Agent Manager AI gateway</strong> (AMP), as does <code>anthropic-amp</code>; <code>anthropic</code> calls the Anthropic API directly. Either way the provider is a configuration choice, and gateway-routed calls are authenticated, rate-limited, and traced. Clinical data, the knowledge base, and PubMed are all reached read-only through MCP; nothing is written through them.</p>
+  </section>
+
+  <!-- ── D. Model card ───────────────────────────────────── -->
+  <section class="section" id="d">
+    <h2><span class="sec-num">D</span> Machine-learning model card</h2>
+    <p>The risk score comes from a gradient-boosted model over a nine-feature clinical profile, assembled from the patient's FHIR record and the adaptive check-in. It is deliberately not a black box promising more than its inputs support.</p>
+    <table class="tbl">
+      <tbody>
+        <tr><th class="kv-key">Task</th><td>Score heart-failure risk from a nine-feature clinical profile. The label is a risk proxy learned from a public diagnostic dataset, not a validated predictor of a heart-failure exacerbation event.</td></tr>
+        <tr><th class="kv-key">Model</th><td>CatBoost (depth 4, 200 iterations, learning rate 0.03), selected by cross-validated ROC-AUC from a search over logistic regression, SVC, decision tree, random forest, LightGBM, and CatBoost (best tuned CV ROC-AUC 0.93), exported to ONNX.</td></tr>
+        <tr><th class="kv-key">Inputs (9)</th><td>Age, sex, maximum heart rate (from the wearable and health profile); chest pain type, cholesterol, fasting blood sugar, exercise-induced angina, ST-depression (Oldpeak), and ST-slope (prefilled from FHIR, gathered by the adaptive check-in when absent). Reject-incomplete: all nine are required.</td></tr>
+        <tr><th class="kv-key">Feature sourcing</th><td>Cholesterol from LOINC 2093-3, fasting blood sugar derived from fasting glucose LOINC 1558-6 (&gt; 120 mg/dL). The stress-test categoricals (chest pain type, exercise angina, ST-depression, ST-slope) have no clean standard LOINC in this categorical form, so a project-local code system carries them on Observations.</td></tr>
+        <tr><th class="kv-key">Preprocessing</th><td>LabelEncoder on categoricals; StandardScaler on Age/Cholesterol/MaxHR; MinMaxScaler on Oldpeak; zero cholesterol median-imputed. Applied from a saved artifact before the ONNX graph.</td></tr>
+        <tr><th class="kv-key">Output</th><td>A score in [0,1] for the positive class, plus a thresholded label (default 0.5).</td></tr>
+        <tr><th class="kv-key">Training data</th><td>A public heart-disease dataset (734 train / 184 test).</td></tr>
+        <tr><th class="kv-key">Held-out performance</th><td>ROC-AUC 0.93, accuracy 0.87, precision 0.85, recall 0.91, F1 0.88. This measures the dataset's own diagnostic target, not deterioration-prediction performance.</td></tr>
+        <tr><th class="kv-key">Runtime</th><td>ONNX Runtime (CPU), no training stack or GPU required; portable across CPU and GPU.</td></tr>
+        <tr><th class="kv-key">Honest limits</th><td>Trained on a public diagnostic dataset, not a purpose-built HFrEF-deterioration cohort; a fielded model would need prospective validation and regulatory work. See solution document, Section 9.</td></tr>
+      </tbody>
+    </table>
+    <p class="note">The model is the cheap, constant layer: it scores each vitals cycle and never calls an LLM. The expensive agentic reasoning, grounded in the knowledge base and PubMed, is reserved for the cases it escalates.</p>
+  </section>
+
+  <!-- ── E. Security ─────────────────────────────────────── -->
+  <section class="section" id="e">
+    <h2><span class="sec-num">E</span> Security, safety, and observability</h2>
+    <ul>
+      <li><strong>Read-only AI by construction.</strong> The agents reach clinical data only through the FHIR MCP bridge, which sits behind a proxy that refuses anything but GET/HEAD. An LLM physically cannot mutate a patient record, regardless of prompt. The one write-back, the Task, is performed by the deterministic analysis service.</li>
+      <li><strong>Two independent signals to escalate.</strong> A statistical model and a reasoning agent must both cross their thresholds before any case reaches a person, guarding against a single noisy reading or an over-confident agent.</li>
+      <li><strong>Fail safe, not silent.</strong> If an urgent check-in goes unanswered within the timeout window (4 hours in the reference build), the case escalates on the model's signal alone rather than being dropped &mdash; silence on an emergency question is treated as a bad sign. The counterpart risk, a deterioration that never crosses the model threshold and so is never checked in on, is why the platform is positioned as a prioritisation aid and not a substitute for a patient seeking care.</li>
+      <li><strong>Grounded, auditable reasoning.</strong> The risk agent must cite the specific FHIR resources supporting its conclusion by real id and may never invent one, so a clinician can check the evidence rather than trust the model.</li>
+      <li><strong>The LLM boundary is explicit.</strong> The reasoning agents send clinical data to an LLM (OpenAI or Anthropic), so PHI leaves the provider boundary when a hosted model is used. The AI gateway makes the provider a configuration choice, so a provider can run a self-hosted or in-jurisdiction model to keep PHI inside their boundary; a hosted provider requires a business-associate / data-processing agreement and minimum-necessary data. The two grounding sources add no exposure: the HFrEF knowledge base is self-hosted, and PubMed receives only literature queries, never patient data. This is how the self-hostable claim holds against HIPAA / GDPR rather than contradicting it.</li>
+      <li><strong>Observable AI, and access to be audited.</strong> Every LLM call is traced through the AI gateway; spans are exported over OpenTelemetry and scoped to the registered agent, giving a provider a record of what the AI saw and did. Human access to the dashboards sits behind the provider's authentication, with AuditEvent-style logging of PHI access as the expected, not-yet-built, control.</li>
+    </ul>
+  </section>
+
+  <!-- ── F. Inventory ────────────────────────────────────── -->
+  <section class="section" id="f">
+    <h2><span class="sec-num">F</span> Deployment and component inventory</h2>
+    <p>The stack is container-deployed and runs from a single command for evaluation. Integrations are written in Ballerina; the ML service in Python; the dashboards and simulators in TypeScript.</p>
+    <table class="tbl">
+      <thead><tr><th style="width:32%;">Component</th><th style="width:20%;">Stack</th><th>Role</th></tr></thead>
+      <tbody>
+        <tr><th class="kv-key">Apple HealthKit simulator</th><td>Python / FastAPI</td><td>Produces hourly vitals as FHIR Observation bundles.</td></tr>
+        <tr><th class="kv-key">Messaging simulator</th><td>TypeScript / Next.js</td><td>Delivers the questionnaire and captures the patient's answers.</td></tr>
+        <tr><th class="kv-key">Collector service</th><td>Ballerina</td><td>Ingests vitals, drives the adaptive check-in conversation, builds QuestionnaireResponses.</td></tr>
+        <tr><th class="kv-key">Heart-risk service</th><td>Python / ONNX Runtime</td><td>Serves the nine-feature CatBoost risk score.</td></tr>
+        <tr><th class="kv-key">Analysis service</th><td>Ballerina</td><td>Holds the decision logic: feature prefill, thresholds, escalation, the Task write-back, the timeout fail-safe.</td></tr>
+        <tr><th class="kv-key">AI service</th><td>Ballerina AI</td><td>The four agents (OpenAI or Anthropic), routed through the AMP AI gateway.</td></tr>
+        <tr><th class="kv-key">Knowledge service</th><td>Python / FastMCP + Chroma</td><td>Self-hosted HFrEF knowledge base (guidelines + patient-education) as read-only MCP tools (RAG).</td></tr>
+        <tr><th class="kv-key">PubMed MCP</th><td>Third-party MCP</td><td>Live PubMed literature lookups for the risk agent.</td></tr>
+        <tr><th class="kv-key">FHIR servers (&times;2)</th><td>WSO2 FHIR R4</td><td>The EHR source of truth and the Care Loop's synced internal store.</td></tr>
+        <tr><th class="kv-key">FHIR MCP bridge + proxy</th><td>WSO2 / Nginx</td><td>Read-only FHIR-to-MCP access for the agents.</td></tr>
+        <tr><th class="kv-key">Front-desk &amp; clinician dashboards</th><td>TypeScript / Next.js</td><td>Triage and review of the raised cases.</td></tr>
+        <tr><th class="kv-key">Agent Manager + OTel collector</th><td>WSO2 AMP</td><td>AI gateway, agent identity, and distributed tracing of LLM calls.</td></tr>
+      </tbody>
+    </table>
+    <p class="note">The reference deployment uses simulators for the patient-side transports; the FHIR they produce and the loop they drive are real. Substituting the live HealthKit webhook and a real messaging integration does not change the rest of the system.</p>
+  </section>
+
+</main>
+</body>
+</html>

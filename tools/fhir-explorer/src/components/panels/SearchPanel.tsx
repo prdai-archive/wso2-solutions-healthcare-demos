@@ -233,65 +233,65 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
     </>
   );
 
+  const pagination = (previous || next) && (
+    <Pagination>
+      <PaginationContent>
+        {first && (
+          <PaginationItem>
+            <PaginationLink
+              href="#"
+              size="default"
+              onClick={(event) => {
+                event.preventDefault();
+                followLink(first.url);
+              }}
+            >
+              First
+            </PaginationLink>
+          </PaginationItem>
+        )}
+        <PaginationItem>
+          <PaginationPrevious
+            href="#"
+            aria-disabled={!previous || loading}
+            className={!previous || loading ? "pointer-events-none opacity-50" : ""}
+            onClick={(event) => {
+              event.preventDefault();
+              if (previous) followLink(previous.url);
+            }}
+          />
+        </PaginationItem>
+        <PaginationItem>
+          <PaginationNext
+            href="#"
+            aria-disabled={!next || loading}
+            className={!next || loading ? "pointer-events-none opacity-50" : ""}
+            onClick={(event) => {
+              event.preventDefault();
+              if (next) followLink(next.url);
+            }}
+          />
+        </PaginationItem>
+        {last && (
+          <PaginationItem>
+            <PaginationLink
+              href="#"
+              size="default"
+              onClick={(event) => {
+                event.preventDefault();
+                followLink(last.url);
+              }}
+            >
+              Last
+            </PaginationLink>
+          </PaginationItem>
+        )}
+      </PaginationContent>
+    </Pagination>
+  );
+
   const responseExtra = (
     <>
-      {(previous || next) && (
-        <Pagination>
-          <PaginationContent>
-            {first && (
-              <PaginationItem>
-                <PaginationLink
-                  href="#"
-                  size="default"
-                  onClick={(event) => {
-                    event.preventDefault();
-                    followLink(first.url);
-                  }}
-                >
-                  First
-                </PaginationLink>
-              </PaginationItem>
-            )}
-            <PaginationItem>
-              <PaginationPrevious
-                href="#"
-                aria-disabled={!previous || loading}
-                className={!previous || loading ? "pointer-events-none opacity-50" : ""}
-                onClick={(event) => {
-                  event.preventDefault();
-                  if (previous) followLink(previous.url);
-                }}
-              />
-            </PaginationItem>
-            <PaginationItem>
-              <PaginationNext
-                href="#"
-                aria-disabled={!next || loading}
-                className={!next || loading ? "pointer-events-none opacity-50" : ""}
-                onClick={(event) => {
-                  event.preventDefault();
-                  if (next) followLink(next.url);
-                }}
-              />
-            </PaginationItem>
-            {last && (
-              <PaginationItem>
-                <PaginationLink
-                  href="#"
-                  size="default"
-                  onClick={(event) => {
-                    event.preventDefault();
-                    followLink(last.url);
-                  }}
-                >
-                  Last
-                </PaginationLink>
-              </PaginationItem>
-            )}
-          </PaginationContent>
-        </Pagination>
-      )}
-
       {bundle?.resourceType === "Bundle" && Array.isArray(bundle.entry) && (
         <div className="rounded-md border bg-card">
           <div className="border-b px-3 py-2 text-sm">
@@ -350,12 +350,13 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
           </ul>
           {bundle.entry.length > 50 && (
             <div className="border-t px-3 py-2 text-xs text-muted-foreground">
-              Showing first 50 of {bundle.entry.length} entries on this page. Use the paging links
-              above to see more.
+              Showing first 50 of {bundle.entry.length} entries on this page. Use the pagination
+              below to see more.
             </div>
           )}
         </div>
       )}
+      {pagination}
     </>
   );
 

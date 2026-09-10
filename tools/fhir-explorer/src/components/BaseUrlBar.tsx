@@ -63,15 +63,15 @@ export function BaseUrlBar({ baseUrl }: Props) {
             <Image src="/icons/fhir-server.svg" alt="" width={20} height={20} priority />
             <span className="font-semibold">FHIR Explorer</span>
           </div>
-          <div className="flex h-9 items-center gap-2 rounded-md border bg-muted/30 px-3 text-sm">
-            {status === "checking" && (
-              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-            )}
-            {status === "ok" && <CheckCircle2 className="h-4 w-4 text-primary" />}
-            {status === "fail" && <XCircle className="h-4 w-4 text-destructive" />}
-            <span className="max-w-[320px] truncate text-muted-foreground">{info || "—"}</span>
-          </div>
           <div className="ml-auto flex items-center gap-2">
+            <div className="flex h-9 items-center gap-2 rounded-md border bg-muted/30 px-3 text-sm">
+              {status === "checking" && (
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              )}
+              {status === "ok" && <CheckCircle2 className="h-4 w-4 text-primary" />}
+              {status === "fail" && <XCircle className="h-4 w-4 text-destructive" />}
+              <span className="max-w-[320px] truncate text-muted-foreground">{info || "—"}</span>
+            </div>
             <RequestHistoryMenu />
           </div>
         </div>

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { applicationOrigin, isAllowedOrigin } from "./origin";
+import { applicationOrigin, isAllowedOrigin } from "./api-origin";
 
 const originalAllowedOrigins = process.env.EXPLORER_ALLOWED_ORIGINS;
 

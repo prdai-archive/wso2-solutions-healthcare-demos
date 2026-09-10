@@ -147,6 +147,29 @@ describe("SearchPanel", () => {
     expect(screen.getAllByText('"p1"').length).toBe(before + 1);
   });
 
+  it("paginates entries from the initial FHIR Bundle without another request", async () => {
+    vi.mocked(client.fhirFetch).mockResolvedValue({
+      ...okBundle(),
+      body: {
+        resourceType: "Bundle",
+        entry: Array.from({ length: 10 }, (_, index) => ({
+          resource: { resourceType: "Patient", id: `p${index + 1}` },
+        })),
+      },
+    });
+    const user = userEvent.setup();
+    renderWithProviders(<SearchPanel baseUrl={BASE} />);
+    await user.click(screen.getByRole("button", { name: /^search$/i }));
+
+    expect(await screen.findByRole("button", { name: /^Patient\/p1/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Patient\/p6/ })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("link", { name: "Go to next page" }));
+
+    expect(await screen.findByRole("button", { name: /^Patient\/p6/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Patient\/p1/ })).not.toBeInTheDocument();
+    expect(client.fhirFetch).toHaveBeenCalledTimes(1);
+  });
+
   it("copies a result's bare id without expanding the row", async () => {
     vi.mocked(client.fhirFetch).mockResolvedValue({
       ...okBundle(),

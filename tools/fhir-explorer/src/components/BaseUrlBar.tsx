@@ -14,47 +14,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useEffect, useState } from "react";
 import Image from "next/image";
-import type { CapabilityStatementLike } from "@/lib/fhir-types";
-import { fhirFetch } from "@/lib/fhir-client";
-import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { ExternalLink, Github } from "lucide-react";
 import { RequestHistoryMenu } from "./RequestHistoryMenu";
 
-interface Props {
-  baseUrl: string;
-}
-
-export function BaseUrlBar({ baseUrl }: Props) {
-  const [status, setStatus] = useState<"idle" | "checking" | "ok" | "fail">("idle");
-  const [info, setInfo] = useState<string>("");
-
-  async function ping(url: string) {
-    setStatus("checking");
-    setInfo("");
-    try {
-      const res = await fhirFetch("/metadata", {}, url);
-      if (res.ok) {
-        const body = res.body as CapabilityStatementLike | undefined;
-        setStatus("ok");
-        setInfo(
-          `FHIR ${body?.fhirVersion ?? "?"} · ${body?.software?.name ?? "server"} · ${res.durationMs}ms`,
-        );
-      } else {
-        setStatus("fail");
-        setInfo(`HTTP ${res.status}`);
-      }
-    } catch (e: unknown) {
-      setStatus("fail");
-      setInfo((e instanceof Error && e.message) || "Network error (check CORS / server running)");
-    }
-  }
-
-  useEffect(() => {
-    ping(baseUrl);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [baseUrl]);
-
+export function BaseUrlBar() {
   return (
     <div className="border-b bg-card">
       <div className="mx-auto max-w-7xl px-4 py-3">
@@ -64,14 +28,16 @@ export function BaseUrlBar({ baseUrl }: Props) {
             <span className="font-semibold">FHIR Explorer</span>
           </div>
           <div className="ml-auto flex items-center gap-2">
-            <div className="flex h-9 items-center gap-2 rounded-md border bg-muted/30 px-3 text-sm">
-              {status === "checking" && (
-                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-              )}
-              {status === "ok" && <CheckCircle2 className="h-4 w-4 text-primary" />}
-              {status === "fail" && <XCircle className="h-4 w-4 text-destructive" />}
-              <span className="max-w-[320px] truncate text-muted-foreground">{info || "—"}</span>
-            </div>
+            <a
+              href="https://github.com/wso2/fhir-server"
+              target="_blank"
+              rel="noreferrer"
+              className="flex h-9 items-center gap-2 rounded-md border bg-muted/30 px-3 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <Github className="size-4" />
+              <span>WSO2 FHIR Server</span>
+              <ExternalLink className="size-3" />
+            </a>
             <RequestHistoryMenu />
           </div>
         </div>

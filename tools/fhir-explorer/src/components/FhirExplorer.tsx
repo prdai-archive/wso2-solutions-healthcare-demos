@@ -46,7 +46,7 @@ function ExplorerContent() {
   return (
     <ExplorerBusProvider tab={tab} setTab={setTab}>
       <div className="min-h-screen bg-background">
-        <BaseUrlBar baseUrl={baseUrl} />
+        <BaseUrlBar />
         <main className="mx-auto max-w-7xl px-4 py-6">
           <Tabs value={tab} onValueChange={setTab}>
             <TabsList className="h-auto w-full justify-start gap-1 rounded-none border-b bg-transparent p-0">

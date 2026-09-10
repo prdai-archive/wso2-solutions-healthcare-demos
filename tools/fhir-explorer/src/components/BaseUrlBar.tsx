@@ -15,6 +15,7 @@
 // under the License.
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import type { CapabilityStatementLike } from "@/lib/fhir-types";
 import { fhirFetch } from "@/lib/fhir-client";
 import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
@@ -59,6 +60,7 @@ export function BaseUrlBar({ baseUrl }: Props) {
       <div className="mx-auto max-w-7xl px-4 py-3">
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2 pr-1">
+            <Image src="/icons/fhir-server.svg" alt="" width={20} height={20} priority />
             <span className="font-semibold">FHIR Explorer</span>
           </div>
           <div className="flex h-9 items-center gap-2 rounded-md border bg-muted/30 px-3 text-sm">

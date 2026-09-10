@@ -27,18 +27,7 @@ export const metadata: Metadata = {
   description:
     "Interactive UI for exploring FHIR R4 servers with a read-only AI assistant powered by the WSO2 FHIR MCP Server.",
   icons: {
-    icon: [
-      {
-        url: "/icons/fhir-server.svg",
-        type: "image/svg+xml",
-        media: "(prefers-color-scheme: light)",
-      },
-      {
-        url: "/icons/fhir-server-dark.svg",
-        type: "image/svg+xml",
-        media: "(prefers-color-scheme: dark)",
-      },
-    ],
+    icon: { url: "/icons/fhir-server.svg", type: "image/svg+xml" },
   },
 };
 

@@ -93,6 +93,8 @@ describe("OperationsPanel", () => {
 
     await user.click(screen.getByRole("button", { name: /invoke/i }));
 
+    expect(screen.getByRole("radio", { name: "GET" })).toBeDisabled();
+    expect(screen.getByRole("radio", { name: "POST" })).toBeChecked();
     expect(client.fhirFetch).toHaveBeenCalledWith(
       "/Patient/$validate",
       {

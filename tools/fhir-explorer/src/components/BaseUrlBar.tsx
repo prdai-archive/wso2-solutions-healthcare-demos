@@ -15,6 +15,7 @@
 // under the License.
 
 import Image from "next/image";
+import { ExternalLink, Github } from "lucide-react";
 import { RequestHistoryMenu } from "./RequestHistoryMenu";
 
 export function BaseUrlBar() {
@@ -27,6 +28,16 @@ export function BaseUrlBar() {
             <span className="font-semibold">FHIR Explorer</span>
           </div>
           <div className="ml-auto flex items-center gap-2">
+            <a
+              href="https://github.com/wso2/fhir-server"
+              target="_blank"
+              rel="noreferrer"
+              className="flex h-9 items-center gap-2 rounded-md border bg-muted/30 px-3 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <Github className="size-4" />
+              <span>FHIR Server</span>
+              <ExternalLink className="size-3" />
+            </a>
             <RequestHistoryMenu />
           </div>
         </div>

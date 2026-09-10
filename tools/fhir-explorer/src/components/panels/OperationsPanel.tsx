@@ -84,8 +84,7 @@ export function OperationsPanel({ baseUrl }: { baseUrl: string }) {
   );
 
   const defaultPost = mustUsePost(op, filled);
-  const method = methodOverride ?? (defaultPost ? "POST" : "GET");
-  const forcedPost = mustUsePost(op, filled) && method === "GET";
+  const method = defaultPost ? "POST" : (methodOverride ?? "GET");
 
   const path = useMemo(() => {
     const seg = `$${encodeFhirPathSegment(opName)}`;
@@ -180,6 +179,7 @@ export function OperationsPanel({ baseUrl }: { baseUrl: string }) {
               type="radio"
               name="op-method"
               checked={method === "GET"}
+              disabled={defaultPost}
               onChange={() => setMethodOverride("GET")}
             />
             GET
@@ -194,7 +194,7 @@ export function OperationsPanel({ baseUrl }: { baseUrl: string }) {
             POST
           </label>
         </div>
-        {forcedPost && (
+        {defaultPost && (
           <span className="text-xs text-destructive">
             This operation needs POST (changes state or has a complex parameter).
           </span>

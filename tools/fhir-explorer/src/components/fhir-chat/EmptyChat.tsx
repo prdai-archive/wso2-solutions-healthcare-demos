@@ -42,7 +42,7 @@ export function EmptyChat({
           <div className="mb-4 flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/10">
             <Bot className="size-6" />
           </div>
-          <h3 className="text-lg font-semibold tracking-tight">Explore your FHIR data</h3>
+          <h3 className="text-lg font-semibold tracking-tight">Explore FHIR data</h3>
           <p className="mt-1.5 max-w-[32ch] text-sm leading-relaxed text-muted-foreground">
             Search resources, inspect capabilities, and read records without changing data.
           </p>

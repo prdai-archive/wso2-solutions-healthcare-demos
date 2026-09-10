@@ -15,7 +15,7 @@
 // under the License.
 
 import Image from "next/image";
-import { ExternalLink, Github } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import { RequestHistoryMenu } from "./RequestHistoryMenu";
 
 export function BaseUrlBar() {
@@ -34,7 +34,7 @@ export function BaseUrlBar() {
               rel="noreferrer"
               className="flex h-9 items-center gap-2 rounded-md border bg-muted/30 px-3 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
-              <Github className="size-4" />
+              <Image src="/icons/github-mark.svg" alt="" width={16} height={16} />
               <span>WSO2 FHIR Server</span>
               <ExternalLink className="size-3" />
             </a>

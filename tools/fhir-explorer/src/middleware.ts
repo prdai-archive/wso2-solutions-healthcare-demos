@@ -15,7 +15,7 @@
 // under the License.
 
 import { type NextRequest, NextResponse } from "next/server";
-import { applicationOrigin, isAllowedOrigin } from "@/lib/server/origin";
+import { applicationOrigin, isAllowedOrigin } from "@/lib/server/api-origin";
 
 const CORS_METHODS = "GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS";
 const CORS_HEADERS = "Authorization, Content-Type";
@@ -34,9 +34,13 @@ function addCorsHeaders(response: NextResponse, origin: string) {
 // (nonces don't cover style attributes, which React and the code highlighter emit).
 export function middleware(request: NextRequest) {
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
+  const scriptSource =
+    process.env.NODE_ENV === "development"
+      ? `script-src 'self' 'unsafe-eval' 'nonce-${nonce}'`
+      : `script-src 'self' 'nonce-${nonce}'`;
   const csp = [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}'`,
+    scriptSource,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data:",
     "font-src 'self' data:",

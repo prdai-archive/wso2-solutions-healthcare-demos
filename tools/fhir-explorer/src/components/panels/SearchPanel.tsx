@@ -41,6 +41,22 @@ import { valueHintForType } from "@/lib/fhir-search-params";
 import { cn } from "@/lib/utils";
 import { Search, ChevronDown } from "lucide-react";
 
+const PAGE_SIZE = 5;
+
+function pageNumbers(current: number, total: number): Array<number | "…"> {
+  const candidates = [1, total, current - 1, current, current + 1];
+  const inRange = candidates.filter((candidate) => candidate >= 1 && candidate <= total);
+  const sorted = [...new Set(inRange)].sort((a, b) => a - b);
+  const pages: Array<number | "…"> = [];
+  let previous = 0;
+  for (const candidate of sorted) {
+    if (candidate - previous > 1) pages.push("…");
+    pages.push(candidate);
+    previous = candidate;
+  }
+  return pages;
+}
+
 export function SearchPanel({ baseUrl }: { baseUrl: string }) {
   const [resourceType, setResourceType] = useState("Patient");
   const [params, setParams] = useState<Array<{ k: string; v: string }>>([{ k: "_count", v: "10" }]);
@@ -50,6 +66,7 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
   const [sortDesc, setSortDesc] = useState(false);
   const [summary, setSummary] = useState("");
   const [openRows, setOpenRows] = useState<Set<number>>(new Set());
+  const [page, setPage] = useState(1);
   const { byName } = useResourceSearchParams(resourceType, baseUrl);
 
   function toggleRow(i: number) {
@@ -82,6 +99,7 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
 
   function run() {
     setOpenRows(new Set());
+    setPage(1);
     const qs = buildQuery();
     const rt = encodeFhirPathSegment(resourceType);
     if (usePost) {
@@ -95,17 +113,16 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
     }
   }
 
-  function followLink(url: string) {
+  function changePage(nextPage: number) {
     setOpenRows(new Set());
-    void send(url);
+    setPage(nextPage);
   }
 
   const bundle = res?.body as BundleLike | undefined;
-  const links: Array<{ relation: string; url: string }> = bundle?.link ?? [];
-  const first = links.find((link) => link.relation === "first");
-  const previous = links.find((link) => link.relation === "previous");
-  const next = links.find((link) => link.relation === "next");
-  const last = links.find((link) => link.relation === "last");
+  const entries = bundle?.entry ?? [];
+  const totalPages = Math.max(1, Math.ceil(entries.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pageEntries = entries.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   const form = (
     <>
@@ -233,59 +250,49 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
     </>
   );
 
-  const pagination = (previous || next) && (
+  const pagination = totalPages > 1 && (
     <Pagination>
       <PaginationContent>
-        {first && (
-          <PaginationItem>
-            <PaginationLink
-              href="#"
-              size="default"
-              onClick={(event) => {
-                event.preventDefault();
-                followLink(first.url);
-              }}
-            >
-              First
-            </PaginationLink>
-          </PaginationItem>
-        )}
         <PaginationItem>
           <PaginationPrevious
             href="#"
-            aria-disabled={!previous || loading}
-            className={!previous || loading ? "pointer-events-none opacity-50" : ""}
+            aria-disabled={safePage === 1}
+            className={safePage === 1 ? "pointer-events-none opacity-50" : ""}
             onClick={(event) => {
               event.preventDefault();
-              if (previous) followLink(previous.url);
+              changePage(Math.max(1, safePage - 1));
             }}
           />
         </PaginationItem>
+        {pageNumbers(safePage, totalPages).map((candidate, index) => (
+          <PaginationItem key={`${candidate}-${index}`}>
+            {candidate === "…" ? (
+              <span className="px-2 text-sm text-muted-foreground">…</span>
+            ) : (
+              <PaginationLink
+                href="#"
+                isActive={candidate === safePage}
+                onClick={(event) => {
+                  event.preventDefault();
+                  changePage(candidate);
+                }}
+              >
+                {candidate}
+              </PaginationLink>
+            )}
+          </PaginationItem>
+        ))}
         <PaginationItem>
           <PaginationNext
             href="#"
-            aria-disabled={!next || loading}
-            className={!next || loading ? "pointer-events-none opacity-50" : ""}
+            aria-disabled={safePage === totalPages}
+            className={safePage === totalPages ? "pointer-events-none opacity-50" : ""}
             onClick={(event) => {
               event.preventDefault();
-              if (next) followLink(next.url);
+              changePage(Math.min(totalPages, safePage + 1));
             }}
           />
         </PaginationItem>
-        {last && (
-          <PaginationItem>
-            <PaginationLink
-              href="#"
-              size="default"
-              onClick={(event) => {
-                event.preventDefault();
-                followLink(last.url);
-              }}
-            >
-              Last
-            </PaginationLink>
-          </PaginationItem>
-        )}
       </PaginationContent>
     </Pagination>
   );
@@ -295,14 +302,14 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
       {bundle?.resourceType === "Bundle" && Array.isArray(bundle.entry) && (
         <div className="rounded-md border bg-card">
           <div className="border-b px-3 py-2 text-sm">
-            <span className="font-medium">{bundle.entry.length}</span>{" "}
+            <span className="font-medium">{entries.length}</span>{" "}
             <span className="text-muted-foreground">entries</span>
             {typeof bundle.total === "number" && (
               <span className="text-muted-foreground"> · total {bundle.total}</span>
             )}
           </div>
           <ul className="divide-y">
-            {bundle.entry.slice(0, 50).map((e, i) => {
+            {pageEntries.map((e, i) => {
               const r = e.resource ?? {};
               const expanded = openRows.has(i);
               return (
@@ -348,12 +355,6 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
               );
             })}
           </ul>
-          {bundle.entry.length > 50 && (
-            <div className="border-t px-3 py-2 text-xs text-muted-foreground">
-              Showing first 50 of {bundle.entry.length} entries on this page. Use the pagination
-              below to see more.
-            </div>
-          )}
         </div>
       )}
       {pagination}

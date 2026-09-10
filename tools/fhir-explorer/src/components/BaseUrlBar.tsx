@@ -35,7 +35,7 @@ export function BaseUrlBar() {
               className="flex h-9 items-center gap-2 rounded-md border bg-muted/30 px-3 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               <Github className="size-4" />
-              <span>FHIR Server</span>
+              <span>WSO2 FHIR Server</span>
               <ExternalLink className="size-3" />
             </a>
             <RequestHistoryMenu />

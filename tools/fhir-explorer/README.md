@@ -47,16 +47,20 @@ docker compose down -v
 
 ## Local UI development
 
-Start the backing services first:
+Run the Explorer and its backing services in development mode:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+```
+
+Explorer runs with `next dev` and reloads when files in this directory change.
+The source directory is mounted into the container, while dependencies and Next's
+build cache stay in Docker volumes.
+
+To run the UI outside Docker instead, start the backing services:
 
 ```bash
 docker compose up postgres fhir-server fhir-mcp
-```
-
-Then run the UI outside Docker with the Compose service endpoints supplied as
-environment variables:
-
-```bash
 pnpm install
 FHIR_SERVER_BASE_URL=http://localhost:9090/fhir/r4 FHIR_MCP_URL=http://localhost:8000/mcp/ pnpm dev
 ```

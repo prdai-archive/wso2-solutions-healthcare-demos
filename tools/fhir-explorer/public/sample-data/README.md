@@ -1,8 +1,8 @@
 # Sample FHIR R4 patient bundles
 
 6 synthetic patients, ~1,762 FHIR resources total. Each `patient-NN.json` is a
-FHIR R4 **transaction Bundle**; the explorer's "Load sample data" button POSTs
-each one to the configured server's base URL. The dataset is deliberately kept
+FHIR R4 **transaction Bundles** consumed by the scheduled sample-data refresh
+job in the listed order. The dataset is deliberately kept
 small (~5 MB) so it loads on resource-constrained sandboxes.
 
 Generated with [Synthea](https://github.com/synthetichealth/synthea) (Apache 2.0).

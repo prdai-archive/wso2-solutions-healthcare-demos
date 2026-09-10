@@ -18,7 +18,6 @@ import { useEffect, useState } from "react";
 import type { CapabilityStatementLike } from "@/lib/fhir-types";
 import { fhirFetch } from "@/lib/fhir-client";
 import { CheckCircle2, XCircle, Loader2, Server } from "lucide-react";
-import { LoadSampleDataButton } from "./LoadSampleDataButton";
 import { RequestHistoryMenu } from "./RequestHistoryMenu";
 
 interface Props {
@@ -72,7 +71,6 @@ export function BaseUrlBar({ baseUrl }: Props) {
             <span className="max-w-[320px] truncate text-muted-foreground">{info || "—"}</span>
           </div>
           <div className="ml-auto flex items-center gap-2">
-            <LoadSampleDataButton baseUrl={baseUrl} />
             <RequestHistoryMenu />
           </div>
         </div>

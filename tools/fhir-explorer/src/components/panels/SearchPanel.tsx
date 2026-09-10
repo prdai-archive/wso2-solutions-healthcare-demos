@@ -28,6 +28,14 @@ import { CopyButton } from "../CopyButton";
 import { CodeBlock } from "../CodeBlock";
 import { Field } from "../Field";
 import { RowSection, RemoveRowButton } from "../RowSection";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import { useResourceSearchParams } from "@/hooks/use-resource-search-params";
 import { valueHintForType } from "@/lib/fhir-search-params";
 import { cn } from "@/lib/utils";
@@ -88,11 +96,16 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
   }
 
   function followLink(url: string) {
+    setOpenRows(new Set());
     void send(url);
   }
 
   const bundle = res?.body as BundleLike | undefined;
   const links: Array<{ relation: string; url: string }> = bundle?.link ?? [];
+  const first = links.find((link) => link.relation === "first");
+  const previous = links.find((link) => link.relation === "previous");
+  const next = links.find((link) => link.relation === "next");
+  const last = links.find((link) => link.relation === "last");
 
   const form = (
     <>
@@ -222,19 +235,61 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
 
   const responseExtra = (
     <>
-      {links.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {links.map((l) => (
-            <Button
-              key={l.relation + l.url}
-              variant="secondary"
-              size="sm"
-              onClick={() => followLink(l.url)}
-            >
-              {l.relation} →
-            </Button>
-          ))}
-        </div>
+      {(previous || next) && (
+        <Pagination>
+          <PaginationContent>
+            {first && (
+              <PaginationItem>
+                <PaginationLink
+                  href="#"
+                  size="default"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    followLink(first.url);
+                  }}
+                >
+                  First
+                </PaginationLink>
+              </PaginationItem>
+            )}
+            <PaginationItem>
+              <PaginationPrevious
+                href="#"
+                aria-disabled={!previous || loading}
+                className={!previous || loading ? "pointer-events-none opacity-50" : ""}
+                onClick={(event) => {
+                  event.preventDefault();
+                  if (previous) followLink(previous.url);
+                }}
+              />
+            </PaginationItem>
+            <PaginationItem>
+              <PaginationNext
+                href="#"
+                aria-disabled={!next || loading}
+                className={!next || loading ? "pointer-events-none opacity-50" : ""}
+                onClick={(event) => {
+                  event.preventDefault();
+                  if (next) followLink(next.url);
+                }}
+              />
+            </PaginationItem>
+            {last && (
+              <PaginationItem>
+                <PaginationLink
+                  href="#"
+                  size="default"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    followLink(last.url);
+                  }}
+                >
+                  Last
+                </PaginationLink>
+              </PaginationItem>
+            )}
+          </PaginationContent>
+        </Pagination>
       )}
 
       {bundle?.resourceType === "Bundle" && Array.isArray(bundle.entry) && (

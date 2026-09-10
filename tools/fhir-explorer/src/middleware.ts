@@ -15,6 +15,18 @@
 // under the License.
 
 import { type NextRequest, NextResponse } from "next/server";
+import { applicationOrigin, isAllowedOrigin } from "@/lib/server/origin";
+
+const CORS_METHODS = "GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS";
+const CORS_HEADERS = "Authorization, Content-Type";
+
+function addCorsHeaders(response: NextResponse, origin: string) {
+  response.headers.set("Access-Control-Allow-Origin", origin);
+  response.headers.set("Access-Control-Allow-Methods", CORS_METHODS);
+  response.headers.set("Access-Control-Allow-Headers", CORS_HEADERS);
+  response.headers.set("Access-Control-Max-Age", "86400");
+  response.headers.append("Vary", "Origin");
+}
 
 // Per-request CSP with a script nonce (replaces the edge's static `unsafe-inline`
 // script-src). Next reads the nonce from the request CSP header and stamps it on
@@ -39,8 +51,30 @@ export function middleware(request: NextRequest) {
   requestHeaders.set("x-nonce", nonce);
   requestHeaders.set("Content-Security-Policy", csp);
 
+  const isApiRequest = request.nextUrl.pathname.startsWith("/api/");
+  const origin = request.headers.get("origin");
+  const allowedOrigin = isAllowedOrigin(
+    origin,
+    applicationOrigin(request.headers, request.nextUrl.origin),
+  );
+
+  if (isApiRequest && !allowedOrigin) {
+    const response = NextResponse.json({ error: "This origin is not allowed." }, { status: 403 });
+    response.headers.set("Content-Security-Policy", csp);
+    response.headers.append("Vary", "Origin");
+    return response;
+  }
+
+  if (isApiRequest && request.method === "OPTIONS" && origin) {
+    const response = new NextResponse(null, { status: 204 });
+    response.headers.set("Content-Security-Policy", csp);
+    addCorsHeaders(response, origin);
+    return response;
+  }
+
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set("Content-Security-Policy", csp);
+  if (isApiRequest && origin) addCorsHeaders(response, origin);
   return response;
 }
 

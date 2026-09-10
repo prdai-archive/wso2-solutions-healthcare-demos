@@ -22,6 +22,11 @@ cp .env.example .env
 Set `OPENAI_API_KEY` in `.env`. Set `OPENAI_BASE_URL` when using an OpenAI-compatible
 gateway instead of the default OpenAI endpoint.
 
+`/api/*` accepts browser requests only from the Explorer's own origin by default.
+Set `EXPLORER_ALLOWED_ORIGINS` to a comma-separated list when a first-party frontend
+uses a different origin. This browser protection does not replace authentication for
+direct API clients.
+
 Start the complete stack:
 
 ```bash

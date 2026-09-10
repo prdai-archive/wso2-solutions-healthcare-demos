@@ -100,15 +100,15 @@ export function FhirChat() {
     <>
       <Button
         type="button"
-        size="icon"
         onClick={() => setOpen((value) => !value)}
         className={cn(
-          "fixed right-5 bottom-5 z-40 size-12 rounded-full shadow-lg transition-transform hover:scale-105",
+          "fixed right-5 bottom-5 z-40 h-11 rounded-full bg-[#111318] px-5 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(17,19,24,0.28)] transition-[transform,background-color,opacity] hover:bg-[#24272e] active:translate-y-px dark:bg-[#f4f4f5] dark:text-[#111318] dark:hover:bg-white",
           open && "scale-0",
         )}
         aria-label="Open FHIR assistant"
       >
-        <MessageCircle className="size-5" />
+        <MessageCircle className="size-[17px] stroke-[2.25]" />
+        Chat with FHIR Assistant
       </Button>
 
       <section

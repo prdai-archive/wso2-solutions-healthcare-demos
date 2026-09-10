@@ -27,7 +27,6 @@ import { EmptyChat } from "@/components/fhir-chat/EmptyChat";
 import { Button } from "@/components/ui/button";
 import { ChatRateLimitError, parseChatLimit } from "@/lib/chat-rate-limit";
 import type { FhirChatMessage } from "@/lib/fhir-chat-types";
-import { DEFAULT_BASE_URL } from "@/lib/fhir-client";
 import { cn } from "@/lib/utils";
 
 const STARTER_QUESTIONS = [
@@ -100,15 +99,15 @@ export function FhirChat() {
     <>
       <Button
         type="button"
-        size="icon"
         onClick={() => setOpen((value) => !value)}
         className={cn(
-          "fixed right-5 bottom-5 z-40 size-12 rounded-full shadow-lg transition-transform hover:scale-105",
+          "fixed right-5 bottom-5 z-40 h-13 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-lg transition-[transform,background-color,opacity] hover:bg-primary/90 active:translate-y-px",
           open && "scale-0",
         )}
         aria-label="Open FHIR assistant"
       >
-        <MessageCircle className="size-5" />
+        <MessageCircle className="size-[17px] stroke-[2.25]" />
+        Chat with FHIR Assistant
       </Button>
 
       <section
@@ -122,7 +121,6 @@ export function FhirChat() {
         )}
       >
         <ChatHeader
-          baseUrl={DEFAULT_BASE_URL}
           hasMessages={hasConversation}
           onClear={() => setMessages([])}
           onClose={() => setOpen(false)}

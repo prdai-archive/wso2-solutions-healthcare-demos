@@ -88,10 +88,6 @@ function ExplorerContent() {
               </TabsContent>
             </div>
           </Tabs>
-          <p className="mt-6 text-center text-xs text-muted-foreground">
-            Tip: if requests fail with a network error, ensure the FHIR server allows CORS from this
-            origin.
-          </p>
         </main>
         <FhirChat />
       </div>

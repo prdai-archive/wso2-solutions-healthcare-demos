@@ -29,6 +29,15 @@ import {
   type OperationOutcomeIssue,
 } from "@/lib/fhir-response";
 
+function pathAndQuery(url: string): string {
+  try {
+    const u = new URL(url);
+    return `${u.pathname}${u.search}`;
+  } catch {
+    return url;
+  }
+}
+
 export function ResponseView({ res }: { res: FhirResponse | null }) {
   const [copied, setCopied] = useState(false);
 
@@ -92,7 +101,7 @@ export function ResponseView({ res }: { res: FhirResponse | null }) {
           className="min-w-0 flex-1 truncate rounded bg-muted px-2 py-0.5 font-mono text-xs"
           title={res.url}
         >
-          {res.url}
+          {pathAndQuery(res.url)}
         </code>
         <div className="flex shrink-0 gap-1">
           <Button

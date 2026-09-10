@@ -40,11 +40,15 @@ describe("ResponseView", () => {
     expect(screen.getByText(/response will appear here/i)).toBeInTheDocument();
   });
 
-  it("renders the status line with method, status, duration and url", () => {
-    render(<ResponseView res={makeResponse()} />);
+  it("renders the status line with method, status, duration and relative url", () => {
+    render(
+      <ResponseView
+        res={makeResponse({ url: "https://example.org/fhir/r4/Patient/1?_count=10" })}
+      />,
+    );
     expect(screen.getByText("GET 200")).toBeInTheDocument();
     expect(screen.getByText("42ms")).toBeInTheDocument();
-    expect(screen.getByText("https://example.org/fhir/r4/Patient/1")).toBeInTheDocument();
+    expect(screen.getByText("/fhir/r4/Patient/1?_count=10")).toBeInTheDocument();
   });
 
   it("renders the JSON body as a highlighted tree", () => {

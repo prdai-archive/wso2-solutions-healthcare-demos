@@ -1,0 +1,23 @@
+services:
+  explorer:
+    build: !reset null
+    image: oven/bun:1.3.14-alpine
+    command: >-
+      sh -c 'bun install --frozen-lockfile && exec bun dev --webpack --hostname 0.0.0.0'
+    environment:
+      NODE_ENV: development
+      WATCHPACK_POLLING: "true"
+      FHIR_MCP_URL: http://fhir-mcp:8000/mcp/
+      FHIR_SERVER_BASE_URL: http://fhir-server:9090/fhir/r4
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?Set OPENAI_API_KEY in your environment or .env file}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5-nano}
+    volumes:
+      - .:/app
+      - explorer-node-modules:/app/node_modules
+      - explorer-next:/app/.next
+    working_dir: /app
+
+volumes:
+  explorer-next:
+  explorer-node-modules:

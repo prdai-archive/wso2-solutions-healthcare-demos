@@ -15,10 +15,10 @@
 // under the License.
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import type { CapabilityStatementLike } from "@/lib/fhir-types";
 import { fhirFetch } from "@/lib/fhir-client";
-import { CheckCircle2, XCircle, Loader2, Server } from "lucide-react";
-import { LoadSampleDataButton } from "./LoadSampleDataButton";
+import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { RequestHistoryMenu } from "./RequestHistoryMenu";
 
 interface Props {
@@ -60,19 +60,18 @@ export function BaseUrlBar({ baseUrl }: Props) {
       <div className="mx-auto max-w-7xl px-4 py-3">
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2 pr-1">
-            <Server className="h-5 w-5 text-primary" />
+            <Image src="/icons/fhir-server.svg" alt="" width={20} height={20} priority />
             <span className="font-semibold">FHIR Explorer</span>
           </div>
-          <div className="flex h-9 items-center gap-2 rounded-md border bg-muted/30 px-3 text-sm">
-            {status === "checking" && (
-              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-            )}
-            {status === "ok" && <CheckCircle2 className="h-4 w-4 text-primary" />}
-            {status === "fail" && <XCircle className="h-4 w-4 text-destructive" />}
-            <span className="max-w-[320px] truncate text-muted-foreground">{info || "—"}</span>
-          </div>
           <div className="ml-auto flex items-center gap-2">
-            <LoadSampleDataButton baseUrl={baseUrl} />
+            <div className="flex h-9 items-center gap-2 rounded-md border bg-muted/30 px-3 text-sm">
+              {status === "checking" && (
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              )}
+              {status === "ok" && <CheckCircle2 className="h-4 w-4 text-primary" />}
+              {status === "fail" && <XCircle className="h-4 w-4 text-destructive" />}
+              <span className="max-w-[320px] truncate text-muted-foreground">{info || "—"}</span>
+            </div>
             <RequestHistoryMenu />
           </div>
         </div>

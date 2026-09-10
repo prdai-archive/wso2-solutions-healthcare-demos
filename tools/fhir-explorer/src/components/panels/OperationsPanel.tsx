@@ -20,6 +20,7 @@ import { useFhirRequest } from "@/hooks/use-fhir-request";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CodeBlock } from "../CodeBlock";
 import { JsonEditor } from "../JsonEditor";
 import { BasePanel } from "./BasePanel";
 import { ResourceCombobox } from "../ResourceCombobox";
@@ -41,7 +42,6 @@ import {
 } from "@/lib/fhir-operations";
 
 const SCOPES: { value: OperationScope; label: string; desc: string }[] = [
-  { value: "system", label: "System", desc: "Server-wide, e.g. $convert" },
   { value: "type", label: "Type", desc: "On a resource type, e.g. $validate" },
   { value: "instance", label: "Instance", desc: "On one resource, e.g. $everything" },
 ];
@@ -134,7 +134,7 @@ export function OperationsPanel({ baseUrl }: { baseUrl: string }) {
           choices={SCOPES}
           value={scope}
           onChange={setScope}
-          gridClass="grid grid-cols-3 gap-2"
+          gridClass="grid grid-cols-2 gap-2"
         />
       </Field>
 
@@ -258,9 +258,10 @@ export function OperationsPanel({ baseUrl }: { baseUrl: string }) {
               />
             </div>
           ) : (
-            <pre className="max-h-64 overflow-auto border-t px-3 py-2 font-mono text-xs">
-              {generatedBody}
-            </pre>
+            <CodeBlock
+              code={generatedBody}
+              className="max-h-64 rounded-none border-0 border-t bg-muted/30 px-3 py-2"
+            />
           ))}
       </div>
     </>

@@ -111,11 +111,10 @@ describe("OperationsPanel", () => {
     );
   });
 
-  it("hides the resource-type and id inputs at system scope", async () => {
-    const user = userEvent.setup();
+  it("offers only type and instance scopes", () => {
     renderWithProviders(<OperationsPanel baseUrl={BASE} />);
-    await user.click(screen.getByRole("radio", { name: /^System/ }));
-    expect(screen.queryByPlaceholderText("resource id")).not.toBeInTheDocument();
-    expect(screen.queryByRole("combobox", { name: /resource type/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("radio", { name: /^System/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /^Type/ })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /^Instance/ })).toBeInTheDocument();
   });
 });

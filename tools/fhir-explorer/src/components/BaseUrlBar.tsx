@@ -24,9 +24,9 @@ export function BaseUrlBar() {
       <div className="mx-auto max-w-7xl px-4 py-3">
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-3 pr-1">
-            <Image src="/icons/fhir-server.svg" alt="" width={28} height={28} priority />
+            <Image src="/icons/fhir-server.svg" alt="" width={36} height={36} priority />
             <div>
-              <span className="font-semibold">FHIR Explorer</span>
+              <span className="text-xl font-semibold">FHIR Explorer</span>
               <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
                 <span>Powered by</span>
                 <a

@@ -23,20 +23,34 @@ export function BaseUrlBar() {
     <div className="border-b bg-card">
       <div className="mx-auto max-w-7xl px-4 py-3">
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2 pr-1">
-            <Image src="/icons/fhir-server.svg" alt="" width={20} height={20} priority />
-            <span className="font-semibold">FHIR Explorer</span>
+          <div className="flex items-center gap-3 pr-1">
+            <Image src="/icons/fhir-server.svg" alt="" width={28} height={28} priority />
+            <div>
+              <span className="font-semibold">FHIR Explorer</span>
+              <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                <span>Powered by</span>
+                <a
+                  href="https://github.com/wso2/fhir-mcp-server"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 font-medium text-foreground/75 hover:text-primary hover:underline"
+                >
+                  WSO2 FHIR Server
+                  <ExternalLink className="size-3" />
+                </a>
+              </div>
+            </div>
           </div>
           <div className="ml-auto flex items-center gap-2">
             <a
               href="https://github.com/wso2/fhir-server"
               target="_blank"
               rel="noreferrer"
-              className="flex h-9 items-center gap-2 rounded-md border bg-muted/30 px-3 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              aria-label="WSO2 FHIR Server on GitHub"
+              title="WSO2 FHIR Server on GitHub"
+              className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
-              <Github className="size-4" />
-              <span>WSO2 FHIR Server</span>
-              <ExternalLink className="size-3" />
+              <Github className="size-5" />
             </a>
             <RequestHistoryMenu />
           </div>

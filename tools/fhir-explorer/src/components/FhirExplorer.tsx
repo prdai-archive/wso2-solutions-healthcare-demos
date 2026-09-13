@@ -20,6 +20,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 import { BaseUrlBar } from "@/components/BaseUrlBar";
 import { CapabilityPanel } from "@/components/panels/CapabilityPanel";
+import { HomePanel } from "@/components/panels/HomePanel";
 import { FhirChat } from "@/components/FhirChat";
 import { InstancePanel } from "@/components/panels/InstancePanel";
 import { OperationsPanel } from "@/components/panels/OperationsPanel";
@@ -41,7 +42,7 @@ export function FhirExplorer() {
 
 function ExplorerContent() {
   const baseUrl = "http://localhost:9090/fhir/r4";
-  const [tab, setTab] = useState("search");
+  const [tab, setTab] = useState("home");
 
   return (
     <ExplorerBusProvider tab={tab} setTab={setTab}>
@@ -51,6 +52,7 @@ function ExplorerContent() {
           <Tabs value={tab} onValueChange={setTab}>
             <TabsList className="h-auto w-full justify-start gap-1 rounded-none border-b bg-transparent p-0">
               {[
+                ["home", "Home"],
                 ["capability", "Capability"],
                 ["search", "Search"],
                 ["instance", "Read / History"],
@@ -68,6 +70,9 @@ function ExplorerContent() {
               ))}
             </TabsList>
             <div className="mt-6 rounded-lg border bg-card p-5 shadow-sm">
+              <TabsContent value="home" className="m-0">
+                <HomePanel />
+              </TabsContent>
               <TabsContent value="capability" className="m-0">
                 <CapabilityPanel baseUrl={baseUrl} />
               </TabsContent>

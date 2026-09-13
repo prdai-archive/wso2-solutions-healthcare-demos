@@ -14,27 +14,24 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { DemoCta, DemoIntro, DemoWarning } from "@/components/DemoNotice";
 
 export function HomePanel() {
   return (
-    <div className="space-y-6">
-      <section className="relative overflow-hidden rounded-xl border bg-gradient-to-br from-primary/10 via-accent/40 to-transparent p-6 sm:p-8">
-        <div className="flex items-start gap-4">
-          <span className="rounded-xl border bg-card p-3 shadow-sm">
-            <Image src="/icons/fhir-server.svg" alt="" width={40} height={40} priority />
-          </span>
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Open Healthcare FHIR Explorer</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Explore a public FHIR R4 server — no setup, no account.
-            </p>
-          </div>
-        </div>
-      </section>
+    <div className="space-y-8">
+      <header>
+        <p className="text-xs font-medium uppercase tracking-[0.18em] text-primary">
+          WSO2 Open Healthcare
+        </p>
+        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-foreground">
+          Open Healthcare FHIR Explorer
+        </h1>
+        <p className="mt-2 max-w-xl text-sm text-muted-foreground">
+          Explore a public FHIR R4 server — no setup, no account.
+        </p>
+      </header>
 
       <DemoIntro />
       <DemoWarning />
@@ -45,7 +42,7 @@ export function HomePanel() {
           href="/about"
           className="inline-flex items-center gap-1 font-medium text-primary underline-offset-4 hover:underline"
         >
-          Read the full demo notice
+          Full demo notice
           <ArrowRight className="size-3.5" />
         </Link>
       </p>

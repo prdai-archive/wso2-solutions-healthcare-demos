@@ -62,7 +62,7 @@ const REASONING_EFFORTS: readonly ReasoningEffort[] = [
 ];
 
 function reasoningEffort(): ReasoningEffort {
-  const value = process.env.OPENAI_REASONING_EFFORT?.trim() || "medium";
+  const value = process.env.OPENAI_REASONING_EFFORT?.trim() || "high";
   const match = REASONING_EFFORTS.find((effort) => effort === value);
   if (!match) {
     throw new Error(

@@ -39,27 +39,22 @@ import {
 import { useResourceSearchParams } from "@/hooks/use-resource-search-params";
 import { valueHintForType } from "@/lib/fhir-search-params";
 import { cn } from "@/lib/utils";
-import { Search, ChevronDown } from "lucide-react";
+import { ChevronDown, ChevronsLeft, ChevronsRight, RefreshCw, Search } from "lucide-react";
 
-const PAGE_SIZE = 5;
+const DEFAULT_PAGE_SIZE = 5;
 
 function pageNumbers(current: number, total: number): Array<number | "…"> {
-  const candidates = [1, total, current - 1, current, current + 1];
-  const inRange = candidates.filter((candidate) => candidate >= 1 && candidate <= total);
-  const sorted = [...new Set(inRange)].sort((a, b) => a - b);
-  const pages: Array<number | "…"> = [];
-  let previous = 0;
-  for (const candidate of sorted) {
-    if (candidate - previous > 1) pages.push("…");
-    pages.push(candidate);
-    previous = candidate;
-  }
-  return pages;
+  if (total <= 7) return Array.from({ length: total }, (_, index) => index + 1);
+  if (current <= 4) return [1, 2, 3, 4, 5, "…", total];
+  if (current >= total - 3) return [1, "…", total - 4, total - 3, total - 2, total - 1, total];
+  return [1, "…", current - 1, current, current + 1, "…", total];
 }
 
 export function SearchPanel({ baseUrl }: { baseUrl: string }) {
   const [resourceType, setResourceType] = useState("Patient");
-  const [params, setParams] = useState<Array<{ k: string; v: string }>>([{ k: "_count", v: "10" }]);
+  const [params, setParams] = useState<Array<{ k: string; v: string }>>([
+    { k: "_count", v: String(DEFAULT_PAGE_SIZE) },
+  ]);
   const { res, loading, run: send } = useFhirRequest(baseUrl);
   const [usePost, setUsePost] = useState(false);
   const [sortParam, setSortParam] = useState("");
@@ -91,6 +86,12 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
     const parts = params
       .filter((p) => p.k.trim())
       .map((p) => `${encodeURIComponent(p.k)}=${encodeURIComponent(p.v)}`);
+    if (
+      params.some((p) => p.k.trim() === "_count") &&
+      !params.some((p) => p.k.trim() === "_total")
+    ) {
+      parts.push("_total=accurate");
+    }
     if (sortParam.trim())
       parts.push(`_sort=${encodeURIComponent((sortDesc ? "-" : "") + sortParam.trim())}`);
     if (summary) parts.push(`_summary=${encodeURIComponent(summary)}`);
@@ -114,15 +115,33 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
   }
 
   function changePage(nextPage: number) {
+    const relation = nextPage > page ? "next" : "previous";
+    followLink(relation, nextPage);
+  }
+
+  function followLink(relation: string, nextPage = page) {
+    const link = bundle?.link?.find((candidate) => candidate.relation === relation);
+    if (!link) return;
+    void send(link.url);
     setOpenRows(new Set());
-    setPage(nextPage);
+    setPage(Math.max(1, nextPage));
   }
 
   const bundle = res?.body as BundleLike | undefined;
   const entries = bundle?.entry ?? [];
-  const totalPages = Math.max(1, Math.ceil(entries.length / PAGE_SIZE));
+  const pageSize = getPageSize(params);
+  const totalResources = typeof bundle?.total === "number" ? bundle.total : entries.length;
+  const totalPages = Math.max(1, Math.ceil(totalResources / pageSize));
   const safePage = Math.min(page, totalPages);
-  const pageEntries = entries.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const hasServerPagination = entries.length <= pageSize && totalResources > entries.length;
+  const pageEntries = hasServerPagination
+    ? entries
+    : entries.slice((safePage - 1) * pageSize, safePage * pageSize);
+  const previousPage = bundle?.link?.some((link) => link.relation === "previous") ?? false;
+  const nextPage = bundle?.link?.some((link) => link.relation === "next") ?? false;
+  const selfLink = bundle?.link?.some((link) => link.relation === "self") ?? false;
+  const firstLink = bundle?.link?.some((link) => link.relation === "first") ?? false;
+  const lastLink = bundle?.link?.some((link) => link.relation === "last") ?? false;
 
   const form = (
     <>
@@ -250,31 +269,73 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
     </>
   );
 
-  const pagination = totalPages > 1 && (
-    <Pagination>
+  const pagination = bundle?.resourceType === "Bundle" && (
+    <Pagination className="mx-0 w-auto justify-end">
       <PaginationContent>
+        {selfLink && (
+          <PaginationItem>
+            <PaginationLink
+              href="#"
+              aria-label="Reload current page"
+              title="Reload current page"
+              onClick={(event) => {
+                event.preventDefault();
+                followLink("self");
+              }}
+            >
+              <RefreshCw className="h-4 w-4" />
+              <span className="sr-only">Reload current page</span>
+            </PaginationLink>
+          </PaginationItem>
+        )}
+        {firstLink && (
+          <PaginationItem>
+            <PaginationLink
+              href="#"
+              aria-label="Go to first page"
+              title="First page"
+              className={safePage === 1 ? "pointer-events-none opacity-50" : ""}
+              onClick={(event) => {
+                event.preventDefault();
+                if (safePage > 1) followLink("first", 1);
+              }}
+            >
+              <ChevronsLeft className="h-4 w-4" />
+              <span className="sr-only">First page</span>
+            </PaginationLink>
+          </PaginationItem>
+        )}
         <PaginationItem>
           <PaginationPrevious
             href="#"
-            aria-disabled={safePage === 1}
-            className={safePage === 1 ? "pointer-events-none opacity-50" : ""}
+            aria-disabled={safePage === 1 || (hasServerPagination && !previousPage)}
+            className={
+              safePage === 1 || (hasServerPagination && !previousPage)
+                ? "pointer-events-none opacity-50"
+                : ""
+            }
             onClick={(event) => {
               event.preventDefault();
-              changePage(Math.max(1, safePage - 1));
+              if (safePage > 1 && (!hasServerPagination || previousPage)) {
+                changePage(safePage - 1);
+              }
             }}
           />
         </PaginationItem>
         {pageNumbers(safePage, totalPages).map((candidate, index) => (
           <PaginationItem key={`${candidate}-${index}`}>
             {candidate === "…" ? (
-              <span className="px-2 text-sm text-muted-foreground">…</span>
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center text-sm text-muted-foreground">
+                …
+              </span>
             ) : (
               <PaginationLink
                 href="#"
                 isActive={candidate === safePage}
+                className="h-9 w-9 shrink-0 p-0"
                 onClick={(event) => {
                   event.preventDefault();
-                  changePage(candidate);
+                  if (!hasServerPagination || candidate <= safePage + 1) changePage(candidate);
                 }}
               >
                 {candidate}
@@ -285,14 +346,37 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
         <PaginationItem>
           <PaginationNext
             href="#"
-            aria-disabled={safePage === totalPages}
-            className={safePage === totalPages ? "pointer-events-none opacity-50" : ""}
+            aria-disabled={safePage === totalPages || (hasServerPagination && !nextPage)}
+            className={
+              safePage === totalPages || (hasServerPagination && !nextPage)
+                ? "pointer-events-none opacity-50"
+                : ""
+            }
             onClick={(event) => {
               event.preventDefault();
-              changePage(Math.min(totalPages, safePage + 1));
+              if (safePage < totalPages && (!hasServerPagination || nextPage)) {
+                changePage(safePage + 1);
+              }
             }}
           />
         </PaginationItem>
+        {lastLink && (
+          <PaginationItem>
+            <PaginationLink
+              href="#"
+              aria-label="Go to last page"
+              title="Last page"
+              className={safePage === totalPages ? "pointer-events-none opacity-50" : ""}
+              onClick={(event) => {
+                event.preventDefault();
+                if (safePage < totalPages) followLink("last", totalPages);
+              }}
+            >
+              <ChevronsRight className="h-4 w-4" />
+              <span className="sr-only">Last page</span>
+            </PaginationLink>
+          </PaginationItem>
+        )}
       </PaginationContent>
     </Pagination>
   );
@@ -300,15 +384,8 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
   const responseExtra = (
     <>
       {bundle?.resourceType === "Bundle" && Array.isArray(bundle.entry) && (
-        <div className="rounded-md border bg-card">
-          <div className="border-b px-3 py-2 text-sm">
-            <span className="font-medium">{entries.length}</span>{" "}
-            <span className="text-muted-foreground">entries</span>
-            {typeof bundle.total === "number" && (
-              <span className="text-muted-foreground"> · total {bundle.total}</span>
-            )}
-          </div>
-          <ul className="divide-y">
+        <div className="overflow-hidden rounded-md border bg-card">
+          <ul className="max-h-96 divide-y overflow-y-auto">
             {pageEntries.map((e, i) => {
               const r = e.resource ?? {};
               const expanded = openRows.has(i);
@@ -355,9 +432,15 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
               );
             })}
           </ul>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t bg-muted/20 px-3 py-2">
+            <span className="text-xs tabular-nums text-muted-foreground">
+              Showing {entries.length ? (safePage - 1) * pageSize + 1 : 0}–
+              {(safePage - 1) * pageSize + pageEntries.length} of {totalResources} resources
+            </span>
+            {pagination}
+          </div>
         </div>
       )}
-      {pagination}
     </>
   );
 
@@ -366,6 +449,12 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
       {form}
     </BasePanel>
   );
+}
+
+function getPageSize(params: Array<{ k: string; v: string }>): number {
+  const count = params.find((param) => param.k.trim() === "_count")?.v.trim();
+  const pageSize = Number.parseInt(count ?? "", 10);
+  return Number.isFinite(pageSize) && pageSize > 0 ? pageSize : DEFAULT_PAGE_SIZE;
 }
 
 function summarize(r: ResourceLike): string {

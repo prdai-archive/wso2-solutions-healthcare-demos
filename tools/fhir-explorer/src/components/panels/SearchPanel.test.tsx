@@ -46,20 +46,20 @@ beforeEach(() => {
 });
 
 describe("SearchPanel", () => {
-  it("starts on Patient with a default _count=10 parameter", () => {
+  it("starts on Patient with a default _count=5 parameter", () => {
     renderWithProviders(<SearchPanel baseUrl={BASE} />);
     expect(screen.getByRole("combobox", { name: /resource type/i })).toHaveTextContent("Patient");
     expect(screen.getByRole("combobox", { name: /search parameter name/i })).toHaveTextContent(
       "_count",
     );
-    expect(screen.getByDisplayValue("10")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("5")).toBeInTheDocument();
   });
 
   it("issues a GET search with the built query string", async () => {
     const user = userEvent.setup();
     renderWithProviders(<SearchPanel baseUrl={BASE} />);
     await user.click(screen.getByRole("button", { name: /^search$/i }));
-    expect(client.fhirFetch).toHaveBeenCalledWith("/Patient?_count=10", {}, BASE);
+    expect(client.fhirFetch).toHaveBeenCalledWith("/Patient?_count=5&_total=accurate", {}, BASE);
   });
 
   it("adds and removes parameter rows", async () => {
@@ -83,7 +83,11 @@ describe("SearchPanel", () => {
     await user.type(screen.getByPlaceholderText(/search resource type/i), "Observation");
     await user.click(screen.getByRole("option", { name: "Observation" }));
     await user.click(screen.getByRole("button", { name: /^search$/i }));
-    expect(client.fhirFetch).toHaveBeenCalledWith("/Observation?_count=10", {}, BASE);
+    expect(client.fhirFetch).toHaveBeenCalledWith(
+      "/Observation?_count=5&_total=accurate",
+      {},
+      BASE,
+    );
   });
 
   it("lets you pick a curated search parameter and includes it in the request", async () => {
@@ -99,7 +103,11 @@ describe("SearchPanel", () => {
     const valueInputs = screen.getAllByRole("textbox", { name: /parameter value/i });
     await user.type(valueInputs[1], "female");
     await user.click(screen.getByRole("button", { name: /^search$/i }));
-    expect(client.fhirFetch).toHaveBeenCalledWith("/Patient?_count=10&gender=female", {}, BASE);
+    expect(client.fhirFetch).toHaveBeenCalledWith(
+      "/Patient?_count=5&gender=female&_total=accurate",
+      {},
+      BASE,
+    );
   });
 
   it("submits the search when Enter is pressed in a value field", async () => {
@@ -108,7 +116,7 @@ describe("SearchPanel", () => {
     const value = screen.getByRole("textbox", { name: /parameter value/i });
     await user.clear(value);
     await user.type(value, "5{Enter}");
-    expect(client.fhirFetch).toHaveBeenCalledWith("/Patient?_count=5", {}, BASE);
+    expect(client.fhirFetch).toHaveBeenCalledWith("/Patient?_count=5&_total=accurate", {}, BASE);
   });
 
   it("renders result rows with summaries and expands a resource on click", async () => {
@@ -168,6 +176,76 @@ describe("SearchPanel", () => {
     expect(await screen.findByRole("button", { name: /^Patient\/p6/ })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Patient\/p1/ })).not.toBeInTheDocument();
     expect(client.fhirFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("calculates pagination from the Bundle total", async () => {
+    vi.mocked(client.fhirFetch).mockResolvedValue({
+      ...okBundle(),
+      body: {
+        resourceType: "Bundle",
+        total: 11,
+        entry: Array.from({ length: 5 }, (_, index) => ({
+          resource: { resourceType: "Patient", id: `p${index + 1}` },
+        })),
+      },
+    });
+    const user = userEvent.setup();
+    renderWithProviders(<SearchPanel baseUrl={BASE} />);
+    await user.click(screen.getByRole("button", { name: /^search$/i }));
+
+    expect(await screen.findByRole("link", { name: "3" })).toBeInTheDocument();
+  });
+
+  it("loads the next FHIR Bundle when moving to the next server page", async () => {
+    vi.mocked(client.fhirFetch)
+      .mockResolvedValueOnce({
+        ...okBundle(),
+        body: {
+          resourceType: "Bundle",
+          total: 6,
+          entry: [{ resource: { resourceType: "Patient", id: "p1" } }],
+          link: [{ relation: "next", url: `${BASE}/Patient?_count=5&page=2` }],
+        },
+      })
+      .mockResolvedValueOnce({
+        ...okBundle(),
+        body: {
+          resourceType: "Bundle",
+          total: 6,
+          entry: [{ resource: { resourceType: "Patient", id: "p6" } }],
+          link: [{ relation: "previous", url: `${BASE}/Patient?_count=5&page=1` }],
+        },
+      });
+    const user = userEvent.setup();
+    renderWithProviders(<SearchPanel baseUrl={BASE} />);
+    await user.click(screen.getByRole("button", { name: /^search$/i }));
+    await user.click(await screen.findByRole("link", { name: "Go to next page" }));
+
+    expect(await screen.findByRole("button", { name: /^Patient\/p6/ })).toBeInTheDocument();
+    expect(client.fhirFetch).toHaveBeenLastCalledWith(`${BASE}/Patient?_count=5&page=2`, {}, BASE);
+  });
+
+  it("shows the configured count on one page", async () => {
+    vi.mocked(client.fhirFetch).mockResolvedValue({
+      ...okBundle(),
+      body: {
+        resourceType: "Bundle",
+        total: 20,
+        entry: Array.from({ length: 10 }, (_, index) => ({
+          resource: { resourceType: "Patient", id: `p${index + 1}` },
+        })),
+      },
+    });
+    const user = userEvent.setup();
+    renderWithProviders(<SearchPanel baseUrl={BASE} />);
+    const count = screen.getByDisplayValue("5");
+    await user.clear(count);
+    await user.type(count, "10");
+    await user.click(screen.getByRole("button", { name: /^search$/i }));
+
+    expect(await screen.findByRole("button", { name: /^Patient\/p10/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Patient\/p11/ })).not.toBeInTheDocument();
+    expect(client.fhirFetch).toHaveBeenCalledWith("/Patient?_count=10&_total=accurate", {}, BASE);
   });
 
   it("copies a result's bare id without expanding the row", async () => {

@@ -267,7 +267,7 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
     </>
   );
 
-  const pagination = totalPages > 1 && (
+  const pagination = bundle?.resourceType === "Bundle" && (
     <Pagination className="mx-0 w-auto justify-end">
       <PaginationContent>
         {selfLink && (

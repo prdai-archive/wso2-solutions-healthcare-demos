@@ -59,7 +59,7 @@ function pageNumbers(current: number, total: number): Array<number | "…"> {
 
 export function SearchPanel({ baseUrl }: { baseUrl: string }) {
   const [resourceType, setResourceType] = useState("Patient");
-  const [params, setParams] = useState<Array<{ k: string; v: string }>>([{ k: "_count", v: "10" }]);
+  const [params, setParams] = useState<Array<{ k: string; v: string }>>([{ k: "_count", v: "5" }]);
   const { res, loading, run: send } = useFhirRequest(baseUrl);
   const [usePost, setUsePost] = useState(false);
   const [sortParam, setSortParam] = useState("");
@@ -120,7 +120,8 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
 
   const bundle = res?.body as BundleLike | undefined;
   const entries = bundle?.entry ?? [];
-  const totalPages = Math.max(1, Math.ceil(entries.length / PAGE_SIZE));
+  const totalResources = typeof bundle?.total === "number" ? bundle.total : entries.length;
+  const totalPages = Math.max(1, Math.ceil(totalResources / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
   const pageEntries = entries.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 

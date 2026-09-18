@@ -91,6 +91,12 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
     const parts = params
       .filter((p) => p.k.trim())
       .map((p) => `${encodeURIComponent(p.k)}=${encodeURIComponent(p.v)}`);
+    if (
+      params.some((p) => p.k.trim() === "_count") &&
+      !params.some((p) => p.k.trim() === "_total")
+    ) {
+      parts.push("_total=accurate");
+    }
     if (sortParam.trim())
       parts.push(`_sort=${encodeURIComponent((sortDesc ? "-" : "") + sortParam.trim())}`);
     if (summary) parts.push(`_summary=${encodeURIComponent(summary)}`);

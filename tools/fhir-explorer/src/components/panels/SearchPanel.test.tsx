@@ -59,7 +59,7 @@ describe("SearchPanel", () => {
     const user = userEvent.setup();
     renderWithProviders(<SearchPanel baseUrl={BASE} />);
     await user.click(screen.getByRole("button", { name: /^search$/i }));
-    expect(client.fhirFetch).toHaveBeenCalledWith("/Patient?_count=5", {}, BASE);
+    expect(client.fhirFetch).toHaveBeenCalledWith("/Patient?_count=5&_total=accurate", {}, BASE);
   });
 
   it("adds and removes parameter rows", async () => {
@@ -83,7 +83,11 @@ describe("SearchPanel", () => {
     await user.type(screen.getByPlaceholderText(/search resource type/i), "Observation");
     await user.click(screen.getByRole("option", { name: "Observation" }));
     await user.click(screen.getByRole("button", { name: /^search$/i }));
-    expect(client.fhirFetch).toHaveBeenCalledWith("/Observation?_count=5", {}, BASE);
+    expect(client.fhirFetch).toHaveBeenCalledWith(
+      "/Observation?_count=5&_total=accurate",
+      {},
+      BASE,
+    );
   });
 
   it("lets you pick a curated search parameter and includes it in the request", async () => {
@@ -99,7 +103,11 @@ describe("SearchPanel", () => {
     const valueInputs = screen.getAllByRole("textbox", { name: /parameter value/i });
     await user.type(valueInputs[1], "female");
     await user.click(screen.getByRole("button", { name: /^search$/i }));
-    expect(client.fhirFetch).toHaveBeenCalledWith("/Patient?_count=5&gender=female", {}, BASE);
+    expect(client.fhirFetch).toHaveBeenCalledWith(
+      "/Patient?_count=5&gender=female&_total=accurate",
+      {},
+      BASE,
+    );
   });
 
   it("submits the search when Enter is pressed in a value field", async () => {
@@ -108,7 +116,7 @@ describe("SearchPanel", () => {
     const value = screen.getByRole("textbox", { name: /parameter value/i });
     await user.clear(value);
     await user.type(value, "5{Enter}");
-    expect(client.fhirFetch).toHaveBeenCalledWith("/Patient?_count=5", {}, BASE);
+    expect(client.fhirFetch).toHaveBeenCalledWith("/Patient?_count=5&_total=accurate", {}, BASE);
   });
 
   it("renders result rows with summaries and expands a resource on click", async () => {

@@ -73,6 +73,8 @@ function reasoningEffort(): ReasoningEffort {
   return match;
 }
 
+const REASONING_EFFORT = reasoningEffort();
+
 interface FhirChatRequestBody {
   messages?: UIMessage[];
 }
@@ -114,7 +116,7 @@ export async function POST(request: Request) {
       tools,
       stopWhen: stepCountIs(CHAT_STEP_LIMIT),
       prepareStep: prepareChatStep,
-      providerOptions: { openai: { reasoningEffort: reasoningEffort() } },
+      providerOptions: { openai: { reasoningEffort: REASONING_EFFORT } },
       // Hardened, read-only scope: one layer behind the gateway guardrails and MCP.
       instructions: FHIR_CHAT_INSTRUCTIONS,
     });

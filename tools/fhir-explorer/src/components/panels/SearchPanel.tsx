@@ -39,13 +39,7 @@ import {
 import { useResourceSearchParams } from "@/hooks/use-resource-search-params";
 import { valueHintForType } from "@/lib/fhir-search-params";
 import { cn } from "@/lib/utils";
-import {
-  ChevronDown,
-  ChevronsLeft,
-  ChevronsRight,
-  RefreshCw,
-  Search,
-} from "lucide-react";
+import { ChevronDown, ChevronsLeft, ChevronsRight, RefreshCw, Search } from "lucide-react";
 
 const PAGE_SIZE = 5;
 
@@ -274,7 +268,7 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
   );
 
   const pagination = totalPages > 1 && (
-    <Pagination>
+    <Pagination className="mx-0 w-auto justify-end">
       <PaginationContent>
         {selfLink && (
           <PaginationItem>
@@ -385,15 +379,8 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
   const responseExtra = (
     <>
       {bundle?.resourceType === "Bundle" && Array.isArray(bundle.entry) && (
-        <div className="rounded-md border bg-card">
-          <div className="border-b px-3 py-2 text-sm">
-            <span className="font-medium">{entries.length}</span>{" "}
-            <span className="text-muted-foreground">entries</span>
-            {typeof bundle.total === "number" && (
-              <span className="text-muted-foreground"> · total {bundle.total}</span>
-            )}
-          </div>
-          <ul className="divide-y">
+        <div className="overflow-hidden rounded-md border bg-card">
+          <ul className="max-h-96 divide-y overflow-y-auto">
             {pageEntries.map((e, i) => {
               const r = e.resource ?? {};
               const expanded = openRows.has(i);
@@ -440,9 +427,15 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
               );
             })}
           </ul>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t bg-muted/20 px-3 py-2">
+            <span className="text-xs tabular-nums text-muted-foreground">
+              Showing {entries.length ? (safePage - 1) * PAGE_SIZE + 1 : 0}–
+              {(safePage - 1) * PAGE_SIZE + pageEntries.length} of {totalResources} resources
+            </span>
+            {pagination}
+          </div>
         </div>
       )}
-      {pagination}
     </>
   );
 

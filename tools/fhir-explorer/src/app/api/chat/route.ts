@@ -26,6 +26,7 @@ import {
 import { encodeBlockedError, encodeBudgetError, resetAtFromHeader } from "@/lib/chat-rate-limit";
 import type { FhirChatMessageMetadata } from "@/lib/fhir-chat-types";
 import { FHIR_CHAT_INSTRUCTIONS } from "@/lib/server/chat-agent-instructions";
+import { CHAT_STEP_LIMIT, prepareChatStep } from "@/lib/server/chat-agent-steps";
 import { getReadOnlyFhirMcpTools } from "@/lib/server/fhir-mcp";
 import { clientKey, isRateLimited } from "@/lib/server/rate-limit";
 
@@ -111,7 +112,8 @@ export async function POST(request: Request) {
       // .chat pins /chat/completions — the path the gateway provider allowlists.
       model: openAiFor().chat(process.env.OPENAI_MODEL?.trim() || "gpt-5-nano"),
       tools,
-      stopWhen: stepCountIs(10),
+      stopWhen: stepCountIs(CHAT_STEP_LIMIT),
+      prepareStep: prepareChatStep,
       providerOptions: { openai: { reasoningEffort: reasoningEffort() } },
       // Hardened, read-only scope: one layer behind the gateway guardrails and MCP.
       instructions: FHIR_CHAT_INSTRUCTIONS,

@@ -44,17 +44,10 @@ import { ChevronDown, ChevronsLeft, ChevronsRight, RefreshCw, Search } from "luc
 const DEFAULT_PAGE_SIZE = 5;
 
 function pageNumbers(current: number, total: number): Array<number | "…"> {
-  const candidates = [1, total, current - 1, current, current + 1];
-  const inRange = candidates.filter((candidate) => candidate >= 1 && candidate <= total);
-  const sorted = [...new Set(inRange)].sort((a, b) => a - b);
-  const pages: Array<number | "…"> = [];
-  let previous = 0;
-  for (const candidate of sorted) {
-    if (candidate - previous > 1) pages.push("…");
-    pages.push(candidate);
-    previous = candidate;
-  }
-  return pages;
+  if (total <= 7) return Array.from({ length: total }, (_, index) => index + 1);
+  if (current <= 4) return [1, 2, 3, 4, 5, "…", total];
+  if (current >= total - 3) return [1, "…", total - 4, total - 3, total - 2, total - 1, total];
+  return [1, "…", current - 1, current, current + 1, "…", total];
 }
 
 export function SearchPanel({ baseUrl }: { baseUrl: string }) {

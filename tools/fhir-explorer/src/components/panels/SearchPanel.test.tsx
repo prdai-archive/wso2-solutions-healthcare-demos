@@ -188,6 +188,35 @@ describe("SearchPanel", () => {
     expect(await screen.findByRole("link", { name: "3" })).toBeInTheDocument();
   });
 
+  it("loads the next FHIR Bundle when moving to the next server page", async () => {
+    vi.mocked(client.fhirFetch)
+      .mockResolvedValueOnce({
+        ...okBundle(),
+        body: {
+          resourceType: "Bundle",
+          total: 6,
+          entry: [{ resource: { resourceType: "Patient", id: "p1" } }],
+          link: [{ relation: "next", url: `${BASE}/Patient?_count=5&page=2` }],
+        },
+      })
+      .mockResolvedValueOnce({
+        ...okBundle(),
+        body: {
+          resourceType: "Bundle",
+          total: 6,
+          entry: [{ resource: { resourceType: "Patient", id: "p6" } }],
+          link: [{ relation: "previous", url: `${BASE}/Patient?_count=5&page=1` }],
+        },
+      });
+    const user = userEvent.setup();
+    renderWithProviders(<SearchPanel baseUrl={BASE} />);
+    await user.click(screen.getByRole("button", { name: /^search$/i }));
+    await user.click(await screen.findByRole("link", { name: "Go to next page" }));
+
+    expect(await screen.findByRole("button", { name: /^Patient\/p6/ })).toBeInTheDocument();
+    expect(client.fhirFetch).toHaveBeenLastCalledWith(`${BASE}/Patient?_count=5&page=2`, {}, BASE);
+  });
+
   it("copies a result's bare id without expanding the row", async () => {
     vi.mocked(client.fhirFetch).mockResolvedValue({
       ...okBundle(),

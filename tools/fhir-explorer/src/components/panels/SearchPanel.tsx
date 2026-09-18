@@ -114,6 +114,10 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
   }
 
   function changePage(nextPage: number) {
+    const currentLinks = bundle?.link ?? [];
+    const relation = nextPage > page ? "next" : "previous";
+    const link = currentLinks.find((candidate) => candidate.relation === relation);
+    if (nextPage !== page && link) void send(link.url);
     setOpenRows(new Set());
     setPage(nextPage);
   }
@@ -123,7 +127,12 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
   const totalResources = typeof bundle?.total === "number" ? bundle.total : entries.length;
   const totalPages = Math.max(1, Math.ceil(totalResources / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
-  const pageEntries = entries.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const hasServerPagination = entries.length <= PAGE_SIZE && totalResources > entries.length;
+  const pageEntries = hasServerPagination
+    ? entries
+    : entries.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const previousPage = bundle?.link?.some((link) => link.relation === "previous") ?? false;
+  const nextPage = bundle?.link?.some((link) => link.relation === "next") ?? false;
 
   const form = (
     <>
@@ -257,11 +266,17 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
         <PaginationItem>
           <PaginationPrevious
             href="#"
-            aria-disabled={safePage === 1}
-            className={safePage === 1 ? "pointer-events-none opacity-50" : ""}
+            aria-disabled={safePage === 1 || (hasServerPagination && !previousPage)}
+            className={
+              safePage === 1 || (hasServerPagination && !previousPage)
+                ? "pointer-events-none opacity-50"
+                : ""
+            }
             onClick={(event) => {
               event.preventDefault();
-              changePage(Math.max(1, safePage - 1));
+              if (safePage > 1 && (!hasServerPagination || previousPage)) {
+                changePage(safePage - 1);
+              }
             }}
           />
         </PaginationItem>
@@ -275,7 +290,7 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
                 isActive={candidate === safePage}
                 onClick={(event) => {
                   event.preventDefault();
-                  changePage(candidate);
+                  if (!hasServerPagination || candidate <= safePage + 1) changePage(candidate);
                 }}
               >
                 {candidate}
@@ -286,11 +301,17 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
         <PaginationItem>
           <PaginationNext
             href="#"
-            aria-disabled={safePage === totalPages}
-            className={safePage === totalPages ? "pointer-events-none opacity-50" : ""}
+            aria-disabled={safePage === totalPages || (hasServerPagination && !nextPage)}
+            className={
+              safePage === totalPages || (hasServerPagination && !nextPage)
+                ? "pointer-events-none opacity-50"
+                : ""
+            }
             onClick={(event) => {
               event.preventDefault();
-              changePage(Math.min(totalPages, safePage + 1));
+              if (safePage < totalPages && (!hasServerPagination || nextPage)) {
+                changePage(safePage + 1);
+              }
             }}
           />
         </PaginationItem>

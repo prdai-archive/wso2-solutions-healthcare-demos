@@ -39,7 +39,13 @@ import {
 import { useResourceSearchParams } from "@/hooks/use-resource-search-params";
 import { valueHintForType } from "@/lib/fhir-search-params";
 import { cn } from "@/lib/utils";
-import { Search, ChevronDown } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronsLeft,
+  ChevronsRight,
+  RefreshCw,
+  Search,
+} from "lucide-react";
 
 const PAGE_SIZE = 5;
 
@@ -114,12 +120,16 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
   }
 
   function changePage(nextPage: number) {
-    const currentLinks = bundle?.link ?? [];
     const relation = nextPage > page ? "next" : "previous";
-    const link = currentLinks.find((candidate) => candidate.relation === relation);
-    if (nextPage !== page && link) void send(link.url);
+    followLink(relation, nextPage);
+  }
+
+  function followLink(relation: string, nextPage = page) {
+    const link = bundle?.link?.find((candidate) => candidate.relation === relation);
+    if (!link) return;
+    void send(link.url);
     setOpenRows(new Set());
-    setPage(nextPage);
+    setPage(Math.max(1, nextPage));
   }
 
   const bundle = res?.body as BundleLike | undefined;
@@ -133,6 +143,9 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
     : entries.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
   const previousPage = bundle?.link?.some((link) => link.relation === "previous") ?? false;
   const nextPage = bundle?.link?.some((link) => link.relation === "next") ?? false;
+  const selfLink = bundle?.link?.some((link) => link.relation === "self") ?? false;
+  const firstLink = bundle?.link?.some((link) => link.relation === "first") ?? false;
+  const lastLink = bundle?.link?.some((link) => link.relation === "last") ?? false;
 
   const form = (
     <>
@@ -263,6 +276,39 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
   const pagination = totalPages > 1 && (
     <Pagination>
       <PaginationContent>
+        {selfLink && (
+          <PaginationItem>
+            <PaginationLink
+              href="#"
+              aria-label="Reload current page"
+              title="Reload current page"
+              onClick={(event) => {
+                event.preventDefault();
+                followLink("self");
+              }}
+            >
+              <RefreshCw className="h-4 w-4" />
+              <span className="sr-only">Reload current page</span>
+            </PaginationLink>
+          </PaginationItem>
+        )}
+        {firstLink && (
+          <PaginationItem>
+            <PaginationLink
+              href="#"
+              aria-label="Go to first page"
+              title="First page"
+              className={safePage === 1 ? "pointer-events-none opacity-50" : ""}
+              onClick={(event) => {
+                event.preventDefault();
+                if (safePage > 1) followLink("first", 1);
+              }}
+            >
+              <ChevronsLeft className="h-4 w-4" />
+              <span className="sr-only">First page</span>
+            </PaginationLink>
+          </PaginationItem>
+        )}
         <PaginationItem>
           <PaginationPrevious
             href="#"
@@ -315,6 +361,23 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
             }}
           />
         </PaginationItem>
+        {lastLink && (
+          <PaginationItem>
+            <PaginationLink
+              href="#"
+              aria-label="Go to last page"
+              title="Last page"
+              className={safePage === totalPages ? "pointer-events-none opacity-50" : ""}
+              onClick={(event) => {
+                event.preventDefault();
+                if (safePage < totalPages) followLink("last", totalPages);
+              }}
+            >
+              <ChevronsRight className="h-4 w-4" />
+              <span className="sr-only">Last page</span>
+            </PaginationLink>
+          </PaginationItem>
+        )}
       </PaginationContent>
     </Pagination>
   );

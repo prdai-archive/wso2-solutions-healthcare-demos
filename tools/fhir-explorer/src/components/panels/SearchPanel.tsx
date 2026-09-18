@@ -325,11 +325,14 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
         {pageNumbers(safePage, totalPages).map((candidate, index) => (
           <PaginationItem key={`${candidate}-${index}`}>
             {candidate === "…" ? (
-              <span className="px-2 text-sm text-muted-foreground">…</span>
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center text-sm text-muted-foreground">
+                …
+              </span>
             ) : (
               <PaginationLink
                 href="#"
                 isActive={candidate === safePage}
+                className="h-9 w-9 shrink-0 p-0"
                 onClick={(event) => {
                   event.preventDefault();
                   if (!hasServerPagination || candidate <= safePage + 1) changePage(candidate);

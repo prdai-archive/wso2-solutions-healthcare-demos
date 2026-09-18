@@ -225,6 +225,29 @@ describe("SearchPanel", () => {
     expect(client.fhirFetch).toHaveBeenLastCalledWith(`${BASE}/Patient?_count=5&page=2`, {}, BASE);
   });
 
+  it("shows the configured count on one page", async () => {
+    vi.mocked(client.fhirFetch).mockResolvedValue({
+      ...okBundle(),
+      body: {
+        resourceType: "Bundle",
+        total: 20,
+        entry: Array.from({ length: 10 }, (_, index) => ({
+          resource: { resourceType: "Patient", id: `p${index + 1}` },
+        })),
+      },
+    });
+    const user = userEvent.setup();
+    renderWithProviders(<SearchPanel baseUrl={BASE} />);
+    const count = screen.getByDisplayValue("5");
+    await user.clear(count);
+    await user.type(count, "10");
+    await user.click(screen.getByRole("button", { name: /^search$/i }));
+
+    expect(await screen.findByRole("button", { name: /^Patient\/p10/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Patient\/p11/ })).not.toBeInTheDocument();
+    expect(client.fhirFetch).toHaveBeenCalledWith("/Patient?_count=10&_total=accurate", {}, BASE);
+  });
+
   it("copies a result's bare id without expanding the row", async () => {
     vi.mocked(client.fhirFetch).mockResolvedValue({
       ...okBundle(),

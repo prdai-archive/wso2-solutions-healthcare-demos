@@ -41,7 +41,7 @@ import { valueHintForType } from "@/lib/fhir-search-params";
 import { cn } from "@/lib/utils";
 import { ChevronDown, ChevronsLeft, ChevronsRight, RefreshCw, Search } from "lucide-react";
 
-const PAGE_SIZE = 5;
+const DEFAULT_PAGE_SIZE = 5;
 
 function pageNumbers(current: number, total: number): Array<number | "…"> {
   const candidates = [1, total, current - 1, current, current + 1];
@@ -59,7 +59,9 @@ function pageNumbers(current: number, total: number): Array<number | "…"> {
 
 export function SearchPanel({ baseUrl }: { baseUrl: string }) {
   const [resourceType, setResourceType] = useState("Patient");
-  const [params, setParams] = useState<Array<{ k: string; v: string }>>([{ k: "_count", v: "5" }]);
+  const [params, setParams] = useState<Array<{ k: string; v: string }>>([
+    { k: "_count", v: String(DEFAULT_PAGE_SIZE) },
+  ]);
   const { res, loading, run: send } = useFhirRequest(baseUrl);
   const [usePost, setUsePost] = useState(false);
   const [sortParam, setSortParam] = useState("");
@@ -134,13 +136,14 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
 
   const bundle = res?.body as BundleLike | undefined;
   const entries = bundle?.entry ?? [];
+  const pageSize = getPageSize(params);
   const totalResources = typeof bundle?.total === "number" ? bundle.total : entries.length;
-  const totalPages = Math.max(1, Math.ceil(totalResources / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(totalResources / pageSize));
   const safePage = Math.min(page, totalPages);
-  const hasServerPagination = entries.length <= PAGE_SIZE && totalResources > entries.length;
+  const hasServerPagination = entries.length <= pageSize && totalResources > entries.length;
   const pageEntries = hasServerPagination
     ? entries
-    : entries.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+    : entries.slice((safePage - 1) * pageSize, safePage * pageSize);
   const previousPage = bundle?.link?.some((link) => link.relation === "previous") ?? false;
   const nextPage = bundle?.link?.some((link) => link.relation === "next") ?? false;
   const selfLink = bundle?.link?.some((link) => link.relation === "self") ?? false;
@@ -435,8 +438,8 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
           </ul>
           <div className="flex flex-wrap items-center justify-between gap-3 border-t bg-muted/20 px-3 py-2">
             <span className="text-xs tabular-nums text-muted-foreground">
-              Showing {entries.length ? (safePage - 1) * PAGE_SIZE + 1 : 0}–
-              {(safePage - 1) * PAGE_SIZE + pageEntries.length} of {totalResources} resources
+              Showing {entries.length ? (safePage - 1) * pageSize + 1 : 0}–
+              {(safePage - 1) * pageSize + pageEntries.length} of {totalResources} resources
             </span>
             {pagination}
           </div>
@@ -450,6 +453,12 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
       {form}
     </BasePanel>
   );
+}
+
+function getPageSize(params: Array<{ k: string; v: string }>): number {
+  const count = params.find((param) => param.k.trim() === "_count")?.v.trim();
+  const pageSize = Number.parseInt(count ?? "", 10);
+  return Number.isFinite(pageSize) && pageSize > 0 ? pageSize : DEFAULT_PAGE_SIZE;
 }
 
 function summarize(r: ResourceLike): string {

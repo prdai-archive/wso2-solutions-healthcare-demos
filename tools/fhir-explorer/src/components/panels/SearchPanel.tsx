@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/pagination";
 import { useResourceSearchParams } from "@/hooks/use-resource-search-params";
 import { valueHintForType } from "@/lib/fhir-search-params";
+import { pageLinkUrl } from "@/lib/fhir-pagination";
 import { cn } from "@/lib/utils";
 import { ChevronDown, ChevronsLeft, ChevronsRight, RefreshCw, Search } from "lucide-react";
 
@@ -115,8 +116,15 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
   }
 
   function changePage(nextPage: number) {
-    const relation = nextPage > page ? "next" : "previous";
-    followLink(relation, nextPage);
+    const target = Math.max(1, Math.min(nextPage, totalPages));
+    if (target === safePage) return;
+    if (hasServerPagination) {
+      const url = pageLinkUrl(bundle, target, safePage, totalPages);
+      if (!url) return;
+      void send(url);
+    }
+    setOpenRows(new Set());
+    setPage(target);
   }
 
   function followLink(relation: string, nextPage = page) {
@@ -297,7 +305,7 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
               className={safePage === 1 ? "pointer-events-none opacity-50" : ""}
               onClick={(event) => {
                 event.preventDefault();
-                if (safePage > 1) followLink("first", 1);
+                if (safePage > 1) changePage(1);
               }}
             >
               <ChevronsLeft className="h-4 w-4" />
@@ -335,7 +343,7 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
                 className="h-9 w-9 shrink-0 p-0"
                 onClick={(event) => {
                   event.preventDefault();
-                  if (!hasServerPagination || candidate <= safePage + 1) changePage(candidate);
+                  changePage(candidate);
                 }}
               >
                 {candidate}
@@ -369,7 +377,7 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
               className={safePage === totalPages ? "pointer-events-none opacity-50" : ""}
               onClick={(event) => {
                 event.preventDefault();
-                if (safePage < totalPages) followLink("last", totalPages);
+                if (safePage < totalPages) changePage(totalPages);
               }}
             >
               <ChevronsRight className="h-4 w-4" />

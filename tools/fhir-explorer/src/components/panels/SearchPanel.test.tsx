@@ -174,8 +174,11 @@ describe("SearchPanel", () => {
     await user.click(screen.getByRole("link", { name: "Go to next page" }));
 
     expect(await screen.findByRole("button", { name: /^Patient\/p6/ })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /^Patient\/p1/ })).not.toBeInTheDocument();
-    expect(client.fhirFetch).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: /^Patient\/p1\b/ })).not.toBeInTheDocument();
+    const patientRequests = vi
+      .mocked(client.fhirFetch)
+      .mock.calls.filter(([path]) => String(path).startsWith("/Patient"));
+    expect(patientRequests).toHaveLength(1);
   });
 
   it("calculates pagination from the Bundle total", async () => {
@@ -197,25 +200,27 @@ describe("SearchPanel", () => {
   });
 
   it("loads the next FHIR Bundle when moving to the next server page", async () => {
-    vi.mocked(client.fhirFetch)
-      .mockResolvedValueOnce({
-        ...okBundle(),
-        body: {
-          resourceType: "Bundle",
-          total: 6,
-          entry: [{ resource: { resourceType: "Patient", id: "p1" } }],
-          link: [{ relation: "next", url: `${BASE}/Patient?_count=5&page=2` }],
-        },
-      })
-      .mockResolvedValueOnce({
-        ...okBundle(),
-        body: {
-          resourceType: "Bundle",
-          total: 6,
-          entry: [{ resource: { resourceType: "Patient", id: "p6" } }],
-          link: [{ relation: "previous", url: `${BASE}/Patient?_count=5&page=1` }],
-        },
-      });
+    const firstPage = {
+      ...okBundle(),
+      body: {
+        resourceType: "Bundle",
+        total: 6,
+        entry: [{ resource: { resourceType: "Patient", id: "p1" } }],
+        link: [{ relation: "next", url: `${BASE}/Patient?_count=5&page=2` }],
+      },
+    };
+    const secondPage = {
+      ...okBundle(),
+      body: {
+        resourceType: "Bundle",
+        total: 6,
+        entry: [{ resource: { resourceType: "Patient", id: "p6" } }],
+        link: [{ relation: "previous", url: `${BASE}/Patient?_count=5&page=1` }],
+      },
+    };
+    vi.mocked(client.fhirFetch).mockImplementation(async (path) =>
+      path === `${BASE}/Patient?_count=5&page=2` ? secondPage : firstPage,
+    );
     const user = userEvent.setup();
     renderWithProviders(<SearchPanel baseUrl={BASE} />);
     await user.click(screen.getByRole("button", { name: /^search$/i }));
@@ -223,6 +228,59 @@ describe("SearchPanel", () => {
 
     expect(await screen.findByRole("button", { name: /^Patient\/p6/ })).toBeInTheDocument();
     expect(client.fhirFetch).toHaveBeenLastCalledWith(`${BASE}/Patient?_count=5&page=2`, {}, BASE);
+  });
+
+  function linkedBundle(page: number, total: number) {
+    const totalPages = Math.ceil(total / 5);
+    return {
+      ...okBundle(),
+      body: {
+        resourceType: "Bundle",
+        total,
+        entry: Array.from({ length: 5 }, (_, index) => ({
+          resource: { resourceType: "Patient", id: `p${(page - 1) * 5 + index + 1}` },
+        })),
+        link: [
+          { relation: "self", url: `${BASE}/Patient?_count=5&_page=${page}&_total=accurate` },
+          { relation: "first", url: `${BASE}/Patient?_count=5&_page=1&_total=accurate` },
+          { relation: "last", url: `${BASE}/Patient?_count=5&_page=${totalPages}&_total=accurate` },
+          {
+            relation: "next",
+            url: `${BASE}/Patient?_count=5&_page=${page + 1}&_total=accurate`,
+          },
+        ],
+      },
+    };
+  }
+
+  it("follows the last link when a numbered pagination link is far ahead", async () => {
+    vi.mocked(client.fhirFetch).mockResolvedValue(linkedBundle(1, 100));
+    const user = userEvent.setup();
+    renderWithProviders(<SearchPanel baseUrl={BASE} />);
+    await user.click(screen.getByRole("button", { name: /^search$/i }));
+
+    await user.click(await screen.findByRole("link", { name: "20" }));
+
+    expect(client.fhirFetch).toHaveBeenCalledWith(
+      `${BASE}/Patient?_count=5&_page=20&_total=accurate`,
+      {},
+      BASE,
+    );
+  });
+
+  it("rewrites the page on the self link for a numbered page with no relation link", async () => {
+    vi.mocked(client.fhirFetch).mockResolvedValue(linkedBundle(1, 100));
+    const user = userEvent.setup();
+    renderWithProviders(<SearchPanel baseUrl={BASE} />);
+    await user.click(screen.getByRole("button", { name: /^search$/i }));
+
+    await user.click(await screen.findByRole("link", { name: "4" }));
+
+    expect(client.fhirFetch).toHaveBeenCalledWith(
+      `${BASE}/Patient?_count=5&_page=4&_total=accurate`,
+      {},
+      BASE,
+    );
   });
 
   it("shows the configured count on one page", async () => {

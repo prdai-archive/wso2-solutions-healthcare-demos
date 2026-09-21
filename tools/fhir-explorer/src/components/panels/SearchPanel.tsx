@@ -28,28 +28,14 @@ import { CopyButton } from "../CopyButton";
 import { CodeBlock } from "../CodeBlock";
 import { Field } from "../Field";
 import { RowSection, RemoveRowButton } from "../RowSection";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
+import { SearchPagination } from "./SearchPagination";
+import { useBundlePager } from "@/hooks/use-bundle-pager";
 import { useResourceSearchParams } from "@/hooks/use-resource-search-params";
 import { valueHintForType } from "@/lib/fhir-search-params";
-import { pageLinkUrl } from "@/lib/fhir-pagination";
 import { cn } from "@/lib/utils";
-import { ChevronDown, ChevronsLeft, ChevronsRight, RefreshCw, Search } from "lucide-react";
+import { ChevronDown, Search } from "lucide-react";
 
 const DEFAULT_PAGE_SIZE = 5;
-
-function pageNumbers(current: number, total: number): Array<number | "…"> {
-  if (total <= 7) return Array.from({ length: total }, (_, index) => index + 1);
-  if (current <= 4) return [1, 2, 3, 4, 5, "…", total];
-  if (current >= total - 3) return [1, "…", total - 4, total - 3, total - 2, total - 1, total];
-  return [1, "…", current - 1, current, current + 1, "…", total];
-}
 
 export function SearchPanel({ baseUrl }: { baseUrl: string }) {
   const [resourceType, setResourceType] = useState("Patient");
@@ -62,7 +48,6 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
   const [sortDesc, setSortDesc] = useState(false);
   const [summary, setSummary] = useState("");
   const [openRows, setOpenRows] = useState<Set<number>>(new Set());
-  const [page, setPage] = useState(1);
   const { byName } = useResourceSearchParams(resourceType, baseUrl);
 
   function toggleRow(i: number) {
@@ -99,9 +84,15 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
     return parts.join("&");
   }
 
+  const bundle = res?.body as BundleLike | undefined;
+  const pager = useBundlePager(bundle, getPageSize(params), {
+    load: (url) => void send(url),
+    onNavigate: () => setOpenRows(new Set()),
+  });
+
   function run() {
     setOpenRows(new Set());
-    setPage(1);
+    pager.reset();
     const qs = buildQuery();
     const rt = encodeFhirPathSegment(resourceType);
     if (usePost) {
@@ -114,42 +105,6 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
       void send(`/${rt}${qs ? `?${qs}` : ""}`);
     }
   }
-
-  function changePage(nextPage: number) {
-    const target = Math.max(1, Math.min(nextPage, totalPages));
-    if (target === safePage) return;
-    if (hasServerPagination) {
-      const url = pageLinkUrl(bundle, target, safePage, totalPages);
-      if (!url) return;
-      void send(url);
-    }
-    setOpenRows(new Set());
-    setPage(target);
-  }
-
-  function followLink(relation: string, nextPage = page) {
-    const link = bundle?.link?.find((candidate) => candidate.relation === relation);
-    if (!link) return;
-    void send(link.url);
-    setOpenRows(new Set());
-    setPage(Math.max(1, nextPage));
-  }
-
-  const bundle = res?.body as BundleLike | undefined;
-  const entries = bundle?.entry ?? [];
-  const pageSize = getPageSize(params);
-  const totalResources = typeof bundle?.total === "number" ? bundle.total : entries.length;
-  const totalPages = Math.max(1, Math.ceil(totalResources / pageSize));
-  const safePage = Math.min(page, totalPages);
-  const hasServerPagination = entries.length <= pageSize && totalResources > entries.length;
-  const pageEntries = hasServerPagination
-    ? entries
-    : entries.slice((safePage - 1) * pageSize, safePage * pageSize);
-  const previousPage = bundle?.link?.some((link) => link.relation === "previous") ?? false;
-  const nextPage = bundle?.link?.some((link) => link.relation === "next") ?? false;
-  const selfLink = bundle?.link?.some((link) => link.relation === "self") ?? false;
-  const firstLink = bundle?.link?.some((link) => link.relation === "first") ?? false;
-  const lastLink = bundle?.link?.some((link) => link.relation === "last") ?? false;
 
   const form = (
     <>
@@ -277,124 +232,12 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
     </>
   );
 
-  const pagination = bundle?.resourceType === "Bundle" && (
-    <Pagination className="mx-0 w-auto justify-end">
-      <PaginationContent>
-        {selfLink && (
-          <PaginationItem>
-            <PaginationLink
-              href="#"
-              aria-label="Reload current page"
-              title="Reload current page"
-              onClick={(event) => {
-                event.preventDefault();
-                followLink("self");
-              }}
-            >
-              <RefreshCw className="h-4 w-4" />
-              <span className="sr-only">Reload current page</span>
-            </PaginationLink>
-          </PaginationItem>
-        )}
-        {firstLink && (
-          <PaginationItem>
-            <PaginationLink
-              href="#"
-              aria-label="Go to first page"
-              title="First page"
-              className={safePage === 1 ? "pointer-events-none opacity-50" : ""}
-              onClick={(event) => {
-                event.preventDefault();
-                if (safePage > 1) changePage(1);
-              }}
-            >
-              <ChevronsLeft className="h-4 w-4" />
-              <span className="sr-only">First page</span>
-            </PaginationLink>
-          </PaginationItem>
-        )}
-        <PaginationItem>
-          <PaginationPrevious
-            href="#"
-            aria-disabled={safePage === 1 || (hasServerPagination && !previousPage)}
-            className={
-              safePage === 1 || (hasServerPagination && !previousPage)
-                ? "pointer-events-none opacity-50"
-                : ""
-            }
-            onClick={(event) => {
-              event.preventDefault();
-              if (safePage > 1 && (!hasServerPagination || previousPage)) {
-                changePage(safePage - 1);
-              }
-            }}
-          />
-        </PaginationItem>
-        {pageNumbers(safePage, totalPages).map((candidate, index) => (
-          <PaginationItem key={`${candidate}-${index}`}>
-            {candidate === "…" ? (
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center text-sm text-muted-foreground">
-                …
-              </span>
-            ) : (
-              <PaginationLink
-                href="#"
-                isActive={candidate === safePage}
-                className="h-9 w-9 shrink-0 p-0"
-                onClick={(event) => {
-                  event.preventDefault();
-                  changePage(candidate);
-                }}
-              >
-                {candidate}
-              </PaginationLink>
-            )}
-          </PaginationItem>
-        ))}
-        <PaginationItem>
-          <PaginationNext
-            href="#"
-            aria-disabled={safePage === totalPages || (hasServerPagination && !nextPage)}
-            className={
-              safePage === totalPages || (hasServerPagination && !nextPage)
-                ? "pointer-events-none opacity-50"
-                : ""
-            }
-            onClick={(event) => {
-              event.preventDefault();
-              if (safePage < totalPages && (!hasServerPagination || nextPage)) {
-                changePage(safePage + 1);
-              }
-            }}
-          />
-        </PaginationItem>
-        {lastLink && (
-          <PaginationItem>
-            <PaginationLink
-              href="#"
-              aria-label="Go to last page"
-              title="Last page"
-              className={safePage === totalPages ? "pointer-events-none opacity-50" : ""}
-              onClick={(event) => {
-                event.preventDefault();
-                if (safePage < totalPages) changePage(totalPages);
-              }}
-            >
-              <ChevronsRight className="h-4 w-4" />
-              <span className="sr-only">Last page</span>
-            </PaginationLink>
-          </PaginationItem>
-        )}
-      </PaginationContent>
-    </Pagination>
-  );
-
   const responseExtra = (
     <>
       {bundle?.resourceType === "Bundle" && Array.isArray(bundle.entry) && (
         <div className="overflow-hidden rounded-md border bg-card">
           <ul className="max-h-96 divide-y overflow-y-auto">
-            {pageEntries.map((e, i) => {
+            {pager.entries.map((e, i) => {
               const r = e.resource ?? {};
               const expanded = openRows.has(i);
               return (
@@ -442,10 +285,9 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
           </ul>
           <div className="flex flex-wrap items-center justify-between gap-3 border-t bg-muted/20 px-3 py-2">
             <span className="text-xs tabular-nums text-muted-foreground">
-              Showing {entries.length ? (safePage - 1) * pageSize + 1 : 0}–
-              {(safePage - 1) * pageSize + pageEntries.length} of {totalResources} resources
+              Showing {pager.rangeStart}–{pager.rangeEnd} of {pager.total} resources
             </span>
-            {pagination}
+            <SearchPagination pager={pager} />
           </div>
         </div>
       )}

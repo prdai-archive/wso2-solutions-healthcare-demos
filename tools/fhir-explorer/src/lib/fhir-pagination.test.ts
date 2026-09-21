@@ -17,7 +17,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { BundleLike } from "./fhir-types";
-import { pageLinkUrl } from "./fhir-pagination";
+import { pageLinkUrl, pageNumbers } from "./fhir-pagination";
 
 const BASE = "https://example.org/fhir/r4";
 
@@ -95,5 +95,27 @@ describe("pageLinkUrl", () => {
         20,
       ),
     ).toBeUndefined();
+  });
+});
+
+describe("pageNumbers", () => {
+  it("lists every page when there are at most seven", () => {
+    expect(pageNumbers(1, 1)).toEqual([1]);
+    expect(pageNumbers(4, 5)).toEqual([1, 2, 3, 4, 5]);
+    expect(pageNumbers(1, 7)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+  });
+
+  it("pins the start of the range near the first page", () => {
+    expect(pageNumbers(2, 20)).toEqual([1, 2, 3, 4, 5, "…", 20]);
+    expect(pageNumbers(4, 20)).toEqual([1, 2, 3, 4, 5, "…", 20]);
+  });
+
+  it("pins the end of the range near the last page", () => {
+    expect(pageNumbers(18, 20)).toEqual([1, "…", 16, 17, 18, 19, 20]);
+    expect(pageNumbers(20, 20)).toEqual([1, "…", 16, 17, 18, 19, 20]);
+  });
+
+  it("centres the range around the current page in the middle", () => {
+    expect(pageNumbers(10, 20)).toEqual([1, "…", 9, 10, 11, "…", 20]);
   });
 });

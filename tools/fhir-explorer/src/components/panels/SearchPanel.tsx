@@ -28,14 +28,36 @@ import { CopyButton } from "../CopyButton";
 import { CodeBlock } from "../CodeBlock";
 import { Field } from "../Field";
 import { RowSection, RemoveRowButton } from "../RowSection";
-import { SearchPagination } from "./SearchPagination";
-import { useBundlePager } from "@/hooks/use-bundle-pager";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import { useResourceSearchParams } from "@/hooks/use-resource-search-params";
 import { valueHintForType } from "@/lib/fhir-search-params";
 import { cn } from "@/lib/utils";
-import { ChevronDown, Search } from "lucide-react";
+import { ChevronDown, ChevronsLeft, ChevronsRight, RefreshCw, Search } from "lucide-react";
 
 const DEFAULT_PAGE_SIZE = 5;
+
+function pageNumbers(current: number, total: number): Array<number | "…"> {
+  if (total <= 7) return Array.from({ length: total }, (_, index) => index + 1);
+  if (current <= 4) return [1, 2, 3, 4, 5, "…", total];
+  if (current >= total - 3) return [1, "…", total - 4, total - 3, total - 2, total - 1, total];
+  return [1, "…", current - 1, current, current + 1, "…", total];
+}
+
+/** Address page N by swapping `_page` on the self link, which carries the full query (the WSO2 server accepts any page). */
+function pageUrl(bundle: BundleLike | undefined, target: number): string | undefined {
+  const self = bundle?.link?.find((link) => link.relation === "self")?.url;
+  if (!self) return undefined;
+  return /([?&]_page=)\d+/.test(self)
+    ? self.replace(/([?&]_page=)\d+/, `$1${target}`)
+    : `${self}${self.includes("?") ? "&" : "?"}_page=${target}`;
+}
 
 export function SearchPanel({ baseUrl }: { baseUrl: string }) {
   const [resourceType, setResourceType] = useState("Patient");
@@ -48,6 +70,7 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
   const [sortDesc, setSortDesc] = useState(false);
   const [summary, setSummary] = useState("");
   const [openRows, setOpenRows] = useState<Set<number>>(new Set());
+  const [page, setPage] = useState(1);
   const { byName } = useResourceSearchParams(resourceType, baseUrl);
 
   function toggleRow(i: number) {
@@ -84,15 +107,9 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
     return parts.join("&");
   }
 
-  const bundle = res?.body as BundleLike | undefined;
-  const pager = useBundlePager(bundle, getPageSize(params), {
-    load: (url) => send(url),
-    onNavigate: () => setOpenRows(new Set()),
-  });
-
   function run() {
     setOpenRows(new Set());
-    pager.reset();
+    setPage(1);
     const qs = buildQuery();
     const rt = encodeFhirPathSegment(resourceType);
     if (usePost) {
@@ -105,6 +122,39 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
       void send(`/${rt}${qs ? `?${qs}` : ""}`);
     }
   }
+
+  function goToPage(target: number) {
+    const next = Math.max(1, Math.min(target, totalPages));
+    if (next === safePage) return;
+    if (hasServerPagination) {
+      const url = pageUrl(bundle, next);
+      if (!url) return;
+      void send(url);
+    }
+    setOpenRows(new Set());
+    setPage(next);
+  }
+
+  function reload() {
+    const self = bundle?.link?.find((link) => link.relation === "self")?.url;
+    if (!self) return;
+    void send(self);
+    setOpenRows(new Set());
+  }
+
+  const bundle = res?.body as BundleLike | undefined;
+  const entries = bundle?.entry ?? [];
+  const pageSize = getPageSize(params);
+  const totalResources = typeof bundle?.total === "number" ? bundle.total : entries.length;
+  const totalPages = Math.max(1, Math.ceil(totalResources / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const hasServerPagination = entries.length <= pageSize && totalResources > entries.length;
+  const pageEntries = hasServerPagination
+    ? entries
+    : entries.slice((safePage - 1) * pageSize, safePage * pageSize);
+  const selfLink = bundle?.link?.some((link) => link.relation === "self") ?? false;
+  const firstLink = bundle?.link?.some((link) => link.relation === "first") ?? false;
+  const lastLink = bundle?.link?.some((link) => link.relation === "last") ?? false;
 
   const form = (
     <>
@@ -232,12 +282,112 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
     </>
   );
 
+  const pagination = bundle?.resourceType === "Bundle" && (
+    <Pagination className="mx-0 w-auto justify-end">
+      <PaginationContent>
+        {selfLink && (
+          <PaginationItem>
+            <PaginationLink
+              href="#"
+              aria-label="Reload current page"
+              title="Reload current page"
+              onClick={(event) => {
+                event.preventDefault();
+                reload();
+              }}
+            >
+              <RefreshCw className="h-4 w-4" />
+              <span className="sr-only">Reload current page</span>
+            </PaginationLink>
+          </PaginationItem>
+        )}
+        {firstLink && (
+          <PaginationItem>
+            <PaginationLink
+              href="#"
+              aria-label="Go to first page"
+              title="First page"
+              className={safePage === 1 ? "pointer-events-none opacity-50" : ""}
+              onClick={(event) => {
+                event.preventDefault();
+                goToPage(1);
+              }}
+            >
+              <ChevronsLeft className="h-4 w-4" />
+              <span className="sr-only">First page</span>
+            </PaginationLink>
+          </PaginationItem>
+        )}
+        <PaginationItem>
+          <PaginationPrevious
+            href="#"
+            aria-disabled={safePage === 1}
+            className={safePage === 1 ? "pointer-events-none opacity-50" : ""}
+            onClick={(event) => {
+              event.preventDefault();
+              goToPage(safePage - 1);
+            }}
+          />
+        </PaginationItem>
+        {pageNumbers(safePage, totalPages).map((candidate, index) => (
+          <PaginationItem key={`${candidate}-${index}`}>
+            {candidate === "…" ? (
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center text-sm text-muted-foreground">
+                …
+              </span>
+            ) : (
+              <PaginationLink
+                href="#"
+                isActive={candidate === safePage}
+                className="h-9 w-9 shrink-0 p-0"
+                onClick={(event) => {
+                  event.preventDefault();
+                  goToPage(candidate);
+                }}
+              >
+                {candidate}
+              </PaginationLink>
+            )}
+          </PaginationItem>
+        ))}
+        <PaginationItem>
+          <PaginationNext
+            href="#"
+            aria-disabled={safePage === totalPages}
+            className={safePage === totalPages ? "pointer-events-none opacity-50" : ""}
+            onClick={(event) => {
+              event.preventDefault();
+              goToPage(safePage + 1);
+            }}
+          />
+        </PaginationItem>
+        {lastLink && (
+          <PaginationItem>
+            <PaginationLink
+              href="#"
+              aria-label="Go to last page"
+              title="Last page"
+              className={safePage === totalPages ? "pointer-events-none opacity-50" : ""}
+              onClick={(event) => {
+                event.preventDefault();
+                goToPage(totalPages);
+              }}
+            >
+              <ChevronsRight className="h-4 w-4" />
+              <span className="sr-only">Last page</span>
+            </PaginationLink>
+          </PaginationItem>
+        )}
+      </PaginationContent>
+    </Pagination>
+  );
+
   const responseExtra = (
     <>
       {bundle?.resourceType === "Bundle" && Array.isArray(bundle.entry) && (
         <div className="overflow-hidden rounded-md border bg-card">
           <ul className="max-h-96 divide-y overflow-y-auto">
-            {pager.entries.map((e, i) => {
+            {pageEntries.map((e, i) => {
               const r = e.resource ?? {};
               const expanded = openRows.has(i);
               return (
@@ -285,9 +435,10 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
           </ul>
           <div className="flex flex-wrap items-center justify-between gap-3 border-t bg-muted/20 px-3 py-2">
             <span className="text-xs tabular-nums text-muted-foreground">
-              Showing {pager.rangeStart}–{pager.rangeEnd} of {pager.total} resources
+              Showing {entries.length ? (safePage - 1) * pageSize + 1 : 0}–
+              {(safePage - 1) * pageSize + pageEntries.length} of {totalResources} resources
             </span>
-            <SearchPagination pager={pager} />
+            {pagination}
           </div>
         </div>
       )}

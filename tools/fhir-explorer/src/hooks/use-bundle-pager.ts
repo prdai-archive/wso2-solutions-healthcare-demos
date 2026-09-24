@@ -14,13 +14,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { pageLinkUrl, pageNumbers } from "@/lib/fhir-pagination";
 import type { BundleLike } from "@/lib/fhir-types";
 
 interface BundlePagerOptions {
-  load: (url: string) => void;
+  load: (url: string) => Promise<unknown> | void;
   onNavigate?: () => void;
 }
 
@@ -57,6 +57,7 @@ export function useBundlePager(
   { load, onNavigate }: BundlePagerOptions,
 ): BundlePager {
   const [requestedPage, setRequestedPage] = useState(1);
+  const pending = useRef(false);
   const bundleEntries = bundle?.entry ?? [];
   const total = typeof bundle?.total === "number" ? bundle.total : bundleEntries.length;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -70,13 +71,21 @@ export function useBundlePager(
     return Boolean(bundle?.link?.some((link) => link.relation === relation));
   }
 
+  function canNavigateTo(target: number): boolean {
+    return !serverPaged || Boolean(pageLinkUrl(bundle, target, page, totalPages));
+  }
+
   function goToPage(target: number) {
     const next = Math.max(1, Math.min(target, totalPages));
     if (next === page) return;
     if (serverPaged) {
+      if (pending.current) return;
       const url = pageLinkUrl(bundle, next, page, totalPages);
       if (!url) return;
-      load(url);
+      pending.current = true;
+      void Promise.resolve(load(url)).finally(() => {
+        pending.current = false;
+      });
     }
     setRequestedPage(next);
     onNavigate?.();
@@ -97,12 +106,12 @@ export function useBundlePager(
     rangeStart: total ? (page - 1) * pageSize + 1 : 0,
     rangeEnd: (page - 1) * pageSize + entries.length,
     showReload: hasLink("self"),
-    showFirst: hasLink("first"),
-    showLast: hasLink("last"),
-    canFirst: page > 1,
-    canLast: page < totalPages,
-    canPrevious: page > 1 && (!serverPaged || hasLink("previous")),
-    canNext: page < totalPages && (!serverPaged || hasLink("next")),
+    showFirst: hasLink("first") || (serverPaged && page > 1 && canNavigateTo(1)),
+    showLast: hasLink("last") || (serverPaged && page < totalPages && canNavigateTo(totalPages)),
+    canFirst: page > 1 && canNavigateTo(1),
+    canLast: page < totalPages && canNavigateTo(totalPages),
+    canPrevious: page > 1 && canNavigateTo(page - 1),
+    canNext: page < totalPages && canNavigateTo(page + 1),
     goToPage,
     goFirst: () => goToPage(1),
     goLast: () => goToPage(totalPages),

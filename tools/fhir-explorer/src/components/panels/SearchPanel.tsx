@@ -86,7 +86,7 @@ export function SearchPanel({ baseUrl }: { baseUrl: string }) {
 
   const bundle = res?.body as BundleLike | undefined;
   const pager = useBundlePager(bundle, getPageSize(params), {
-    load: (url) => void send(url),
+    load: (url) => send(url),
     onNavigate: () => setOpenRows(new Set()),
   });
 

@@ -54,6 +54,7 @@ export function SearchPagination({ pager }: { pager: BundlePager }) {
               href="#"
               aria-label="Go to first page"
               title="First page"
+              aria-disabled={!pager.canFirst}
               className={pager.canFirst ? "" : disabled}
               onClick={(event) => {
                 event.preventDefault();
@@ -79,7 +80,10 @@ export function SearchPagination({ pager }: { pager: BundlePager }) {
         {pager.numbers.map((candidate, index) => (
           <PaginationItem key={`${candidate}-${index}`}>
             {candidate === "…" ? (
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center text-sm text-muted-foreground">
+              <span
+                aria-hidden="true"
+                className="flex h-9 w-9 shrink-0 items-center justify-center text-sm text-muted-foreground"
+              >
                 …
               </span>
             ) : (
@@ -114,6 +118,7 @@ export function SearchPagination({ pager }: { pager: BundlePager }) {
               href="#"
               aria-label="Go to last page"
               title="Last page"
+              aria-disabled={!pager.canLast}
               className={pager.canLast ? "" : disabled}
               onClick={(event) => {
                 event.preventDefault();

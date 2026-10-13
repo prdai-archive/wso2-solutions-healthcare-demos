@@ -1,0 +1,19 @@
+adminPassword: admin
+
+persistence:
+  enabled: false
+
+service:
+  type: NodePort
+  nodePort: 30030
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+sidecar:
+  dashboards:
+    enabled: true
+  datasources:
+    enabled: true

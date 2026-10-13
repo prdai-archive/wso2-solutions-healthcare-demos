@@ -1,0 +1,14 @@
+prometheus:
+  url: http://prometheus-server.clinic-rush.svc.cluster.local
+  port: 80
+
+rules:
+  external:
+    - seriesQuery: 'k6:http_reqs:rate'
+      resources:
+        overrides:
+          namespace:
+            resource: namespace
+      name:
+        as: "k6_http_reqs"
+      metricsQuery: 'sum(k6:http_reqs:rate)'

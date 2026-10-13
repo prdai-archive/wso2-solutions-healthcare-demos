@@ -1,0 +1,30 @@
+alertmanager:
+  enabled: false
+
+kube-state-metrics:
+  enabled: false
+
+prometheus-node-exporter:
+  enabled: false
+
+prometheus-pushgateway:
+  enabled: false
+
+serverFiles:
+  recording_rules.yml:
+    groups:
+      - name: clinic_rush
+        interval: 15s
+        rules:
+          - record: k6:http_reqs:rate
+            expr: sum(rate(k6_http_reqs_total[1m])) or vector(0)
+
+server:
+  extraFlags:
+    - web.enable-remote-write-receiver
+  retention: 6h
+  persistentVolume:
+    enabled: false
+  service:
+    type: NodePort
+    nodePort: 30091

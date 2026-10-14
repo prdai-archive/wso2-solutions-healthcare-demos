@@ -9,7 +9,7 @@ A hospital network hits its morning peak:
 - Front desks check patients in (transaction bundles that write an `Encounter` with its `Observation`s).
 - Labs post results and a patient app polls for them (`Observation?patient=X&category=laboratory`, `Encounter?class=AMB`).
 
-The [k6](k6/clinic-rush.js) script holds roughly 80% reads (the two searches) and 20% writes (the bundle), and ramps from a baseline of 20 requests/s to a peak of 200 requests/s (about 10x), holds, then ramps back down.
+The [k6](k6/clinic-rush.ts) script holds roughly 80% reads (the two searches) and 20% writes (the bundle), and ramps from a baseline of 20 requests/s to a peak of 200 requests/s (about 10x), holds, then ramps back down.
 
 The punchline is the autoscaler: replicas climb from 2 toward the ceiling while p95 latency barely moves, and each new pod starts serving within seconds of being scheduled.
 
@@ -55,7 +55,7 @@ Edit the manifests under `k8s/` before `make up`, or `kubectl apply` after:
 - `k8s/fhir.yaml` — replica floor, `pool_max_conns`, resource requests/limits.
 - `k8s/hpa.yaml` — replica ceiling, CPU target, the `k6_http_reqs` target average.
 - `k8s/postgres.yaml` — `max_connections`, `shared_buffers`, and the resource envelope.
-- `k6/clinic-rush.js` — the ramp stages. Override with `BASELINE_RPS`, `PEAK_RPS`, and `PATIENTS` env vars, or run a short pass with `QUICK=1 make load`.
+- `k6/clinic-rush.ts` — the ramp stages. Override with `BASELINE_RPS`, `PEAK_RPS`, and `PATIENTS` env vars, or run a short pass with `QUICK=1 make load`.
 
 Each k6 replica's pool is `pool_max_conns=50`, so the ceiling workload is `20 x 50 = 1000` connections. Postgres `max_connections=1200` leaves headroom for the monitoring stack.
 

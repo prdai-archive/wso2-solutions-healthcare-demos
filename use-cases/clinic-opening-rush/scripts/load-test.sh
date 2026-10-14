@@ -25,4 +25,4 @@ export K6_PROMETHEUS_RW_SERVER_URL="${K6_PROMETHEUS_RW_SERVER_URL:-http://localh
 export K6_PROMETHEUS_RW_TREND_STATS="${K6_PROMETHEUS_RW_TREND_STATS:-p(95),avg}"
 export K6_NAMESPACE="${K6_NAMESPACE:-clinic-rush}"
 
-exec k6 run --out experimental-prometheus-rw "${ROOT}/k6/clinic-rush.js"
+exec k6 run --out experimental-prometheus-rw "${ROOT}/k6/clinic-rush.ts"

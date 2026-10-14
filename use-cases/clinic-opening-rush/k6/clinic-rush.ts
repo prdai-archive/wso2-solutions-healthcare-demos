@@ -19,7 +19,6 @@
 import http from 'k6/http';
 import { check } from 'k6';
 import { Counter } from 'k6/metrics';
-import exec from 'k6/execution';
 
 const BASE_URL = __ENV.FHIR_BASE_URL || 'http://localhost:9090/fhir/r4';
 const BASELINE_RPS = Number(__ENV.BASELINE_RPS || 20);
@@ -32,7 +31,18 @@ const bundleCount = new Counter('clinic_rush_bundle');
 
 const QUICK = __ENV.QUICK === '1';
 
-const FULL_STAGES = [
+const FHIR_HEADERS = { headers: { 'Content-Type': 'application/fhir+json' } };
+
+interface Stage {
+  target: number;
+  duration: string;
+}
+
+interface SetupData {
+  patientIds: string[];
+}
+
+const FULL_STAGES: Stage[] = [
   { target: BASELINE_RPS, duration: '30s' },
   { target: PEAK_RPS, duration: '3m' },
   { target: PEAK_RPS, duration: '2m' },
@@ -40,7 +50,7 @@ const FULL_STAGES = [
   { target: BASELINE_RPS, duration: '30s' },
 ];
 
-const QUICK_STAGES = [
+const QUICK_STAGES: Stage[] = [
   { target: BASELINE_RPS, duration: '10s' },
   { target: PEAK_RPS, duration: '20s' },
   { target: BASELINE_RPS, duration: '10s' },
@@ -63,18 +73,8 @@ export const options = {
   },
 };
 
-const FHIR_HEADERS = { headers: { 'Content-Type': 'application/fhir+json' } };
-
-function uuid4() {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-}
-
-export function setup() {
-  const patientIds = [];
+export function setup(): SetupData {
+  const patientIds: string[] = [];
   for (let i = 0; i < PATIENTS; i++) {
     const patient = {
       resourceType: 'Patient',
@@ -82,7 +82,7 @@ export function setup() {
     };
     const res = http.post(`${BASE_URL}/Patient`, JSON.stringify(patient), FHIR_HEADERS);
     if (res.status === 201 || res.status === 200) {
-      patientIds.push(JSON.parse(res.body).id);
+      patientIds.push(JSON.parse(res.body as string).id);
     }
   }
   for (const id of patientIds) {
@@ -108,7 +108,7 @@ export function setup() {
   return { patientIds };
 }
 
-export function rush(data) {
+export function rush(data: SetupData): void {
   const ids = data.patientIds;
   const pid = ids[Math.floor(Math.random() * ids.length)];
   if (Math.random() < 0.2) {
@@ -122,7 +122,7 @@ export function rush(data) {
   searchEncounters();
 }
 
-function searchObservations(pid) {
+function searchObservations(pid: string): void {
   const res = http.get(`${BASE_URL}/Observation?patient=${pid}&category=laboratory`, {
     tags: { name: 'search' },
   });
@@ -130,14 +130,14 @@ function searchObservations(pid) {
   check(res, { 'observation search is 200': (r) => r.status === 200 });
 }
 
-function searchEncounters() {
+function searchEncounters(): void {
   const res = http.get(`${BASE_URL}/Encounter?class=AMB`, { tags: { name: 'search' } });
   searchCount.add(1);
   check(res, { 'encounter search is 200': (r) => r.status === 200 });
 }
 
-function writeBundle(pid) {
-  const encounterRef = `urn:uuid:${uuid4()}`;
+function writeBundle(pid: string): void {
+  const encounterRef = `urn:uuid:${crypto.randomUUID()}`;
   const bundle = {
     resourceType: 'Bundle',
     type: 'transaction',

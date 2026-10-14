@@ -22,7 +22,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 export FHIR_BASE_URL="${FHIR_BASE_URL:-http://localhost:9090/fhir/r4}"
 export K6_PROMETHEUS_RW_SERVER_URL="${K6_PROMETHEUS_RW_SERVER_URL:-http://localhost:9091/api/v1/write}"
-export K6_PROMETHEUS_RW_TREND_STATS="${K6_PROMETHEUS_RW_TREND_STATS:-p(50),p(95),p(99)}"
+export K6_PROMETHEUS_RW_TREND_STATS="${K6_PROMETHEUS_RW_TREND_STATS:-p(95),avg}"
 export K6_NAMESPACE="${K6_NAMESPACE:-clinic-rush}"
 
 exec k6 run --out experimental-prometheus-rw "${ROOT}/k6/clinic-rush.js"

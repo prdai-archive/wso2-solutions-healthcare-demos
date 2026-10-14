@@ -124,14 +124,14 @@ export function rush(data) {
 
 function searchObservations(pid) {
   const res = http.get(`${BASE_URL}/Observation?patient=${pid}&category=laboratory`, {
-    tags: { kind: 'search' },
+    tags: { name: 'search' },
   });
   searchCount.add(1);
   check(res, { 'observation search is 200': (r) => r.status === 200 });
 }
 
 function searchEncounters() {
-  const res = http.get(`${BASE_URL}/Encounter?class=AMB`, { tags: { kind: 'search' } });
+  const res = http.get(`${BASE_URL}/Encounter?class=AMB`, { tags: { name: 'search' } });
   searchCount.add(1);
   check(res, { 'encounter search is 200': (r) => r.status === 200 });
 }
@@ -178,7 +178,10 @@ function writeBundle(pid) {
       },
     ],
   };
-  const res = http.post(`${BASE_URL}`, JSON.stringify(bundle), FHIR_HEADERS);
+  const res = http.post(`${BASE_URL}`, JSON.stringify(bundle), {
+    headers: { 'Content-Type': 'application/fhir+json' },
+    tags: { name: 'write' },
+  });
   bundleCount.add(1);
   check(res, { 'transaction bundle is 200': (r) => r.status === 200 });
 }

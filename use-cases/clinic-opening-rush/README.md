@@ -1,15 +1,17 @@
 # Clinic Opening Rush
 
-A Kubernetes autoscaling demo for the WSO2 FHIR server, built on k3d. It recreates the 8:00 am hospital rush: a quiet baseline of searches and check-ins ramps to roughly 10x over a few minutes, while the HorizontalPodAutoscaler adds FHIR server replicas and p95 latency holds. One over-provisioned Postgres backs every replica, and each pod's connection pool grows on its own.
+A Kubernetes autoscaling demo for the WSO2 FHIR server, built on k3d. It recreates the 8:00 am hospital rush: virtual users searching and updating a Synthea-seeded FHIR store, while the HorizontalPodAutoscaler adds FHIR server replicas and p95 latency holds. One over-provisioned Postgres backs every replica, and each pod's connection pool grows on its own.
 
 ## The scenario
 
-A hospital network hits its morning peak:
+The FHIR store is seeded with the [Synthea](https://synthetichealth.github.io/synthea-sample-data/) September 2019 R4 sample: 1,180 synthetic patients and roughly 76k resources. `make seed` downloads it once, loads each patient bundle as a FHIR transaction, and leaves the store holding a realistic mix of Patients, Encounters, Observations, Conditions, and more.
 
-- Front desks check patients in (transaction bundles that write an `Encounter` with its `Observation`s).
-- Labs post results and a patient app polls for them (`Observation?patient=X&category=laboratory`, `Encounter?class=AMB`).
+The [k6](k6/clinic-rush.ts) script then drives virtual users through a workflow over that data. Each iteration picks a random seeded patient and either:
 
-The [k6](k6/clinic-rush.ts) script holds roughly 80% reads (the two searches) and 20% writes (the bundle), and ramps from a baseline of 20 requests/s to a peak of 200 requests/s (about 10x), holds, then ramps back down.
+- searches that patient's Observations (`Observation?patient=X&category=laboratory|vital-signs`), or
+- picks one of the patient's Observations that carries a `valueQuantity` and updates it (`PUT Observation/{id}` with a revised value).
+
+Roughly 80% of iterations are searches and 20% are updates, driven by a steady pool of 50 virtual users (configurable).
 
 The punchline is the autoscaler: replicas climb from 2 toward the ceiling while p95 latency barely moves, and each new pod starts serving within seconds of being scheduled.
 
@@ -31,8 +33,11 @@ Docker, [k3d](https://k3d.io) v5, `kubectl`, `helm` v3, and [k6](https://k6.io) 
 ```sh
 cd use-cases/clinic-opening-rush
 make up      # cluster + Postgres + FHIR server + HPA + monitoring
+make seed    # download and load the Synthea sample dataset (once)
 make load    # run the k6 rush (host terminal)
 ```
+
+`make seed` downloads a ~85 MB zip and loads every patient bundle, so the first run takes several minutes. Set `LIMIT=200 make seed` to load only the first 200 patients.
 
 Then open the dashboard at http://localhost:3000 (`admin` / `admin`) and watch it while `make load` runs. To see the replicas move, keep a terminal on:
 
@@ -55,7 +60,8 @@ Edit the manifests under `k8s/` before `make up`, or `kubectl apply` after:
 - `k8s/fhir.yaml` — replica floor, `pool_max_conns`, resource requests/limits.
 - `k8s/hpa.yaml` — replica ceiling, CPU target, the `k6_http_reqs` target average.
 - `k8s/postgres.yaml` — `max_connections`, `shared_buffers`, and the resource envelope.
-- `k6/clinic-rush.ts` — the ramp stages. Override with `BASELINE_RPS`, `PEAK_RPS`, and `PATIENTS` env vars, or run a short pass with `QUICK=1 make load`.
+- `k6/clinic-rush.ts` — the VU count and mix. Override with `VUS`, `DURATION`, `THINK_TIME`, `SEARCH_RATIO`, and `MAX_PATIENTS`.
+- `scripts/seed.sh` — the dataset. Override `DATA_URL` (the sample zip), `LIMIT` (seed only the first N bundles), and `PARALLEL` (concurrent loads). Extracted data is cached under `k6/.synthea/` (gitignored).
 
 Each k6 replica's pool is `pool_max_conns=50`, so the ceiling workload is `20 x 50 = 1000` connections. Postgres `max_connections=1200` leaves headroom for the monitoring stack.
 

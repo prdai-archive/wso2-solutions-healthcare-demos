@@ -15,7 +15,7 @@ This use case is a self-contained Kubernetes autoscaling demo for the WSO2 FHIR 
 ## Conventions
 
 - No emoji anywhere.
-- WSO2 license header on new source files (`Makefile`, `scripts/*.sh`, `k6/*.js`). Kubernetes manifests follow the existing repo style and carry no header.
+- WSO2 license header on new source files (`Makefile`, `scripts/*.sh`, `k6/*.ts`). Kubernetes manifests follow the existing repo style and carry no header.
 - PRs go to the `origin` fork only, never to `upstream` (`wso2/solutions-healthcare-demos`). This use case targets `origin/main`.
 
 ## Verification

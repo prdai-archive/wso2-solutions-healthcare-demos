@@ -19,7 +19,7 @@ NAMESPACE ?= clinic-rush
 
 .DEFAULT_GOAL := help
 
-.PHONY: help up cluster deploy monitoring load status down stop clean
+.PHONY: help up cluster deploy monitoring seed load status down stop clean
 
 help: ## List available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -35,6 +35,9 @@ deploy: ## Apply the Postgres, FHIR server, and HPA manifests
 
 monitoring: ## Install Prometheus, Grafana, and the metrics adapter
 	bash scripts/monitoring-up.sh
+
+seed: ## Seed the Synthea sample dataset into the FHIR server
+	bash scripts/seed.sh
 
 load: ## Run the k6 clinic-opening rush load test from the host
 	bash scripts/load-test.sh

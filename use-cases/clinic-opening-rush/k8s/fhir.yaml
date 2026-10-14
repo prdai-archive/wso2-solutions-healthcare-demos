@@ -30,6 +30,10 @@ spec:
               value: "false"
             - name: SERVER_PORT
               value: "9090"
+            # Synthea bundles run up to ~40 MB; the default 60s handler bound cuts
+            # large batch loads off, so give ingestion room.
+            - name: SERVER_WRITE_TIMEOUT
+              value: "300s"
             - name: BASE_URL
               value: "http://localhost:9090/fhir/r4"
             - name: LOG_LEVEL

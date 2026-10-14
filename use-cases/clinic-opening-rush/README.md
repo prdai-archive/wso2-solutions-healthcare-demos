@@ -22,7 +22,7 @@ The punchline is the autoscaler: replicas climb from 2 toward the ceiling while 
 - **Postgres** — a single over-provisioned `StatefulSet` with a `local-path` PVC and `max_connections=1200`, sized so every replica's pool fits.
 - **FHIR server** — a `ghcr.io/wso2/fhir-server:v2.1.0` Deployment starting at 2 replicas. Each pod opens its own pgx pool of up to `pool_max_conns=50` (`DATABASE_URL`), so total connections grow with the replica count. Reads and writes land on the same shared database. Pods run with `FHIR_CREATE_TABLES=false`: `make deploy` creates the schema once with a single bootstrap pod, because per-pod `CREATE TABLE` takes a table lock that deadlocks against live searches when the HPA adds replicas.
 - **HPA** `fhir-server` — 2 to 20 replicas on two signals: CPU utilization and an external requests-per-second metric derived from k6 (`k6_http_reqs`). Scale-up is immediate; scale-down uses a 30s stabilization window so the demo visibly backs off.
-- **Monitoring** — minimal Prometheus, Grafana, prometheus-adapter, and kube-state-metrics. Grafana provisions a `Clinic Opening Rush` dashboard (search/write p95 latency, request rate, VUs, and FHIR server / HPA replica counts), fed by k6 remote-write and cluster state.
+- **Monitoring** — minimal Prometheus, Grafana, prometheus-adapter, and kube-state-metrics. Grafana provisions a `Clinic Opening Rush` dashboard (search/write p95 latency, request rate, VUs, and FHIR server pod count), fed by k6 remote-write and cluster state.
 
 ## Prerequisites
 

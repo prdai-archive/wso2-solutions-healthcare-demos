@@ -23,7 +23,7 @@ import { Counter } from 'k6/metrics';
 const BASE_URL = __ENV.FHIR_BASE_URL || 'http://localhost:9090/fhir/r4';
 const VUS = Number(__ENV.VUS || 50);
 const DURATION = __ENV.DURATION || '10m';
-const THINK_TIME = Number(__ENV.THINK_TIME || 0.5);
+const THINK_TIME = Number(__ENV.THINK_TIME || 0.1);
 const SEARCH_RATIO = Number(__ENV.SEARCH_RATIO || 0.8);
 const MAX_PATIENTS = Number(__ENV.MAX_PATIENTS || 1000);
 const NAMESPACE = __ENV.K6_NAMESPACE || 'clinic-rush';

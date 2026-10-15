@@ -25,7 +25,7 @@ spec:
             matchLabels: {}
         target:
           type: Value
-          value: "100m"
+          value: "300m"
   behavior:
     scaleUp:
       stabilizationWindowSeconds: 0
@@ -38,7 +38,7 @@ spec:
           value: 4
           periodSeconds: 15
     scaleDown:
-      stabilizationWindowSeconds: 30
+      stabilizationWindowSeconds: 120
       selectPolicy: Max
       policies:
         - type: Percent

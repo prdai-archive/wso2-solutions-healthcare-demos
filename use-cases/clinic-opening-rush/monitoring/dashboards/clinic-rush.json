@@ -93,7 +93,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "k6_http_req_duration_p95{name=\"search\"}",
+          "expr": "k6_http_req_duration_p95{name=\"search\", expected_response=\"true\"}",
           "legendFormat": "search",
           "range": true,
           "refId": "A"
@@ -104,7 +104,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "k6_http_req_duration_p95{name=\"write\"}",
+          "expr": "k6_http_req_duration_p95{name=\"write\", expected_response=\"true\"}",
           "legendFormat": "write",
           "range": true,
           "refId": "B"

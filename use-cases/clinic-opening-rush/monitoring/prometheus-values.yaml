@@ -30,7 +30,7 @@ serverFiles:
         interval: 15s
         rules:
           - record: fhir:http_request_duration:p95
-            expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[1m])) by (le)) or vector(0)
+            expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[2m])) by (le)) or vector(0)
           - record: fhir:http_requests:rate
             expr: sum(rate(fhir_request_total[1m])) or vector(0)
 

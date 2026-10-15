@@ -25,7 +25,7 @@ spec:
           imagePullPolicy: IfNotPresent
           env:
             - name: DATABASE_URL
-              value: "postgres://fhir:fhir@postgres:5432/fhirdb?sslmode=disable&pool_max_conns=50"
+              value: "postgres://fhir:fhir@postgres:5432/fhirdb?sslmode=disable&pool_max_conns=10"
             - name: FHIR_CREATE_TABLES
               value: "false"
             - name: SERVER_PORT

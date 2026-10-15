@@ -33,17 +33,17 @@ spec:
       policies:
         - type: Percent
           value: 100
-          periodSeconds: 15
+          periodSeconds: 5
         - type: Pods
           value: 4
-          periodSeconds: 15
+          periodSeconds: 5
     scaleDown:
       stabilizationWindowSeconds: 60
       selectPolicy: Max
       policies:
         - type: Percent
           value: 50
-          periodSeconds: 15
+          periodSeconds: 5
         - type: Pods
           value: 4
-          periodSeconds: 15
+          periodSeconds: 5

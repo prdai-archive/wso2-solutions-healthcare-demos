@@ -10,14 +10,29 @@ prometheus-node-exporter:
 prometheus-pushgateway:
   enabled: false
 
+extraScrapeConfigs: |
+  - job_name: fhir-server
+    scrape_interval: 15s
+    kubernetes_sd_configs:
+      - role: endpoints
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_service_name]
+        action: keep
+        regex: fhir-server
+      - source_labels: [__meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: http
+
 serverFiles:
   recording_rules.yml:
     groups:
       - name: clinic_rush
         interval: 15s
         rules:
-          - record: k6:http_reqs:rate
-            expr: sum(rate(k6_http_reqs_total[1m])) or vector(0)
+          - record: fhir:http_request_duration:p95
+            expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[1m])) by (le)) or vector(0)
+          - record: fhir:http_requests:rate
+            expr: sum(rate(fhir_request_total[1m])) or vector(0)
 
 server:
   extraFlags:

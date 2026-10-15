@@ -4,11 +4,11 @@ prometheus:
 
 rules:
   external:
-    - seriesQuery: 'k6:http_reqs:rate'
+    - seriesQuery: 'fhir:http_request_duration:p95'
       resources:
         overrides:
           namespace:
             resource: namespace
       name:
-        as: "k6_http_reqs"
-      metricsQuery: 'sum(k6:http_reqs:rate)'
+        as: "fhir_latency_p95"
+      metricsQuery: 'sum(fhir:http_request_duration:p95)'

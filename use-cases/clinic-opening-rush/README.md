@@ -21,7 +21,7 @@ The punchline is the autoscaler: replicas climb from 2 toward the ceiling while 
 - **Namespace** `clinic-rush` holds everything.
 - **Postgres** — a single over-provisioned `StatefulSet` with a `local-path` PVC and `max_connections=1200`, sized so every replica's pool fits.
 - **FHIR server** — a `ghcr.io/wso2/fhir-server:v2.1.0` Deployment starting at 2 replicas. Each pod opens its own pgx pool of up to `pool_max_conns=50` (`DATABASE_URL`), so total connections grow with the replica count. Reads and writes land on the same shared database. Pods run with `FHIR_CREATE_TABLES=false`: `make deploy` creates the schema once with a single bootstrap pod, because per-pod `CREATE TABLE` takes a table lock that deadlocks against live searches when the HPA adds replicas.
-- **HPA** `fhir-server` — 2 to 20 replicas on two signals: CPU utilization and an external requests-per-second metric derived from k6 (`k6_http_reqs`). Scale-up is immediate; scale-down uses a 30s stabilization window so the demo visibly backs off.
+- **HPA** `fhir-server` — 2 to 20 replicas on CPU utilization and an external p95 latency metric (`fhir_latency_p95`) computed from the FHIR server's own `/metrics` (`http_request_duration_seconds`). Scale-up is immediate; scale-down uses a 30s stabilization window so the demo visibly backs off.
 - **Monitoring** — minimal Prometheus, Grafana, prometheus-adapter, and kube-state-metrics. Grafana provisions a `Clinic Opening Rush` dashboard (search/write p95 latency, request rate, VUs, and FHIR server pod count), fed by k6 remote-write and cluster state.
 
 ## Prerequisites
@@ -67,6 +67,6 @@ Each k6 replica's pool is `pool_max_conns=50`, so the ceiling workload is `20 x 
 
 ## Known tradeoffs
 
-- **The RPS signal is load-generator-derived.** It scales on the rate k6 sends (`k6_http_reqs`), so it tracks offered load, not server-side saturation. The FHIR server exposes real Prometheus metrics (`http_request_duration_seconds`, `fhir_request_total`) if you later want server-side signals for the HPA and the dashboard.
+- **The HPA scales on server-side p95 latency.** Prometheus scrapes each FHIR pod's `/metrics` and a recording rule computes `fhir:http_request_duration:p95`; the HPA keeps p95 near its target (tune `value` in `k8s/hpa.yaml`). The dashboard's latency panel is still k6's client-side view, which includes network time and so reads a bit higher.
 - **CPU rarely drives scaling here.** The workload is database-bound; CPU stays well under the 50% target, so the external RPS metric does the work.
 - **Host sizing caps the demo.** Replicas request 250m CPU each, so all 20 fit an 8-CPU node. Postgres is provisioned generously (`max_connections=1200`); on a small host, lower the HPA ceiling and Postgres envelope together.

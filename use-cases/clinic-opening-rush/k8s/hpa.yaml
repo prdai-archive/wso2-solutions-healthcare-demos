@@ -20,12 +20,12 @@ spec:
     - type: External
       external:
         metric:
-          name: k6_http_reqs
+          name: fhir_latency_p95
           selector:
             matchLabels: {}
         target:
-          type: AverageValue
-          averageValue: "10"
+          type: Value
+          value: "100m"
   behavior:
     scaleUp:
       stabilizationWindowSeconds: 0

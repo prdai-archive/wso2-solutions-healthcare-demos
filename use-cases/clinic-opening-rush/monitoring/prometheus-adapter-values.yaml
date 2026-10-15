@@ -1,0 +1,14 @@
+prometheus:
+  url: http://prometheus-server.clinic-rush.svc.cluster.local
+  port: 80
+
+rules:
+  external:
+    - seriesQuery: 'fhir:http_request_duration:p95'
+      resources:
+        overrides:
+          namespace:
+            resource: namespace
+      name:
+        as: "fhir_latency_p95"
+      metricsQuery: 'sum(fhir:http_request_duration:p95)'

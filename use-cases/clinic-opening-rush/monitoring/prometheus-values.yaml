@@ -12,7 +12,8 @@ prometheus-pushgateway:
 
 extraScrapeConfigs: |
   - job_name: fhir-server
-    scrape_interval: 15s
+    scrape_interval: 5s
+    scrape_timeout: 5s
     kubernetes_sd_configs:
       - role: endpoints
     relabel_configs:
@@ -27,10 +28,10 @@ serverFiles:
   recording_rules.yml:
     groups:
       - name: clinic_rush
-        interval: 15s
+        interval: 5s
         rules:
           - record: fhir:http_request_duration:p95
-            expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[2m])) by (le)) or vector(0)
+            expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[30s])) by (le)) or vector(0)
           - record: fhir:http_requests:rate
             expr: sum(rate(fhir_request_total[1m])) or vector(0)
 
